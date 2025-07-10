@@ -2,8 +2,7 @@ package com.mikeshaggy.backend.domain.transaction;
 
 import com.mikeshaggy.backend.domain.user.User;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -15,7 +14,18 @@ import java.util.Set;
         uniqueConstraints = @UniqueConstraint(columnNames = {"fk_user_id", "name"}))
 @Getter
 @Setter
+@NoArgsConstructor
 public class Category {
+
+    @Builder
+    public Category(Integer id, User user, String name,
+                    LocalDateTime createdAt, Set<Transaction> transactions) {
+        this.id = id;
+        this.user = user;
+        this.name = name;
+        this.createdAt = createdAt;
+        this.transactions = transactions;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

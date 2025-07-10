@@ -2,7 +2,9 @@ package com.mikeshaggy.backend.domain.transaction;
 
 import com.mikeshaggy.backend.domain.user.User;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -14,7 +16,25 @@ import java.time.LocalDateTime;
 @Table(name = "transactions")
 @Getter
 @Setter
+@NoArgsConstructor
 public class Transaction {
+
+    @Builder
+    public Transaction(Long id, User user, Category category, String title, BigDecimal amount,
+                       LocalDate transactionDate, String notes, Importance importance,
+                       Cycle cycle, Type type, LocalDateTime createdAt) {
+        this.id = id;
+        this.user = user;
+        this.category = category;
+        this.title = title;
+        this.amount = amount;
+        this.transactionDate = transactionDate;
+        this.notes = notes;
+        this.importance = importance;
+        this.cycle = cycle;
+        this.type = type;
+        this.createdAt = createdAt;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
