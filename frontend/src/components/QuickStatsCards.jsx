@@ -1,0 +1,48 @@
+import React from 'react';
+import { Tag, Clock, TrendingUp, Calendar } from 'lucide-react';
+
+export default function QuickStatsCards({ categories = [], filteredTransactions = [], allTransactions = [] }) {
+    return (
+        <div className="col-span-12 grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-violet-500/20 rounded-lg flex items-center justify-center">
+                    <Tag className="w-6 h-6 text-violet-400" />
+                </div>
+                <div>
+                    <p className="text-2xl font-bold">{categories.length}</p>
+                    <p className="text-xs text-gray-500">Categories</p>
+                </div>
+            </div>
+
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                    <p className="text-2xl font-bold">{filteredTransactions.length}</p>
+                    <p className="text-xs text-gray-500">Transactions</p>
+                </div>
+            </div>
+
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                    <p className="text-2xl font-bold">23%</p>
+                    <p className="text-xs text-gray-500">Growth</p>
+                </div>
+            </div>
+
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-orange-400" />
+                </div>
+                <div>
+                    <p className="text-2xl font-bold">{allTransactions.length}</p>
+                    <p className="text-xs text-gray-500">Total Records</p>
+                </div>
+            </div>
+        </div>
+    );
+}
