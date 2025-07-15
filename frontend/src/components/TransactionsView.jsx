@@ -8,6 +8,8 @@ export default function TransactionsView({
     filteredTransactions = [],
     allTransactions = [],
     categories = [],
+    typeFilter,
+    setTypeFilter,
     categoryFilter,
     setCategoryFilter,
     importanceFilter,
@@ -18,10 +20,6 @@ export default function TransactionsView({
     setSortBy,
     sortOrder,
     setSortOrder,
-    searchTerm,
-    selectedFilter,
-    setSearchTerm,
-    setSelectedFilter,
     onNewTransaction
 }) {
     return (
@@ -45,6 +43,8 @@ export default function TransactionsView({
 
             {/* Advanced Filters */}
             <TransactionFilters
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
                 categoryFilter={categoryFilter}
                 setCategoryFilter={setCategoryFilter}
                 importanceFilter={importanceFilter}
@@ -56,10 +56,6 @@ export default function TransactionsView({
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
                 categories={categories}
-                searchTerm={searchTerm}
-                selectedFilter={selectedFilter}
-                setSearchTerm={setSearchTerm}
-                setSelectedFilter={setSelectedFilter}
             />
 
             {/* Transactions Table */}
@@ -69,8 +65,7 @@ export default function TransactionsView({
                 setSortBy={setSortBy}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
-                searchTerm={searchTerm}
-                selectedFilter={selectedFilter}
+                typeFilter={typeFilter}
                 categoryFilter={categoryFilter}
                 importanceFilter={importanceFilter}
                 dateFilter={dateFilter}

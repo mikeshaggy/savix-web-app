@@ -15,8 +15,7 @@ export default function TransactionTable({
     setSortBy, 
     sortOrder, 
     setSortOrder,
-    searchTerm,
-    selectedFilter,
+    typeFilter,
     categoryFilter,
     importanceFilter,
     dateFilter
@@ -26,7 +25,7 @@ export default function TransactionTable({
         setSortOrder(sortBy === field && sortOrder === 'desc' ? 'asc' : 'desc');
     };
 
-    const hasActiveFilters = searchTerm || selectedFilter !== 'ALL' || categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL';
+    const hasActiveFilters = typeFilter !== 'ALL' || categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL';
 
     return (
         <div className="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">

@@ -13,16 +13,13 @@ export default function TransactionFilters({
     sortOrder,
     setSortOrder,
     categories = [],
-    searchTerm,
-    selectedFilter,
-    setSearchTerm,
-    setSelectedFilter
+    typeFilter,
+    setTypeFilter
 }) {
-    const hasActiveFilters = categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL' || searchTerm || selectedFilter !== 'ALL';
+    const hasActiveFilters = categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL' || typeFilter !== 'ALL';
 
     const clearAllFilters = () => {
-        setSearchTerm('');
-        setSelectedFilter('ALL');
+        setTypeFilter('ALL');
         setCategoryFilter('ALL');
         setImportanceFilter('ALL');
         setDateFilter('ALL');
@@ -37,7 +34,21 @@ export default function TransactionFilters({
                 <h3 className="text-lg font-semibold">Filters & Sorting</h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                {/* Type Filter */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+                    >
+                        <option value="ALL">All Types</option>
+                        <option value="INCOME">Income</option>
+                        <option value="EXPENSE">Expense</option>
+                    </select>
+                </div>
+
                 {/* Category Filter */}
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
@@ -121,8 +132,7 @@ export default function TransactionFilters({
                     <span>Active filters:</span>
                     {hasActiveFilters ? (
                         <div className="flex gap-2">
-                            {searchTerm && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Search: "{searchTerm}"</span>}
-                            {selectedFilter !== 'ALL' && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Type: {selectedFilter}</span>}
+                            {typeFilter !== 'ALL' && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Type: {typeFilter}</span>}
                             {categoryFilter !== 'ALL' && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Category: {categoryFilter}</span>}
                             {importanceFilter !== 'ALL' && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Importance: {importanceFilter.replace('_', ' ')}</span>}
                             {dateFilter !== 'ALL' && <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-xs">Date: {dateFilter.replace('_', ' ')}</span>}

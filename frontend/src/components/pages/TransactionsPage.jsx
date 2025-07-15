@@ -11,13 +11,12 @@ export default function TransactionsPage() {
         allTransactions, 
         transactions, 
         categories,
-        searchTerm,
-        selectedFilter,
         isLoading,
         hasError
     } = useAppContext();
 
     // Local state for transaction-specific filters
+    const [typeFilter, setTypeFilter] = useState('ALL');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [importanceFilter, setImportanceFilter] = useState('ALL');
     const [dateFilter, setDateFilter] = useState('ALL');
@@ -26,8 +25,7 @@ export default function TransactionsPage() {
 
     // Use the custom filtering hook
     const { filteredTransactions, filterStats } = useTransactionFilters(allTransactions, {
-        searchTerm,
-        typeFilter: selectedFilter,
+        typeFilter,
         categoryFilter,
         importanceFilter,
         dateFilter,
@@ -78,6 +76,8 @@ export default function TransactionsPage() {
                 allTransactions={allTransactions}
                 transactions={transactions}
                 categories={categories}
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
                 categoryFilter={categoryFilter}
                 setCategoryFilter={setCategoryFilter}
                 importanceFilter={importanceFilter}
