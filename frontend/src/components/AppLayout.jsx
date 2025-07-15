@@ -12,8 +12,6 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function AppLayout({ children }) {
     const pathname = usePathname();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedFilter, setSelectedFilter] = useState('ALL');
     const [showTransactionModal, setShowTransactionModal] = useState(false);
 
     // Handle opening transaction modal
@@ -28,15 +26,11 @@ export default function AppLayout({ children }) {
 
     // Global state to pass to context
     const globalState = {
-        searchTerm,
-        selectedFilter,
         showTransactionModal
     };
 
     // Global actions to pass to context
     const globalActions = {
-        setSearchTerm,
-        setSelectedFilter,
         onNewTransaction: handleNewTransaction,
         onCloseModal: handleCloseModal
     };
@@ -46,10 +40,6 @@ export default function AppLayout({ children }) {
             <AppProvider globalState={globalState} globalActions={globalActions}>
                 <AppLayoutContent 
                     pathname={pathname}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    selectedFilter={selectedFilter}
-                    setSelectedFilter={setSelectedFilter}
                     showTransactionModal={showTransactionModal}
                     onNewTransaction={handleNewTransaction}
                     onCloseModal={handleCloseModal}
@@ -65,10 +55,6 @@ export default function AppLayout({ children }) {
 function AppLayoutContent({ 
     children, 
     pathname, 
-    searchTerm, 
-    setSearchTerm, 
-    selectedFilter, 
-    setSelectedFilter, 
     showTransactionModal, 
     onNewTransaction, 
     onCloseModal 
@@ -108,7 +94,7 @@ function AppLayoutContent({
                         Try Again
                     </button>
                     <p className="text-xs text-gray-500">
-                        Using demo data for now. Make sure your backend is running on port 8080.
+                        Using demo data for now. Make sure your backend is running on port 8000.
                     </p>
                 </div>
             </div>
@@ -127,10 +113,6 @@ function AppLayoutContent({
             <main className="flex-1 flex flex-col">
                 {/* Top Bar */}
                 <TopBar 
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    selectedFilter={selectedFilter}
-                    setSelectedFilter={setSelectedFilter}
                     onRefresh={onRefresh}
                 />
 
