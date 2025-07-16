@@ -9,8 +9,9 @@ create table categories (
     id serial primary key,
     fk_user_id int not null references users(id) on delete cascade,
     name varchar(50) not null,
+    type varchar(20) not null check (type in ('INCOME', 'EXPENSE')),
     created_at timestamp default NOW(),
-    unique(fk_user_id, name)
+    unique(fk_user_id, name, type)
 );
 
 create table transactions (
@@ -21,7 +22,7 @@ create table transactions (
     amount numeric(12,2) not null,
     transaction_date date not null,
     notes text,
-    importance varchar(20) not null check (importance in (
+    importance varchar(20) check (importance in (
         'ESSENTIAL', 'HAVE_TO_HAVE', 'NICE_TO_HAVE', 'SHOULDNT_HAVE'
     )),
     cycle varchar(20) not null check (cycle in (
