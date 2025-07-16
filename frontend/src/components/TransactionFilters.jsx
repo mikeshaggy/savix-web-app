@@ -18,6 +18,27 @@ export default function TransactionFilters({
 }) {
     const hasActiveFilters = categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL' || typeFilter !== 'ALL';
 
+    // Filter categories based on selected type
+    const filteredCategories = React.useMemo(() => {
+        if (typeFilter === 'ALL') {
+            return categories;
+        }
+        return categories.filter(category => category.type === typeFilter);
+    }, [categories, typeFilter]);
+
+    // Handle type filter change and reset category filter if needed
+    const handleTypeFilterChange = (newType) => {
+        setTypeFilter(newType);
+        
+        // If the current category filter is not compatible with the new type, reset it
+        if (categoryFilter !== 'ALL') {
+            const currentCategory = categories.find(cat => cat.name === categoryFilter);
+            if (!currentCategory || (newType !== 'ALL' && currentCategory.type !== newType)) {
+                setCategoryFilter('ALL');
+            }
+        }
+    };
+
     const clearAllFilters = () => {
         setTypeFilter('ALL');
         setCategoryFilter('ALL');
@@ -40,7 +61,7 @@ export default function TransactionFilters({
                     <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
                     <select
                         value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
+                        onChange={(e) => handleTypeFilterChange(e.target.value)}
                         className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
                     >
                         <option value="ALL">All Types</option>
@@ -57,8 +78,10 @@ export default function TransactionFilters({
                         onChange={(e) => setCategoryFilter(e.target.value)}
                         className="w-full bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
                     >
-                        <option value="ALL">All Categories</option>
-                        {categories.map(category => (
+                        <option value="ALL">
+                            {typeFilter === 'ALL' ? 'All Categories' : `All ${typeFilter.toLowerCase()} Categories`}
+                        </option>
+                        {filteredCategories.map(category => (
                             <option key={category.id} value={category.name}>
                                 {category.name}
                             </option>

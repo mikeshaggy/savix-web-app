@@ -405,12 +405,12 @@ function getMockTransactions() {
 
 function getMockCategories() {
   return [
-    { id: 1, userId: 1, name: 'Groceries', createdAt: '2024-01-01T00:00:00' },
-    { id: 2, userId: 1, name: 'Salary', createdAt: '2024-01-01T00:00:00' },
-    { id: 3, userId: 1, name: 'Entertainment', createdAt: '2024-01-01T00:00:00' },
-    { id: 4, userId: 1, name: 'Utilities', createdAt: '2024-01-01T00:00:00' },
-    { id: 5, userId: 1, name: 'Transport', createdAt: '2024-01-01T00:00:00' },
-    { id: 6, userId: 1, name: 'Freelance', createdAt: '2024-01-01T00:00:00' },
+    { id: 1, userId: 1, name: 'Groceries', type: 'EXPENSE', createdAt: '2024-01-01T00:00:00' },
+    { id: 2, userId: 1, name: 'Salary', type: 'INCOME', createdAt: '2024-01-01T00:00:00' },
+    { id: 3, userId: 1, name: 'Entertainment', type: 'EXPENSE', createdAt: '2024-01-01T00:00:00' },
+    { id: 4, userId: 1, name: 'Utilities', type: 'EXPENSE', createdAt: '2024-01-01T00:00:00' },
+    { id: 5, userId: 1, name: 'Transport', type: 'EXPENSE', createdAt: '2024-01-01T00:00:00' },
+    { id: 6, userId: 1, name: 'Freelance', type: 'INCOME', createdAt: '2024-01-01T00:00:00' },
   ];
 }
 

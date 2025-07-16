@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Plus } from 'lucide-react';
+import { useCategories } from '../hooks/useApi';
+import CategoryModal from './CategoryModal';
 
 const IMPORTANCE_OPTIONS = [
   { value: 'ESSENTIAL', label: 'Essential', color: 'blue' },
@@ -22,6 +24,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function TransactionModal({ isOpen, onClose, onSave, categories, loading = false }) {
+  const { createCategory } = useCategories();
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -35,12 +38,65 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [localCategories, setLocalCategories] = useState(categories || []);
+
+  // Update local categories when categories prop changes
+  React.useEffect(() => {
+    setLocalCategories(categories || []);
+  }, [categories]);
+
+  // Filter categories based on selected transaction type
+  const filteredCategories = React.useMemo(() => {
+    return localCategories.filter(category => 
+      category.type === formData.type
+    );
+  }, [localCategories, formData.type]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleTypeChange = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      type,
+      // Clear importance when switching to income
+      importance: type === 'INCOME' ? '' : (prev.importance || 'ESSENTIAL'),
+      // Clear category when switching types since different types have different categories
+      categoryId: ''
+    }));
+    // Clear any type-related errors
+    if (errors.type) {
+      setErrors(prev => ({ ...prev, type: '' }));
+    }
+    // Clear category error since we're clearing the selection
+    if (errors.categoryId) {
+      setErrors(prev => ({ ...prev, categoryId: '' }));
+    }
+  };
+
+  const handleCreateCategory = async (categoryData) => {
+    try {
+      // Ensure the category has the correct type
+      const categoryWithType = {
+        ...categoryData,
+        type: formData.type,
+        userId: 1 // You might want to get this from context or props
+      };
+      
+      const newCategory = await createCategory(categoryWithType);
+      setLocalCategories(prev => [...prev, newCategory]);
+      setFormData(prev => ({ ...prev, categoryId: newCategory.id.toString() }));
+      setShowCategoryModal(false);
+      return newCategory;
+    } catch (error) {
+      console.error('Failed to create category:', error);
+      throw error;
     }
   };
 
@@ -63,6 +119,11 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
       newErrors.transactionDate = 'Date is required';
     }
 
+    // Importance validation based on type
+    if (formData.type === 'EXPENSE' && !formData.importance) {
+      newErrors.importance = 'Importance level is required for expenses';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -80,6 +141,8 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
         ...formData,
         amount: parseFloat(formData.amount),
         categoryId: parseInt(formData.categoryId),
+        // Don't send importance for income transactions
+        importance: formData.type === 'INCOME' ? undefined : formData.importance,
       });
       
       // Reset form
@@ -183,7 +246,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
             </label>
             <select
               value={formData.type}
-              onChange={(e) => handleChange('type', e.target.value)}
+              onChange={(e) => handleTypeChange(e.target.value)}
               className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg focus:outline-none focus:border-violet-500 transition-colors"
             >
               {TYPE_OPTIONS.map((option) => (
@@ -199,69 +262,84 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Category *
             </label>
-            <select
-              value={formData.categoryId}
-              onChange={(e) => handleChange('categoryId', e.target.value)}
-              className={`w-full px-3 py-2 bg-gray-800/50 border rounded-lg focus:outline-none focus:border-violet-500 transition-colors ${
-                errors.categoryId ? 'border-red-500' : 'border-gray-700'
-              }`}
-            >
-              <option value="">Select a category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={formData.categoryId}
+                onChange={(e) => handleChange('categoryId', e.target.value)}
+                className={`flex-1 px-3 py-2 bg-gray-800/50 border rounded-lg focus:outline-none focus:border-violet-500 transition-colors ${
+                  errors.categoryId ? 'border-red-500' : 'border-gray-700'
+                }`}
+              >
+                <option value="">Select a category</option>
+                {filteredCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(true)}
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-colors flex items-center gap-2"
+                title="Add new category"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
             {errors.categoryId && (
               <p className="text-red-400 text-xs mt-1">{errors.categoryId}</p>
             )}
           </div>
 
-          {/* Importance */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Importance *
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {IMPORTANCE_OPTIONS.map((option) => {
-                const isSelected = formData.importance === option.value;
-                let selectedClasses = '';
-                
-                switch (option.color) {
-                  case 'blue':
-                    selectedClasses = 'bg-green-700/20 text-green-500 border-green-500/30';
-                    break;
-                  case 'green':
-                    selectedClasses = 'bg-yellow-700/20 text-yellow-500 border-yellow-500/30';
-                    break;
-                  case 'orange':
-                    selectedClasses = 'bg-orange-700/20 text-orange-500 border-orange-500/30';
-                    break;
-                  case 'red':
-                    selectedClasses = 'bg-red-700/20 text-red-500 border-red-500/30';
-                    break;
-                  default:
-                    selectedClasses = 'bg-gray-500/20 text-gray-400 border-gray-500/30';
-                }
-                
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleChange('importance', option.value)}
-                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      isSelected
-                        ? selectedClasses
-                        : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
+          {/* Importance - Only show for expenses */}
+          {formData.type === 'EXPENSE' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Importance *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {IMPORTANCE_OPTIONS.map((option) => {
+                  const isSelected = formData.importance === option.value;
+                  let selectedClasses = '';
+                  
+                  switch (option.color) {
+                    case 'blue':
+                      selectedClasses = 'bg-green-700/20 text-green-500 border-green-500/30';
+                      break;
+                    case 'green':
+                      selectedClasses = 'bg-yellow-700/20 text-yellow-500 border-yellow-500/30';
+                      break;
+                    case 'orange':
+                      selectedClasses = 'bg-orange-700/20 text-orange-500 border-orange-500/30';
+                      break;
+                    case 'red':
+                      selectedClasses = 'bg-red-700/20 text-red-500 border-red-500/30';
+                      break;
+                    default:
+                      selectedClasses = 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+                  }
+                  
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleChange('importance', option.value)}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        isSelected
+                          ? selectedClasses
+                          : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.importance && (
+                <p className="text-red-400 text-xs mt-1">{errors.importance}</p>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Cycle */}
           <div>
@@ -324,6 +402,17 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
           </div>
         </form>
       </div>
+      
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <CategoryModal
+          isOpen={showCategoryModal}
+          onClose={() => setShowCategoryModal(false)}
+          onSave={handleCreateCategory}
+          category={null}
+          transactionType={formData.type}
+        />
+      )}
     </div>
   );
 }
