@@ -18,9 +18,10 @@ import java.util.Set;
 public class Category {
 
     @Builder
-    public Category(Integer id, User user, String name,
+    public Category(Integer id, Type type, User user, String name,
                     LocalDateTime createdAt, Set<Transaction> transactions) {
         this.id = id;
+        this.type = type;
         this.user = user;
         this.name = name;
         this.createdAt = createdAt;
@@ -30,6 +31,10 @@ public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Type type;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fk_user_id", nullable = false)

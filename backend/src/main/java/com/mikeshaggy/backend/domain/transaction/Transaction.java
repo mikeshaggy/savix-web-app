@@ -68,8 +68,18 @@ public class Transaction {
     private Cycle cycle;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private Type type;
+
+    @PrePersist
+    @PreUpdate
+    private void validateImportanceForType() {
+        if (type == Type.INCOME && importance != null) {
+            throw new IllegalStateException("Income transactions cannot have importance");
+        }
+        if (type == Type.EXPENSE && importance == null) {
+            throw new IllegalStateException("Expense transactions must have importance");
+        }
+    }
 
     @CreationTimestamp
     private LocalDateTime createdAt;

@@ -3,10 +3,7 @@ package com.mikeshaggy.backend.dto;
 import com.mikeshaggy.backend.domain.transaction.Cycle;
 import com.mikeshaggy.backend.domain.transaction.Importance;
 import com.mikeshaggy.backend.domain.transaction.Type;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -54,6 +51,12 @@ public class TransactionDTO {
 
     @NotNull(message = "Type is required")
     private Type type;
+
+    @AssertTrue(message = "Importance can only be set for expenses")
+    public boolean isImportanceValidForType() {
+        if (type == Type.EXPENSE) return importance == null;
+        return importance != null;
+    }
 
     private LocalDateTime createdAt;
 }

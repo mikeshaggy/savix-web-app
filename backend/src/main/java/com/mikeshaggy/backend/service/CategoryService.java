@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.service;
 
 import com.mikeshaggy.backend.domain.transaction.Category;
+import com.mikeshaggy.backend.domain.transaction.Type;
 import com.mikeshaggy.backend.domain.user.User;
 import com.mikeshaggy.backend.dto.CategoryDTO;
 import com.mikeshaggy.backend.mapper.CategoryMapper;
@@ -40,6 +41,13 @@ public class CategoryService {
                 .collect(Collectors.toList());
     }
 
+    public List<CategoryDTO> getCategoriesByUserIdAndType(Integer userId, Type type) {
+        return categoryRepository.findByUserIdAndType(userId, type)
+                .stream()
+                .map(categoryMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
     public CategoryDTO getCategoryById(Integer id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
@@ -63,6 +71,7 @@ public class CategoryService {
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
 
         existingCategory.setName(categoryDTO.getName());
+        existingCategory.setType(categoryDTO.getType());
         Category updatedCategory = categoryRepository.save(existingCategory);
         return categoryMapper.toDTO(updatedCategory);
     }

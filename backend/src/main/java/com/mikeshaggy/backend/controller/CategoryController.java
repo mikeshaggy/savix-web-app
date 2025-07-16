@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.controller;
 
+import com.mikeshaggy.backend.domain.transaction.Type;
 import com.mikeshaggy.backend.dto.CategoryDTO;
 import com.mikeshaggy.backend.service.CategoryService;
 import org.springframework.http.HttpStatus;
@@ -54,5 +55,13 @@ public class CategoryController {
     public ResponseEntity<Void> deleteCategory(@PathVariable Integer id) {
         categoryService.deleteCategory(id);
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @GetMapping("/user/{userId}/type/{type}")
+    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserIdAndType(
+            @PathVariable Integer userId,
+            @PathVariable Type type) {
+        List<CategoryDTO> categories = categoryService.getCategoriesByUserIdAndType(userId, type);
+        return new ResponseEntity<>(categories, HttpStatus.OK);
     }
 }

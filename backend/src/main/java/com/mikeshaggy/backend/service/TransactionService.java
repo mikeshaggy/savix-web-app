@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.service;
 
 import com.mikeshaggy.backend.domain.transaction.Category;
 import com.mikeshaggy.backend.domain.transaction.Transaction;
+import com.mikeshaggy.backend.domain.transaction.Type;
 import com.mikeshaggy.backend.domain.user.User;
 import com.mikeshaggy.backend.dto.TransactionDTO;
 import com.mikeshaggy.backend.mapper.TransactionMapper;
@@ -51,6 +52,12 @@ public class TransactionService {
 
     @Transactional
     public TransactionDTO createTransaction(TransactionDTO transactionDTO) {
+        if (transactionDTO.getType() == Type.INCOME) {
+            transactionDTO.setImportance(null);
+        } else if (transactionDTO.getType() == Type.EXPENSE && transactionDTO.getImportance() == null) {
+            throw new IllegalArgumentException("Expense transactions must have importance");
+        }
+
         User user = userRepository.findById(transactionDTO.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + transactionDTO.getUserId()));
 
