@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 
 export default function TransactionStatsCards({ filteredTransactions = [] }) {
     const totalIncome = filteredTransactions

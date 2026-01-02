@@ -1,7 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-// Generic loading component
 export const Loading = ({ message = 'Loading...', size = 'md' }) => {
     const sizeClasses = {
         sm: 'w-4 h-4',
@@ -19,14 +18,12 @@ export const Loading = ({ message = 'Loading...', size = 'md' }) => {
     );
 };
 
-// Full page loading
 export const PageLoading = ({ message = 'Loading your data...' }) => (
     <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
         <Loading message={message} size="lg" />
     </div>
 );
 
-// Card loading skeleton
 export const CardLoading = () => (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 animate-pulse">
         <div className="flex items-center justify-between mb-4">
@@ -38,7 +35,6 @@ export const CardLoading = () => (
     </div>
 );
 
-// Table loading skeleton
 export const TableLoading = ({ rows = 5, columns = 4 }) => (
     <div className="space-y-3">
         {Array.from({ length: rows }).map((_, index) => (
@@ -51,7 +47,6 @@ export const TableLoading = ({ rows = 5, columns = 4 }) => (
     </div>
 );
 
-// Button loading state
 export const ButtonLoading = ({ children, loading, ...props }) => (
     <button disabled={loading} {...props}>
         {loading ? (

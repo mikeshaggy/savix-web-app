@@ -5,6 +5,7 @@ import { Wallet, Home, PieChart, DollarSign, Settings, Plus, ChevronDown, Chevro
 
 const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/dashboard' },
+    { id: 'wallets', label: 'Wallets', icon: Wallet, href: '/wallets' },
     { id: 'analytics', label: 'Analytics', icon: PieChart, href: '/analytics' },
     { 
         id: 'transactions', 
@@ -33,7 +34,6 @@ export default function Sidebar({ currentPath, onNewTransaction }) {
         }));
     };
 
-    // Auto-expand transactions menu ONLY if we're on any transactions page
     React.useEffect(() => {
         if (pathname.startsWith('/transactions')) {
             setExpandedMenus(prev => ({ ...prev, transactions: true }));

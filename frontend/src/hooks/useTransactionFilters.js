@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { FILTER_OPTIONS, SORT_OPTIONS, SORT_ORDERS } from '../constants';
+import { FILTER_OPTIONS, SORT_OPTIONS, SORT_ORDERS, DATE_PRESETS } from '@/constants';
+import { getTransactionDate, getTransactionCategoryId, filterByDate } from '@/utils/dateFilters';
 
 export const useTransactionFilters = (transactions, filters) => {
     const {
@@ -8,6 +9,9 @@ export const useTransactionFilters = (transactions, filters) => {
         categoryFilter = 'ALL',
         importanceFilter = 'ALL',
         dateFilter = 'ALL',
+        datePreset = DATE_PRESETS.ALL_TIME,
+        customFromDate = null,
+        customToDate = null,
         sortBy = SORT_OPTIONS.DATE,
         sortOrder = SORT_ORDERS.DESC
     } = filters;
@@ -15,7 +19,6 @@ export const useTransactionFilters = (transactions, filters) => {
     const filteredTransactions = useMemo(() => {
         let filtered = transactions || [];
 
-        // Apply search filter
         if (searchTerm) {
             const searchLower = searchTerm.toLowerCase();
             filtered = filtered.filter(transaction => 
@@ -25,68 +28,66 @@ export const useTransactionFilters = (transactions, filters) => {
             );
         }
 
-        // Apply type filter
         if (typeFilter !== 'ALL') {
             filtered = filtered.filter(transaction => transaction.type === typeFilter);
         }
 
-        // Apply category filter
         if (categoryFilter !== 'ALL') {
-            filtered = filtered.filter(transaction => 
-                transaction.categoryId === parseInt(categoryFilter)
-            );
+            const selectedCategoryId = parseInt(categoryFilter, 10);
+            filtered = filtered.filter(transaction => {
+                const txCategoryId = getTransactionCategoryId(transaction);
+                return txCategoryId === selectedCategoryId;
+            });
         }
 
-        // Apply importance filter
         if (importanceFilter !== 'ALL') {
             filtered = filtered.filter(transaction => 
                 transaction.importance === importanceFilter
             );
         }
 
-        // Apply date filter
-        if (dateFilter !== 'ALL') {
-            const now = new Date();
-            const filterDate = new Date();
+        const preset = datePreset || dateFilter;
+        
+        if (preset === DATE_PRESETS.ALL_TIME || preset === 'ALL') {
+            // no filtering needed
+        } else if (preset === DATE_PRESETS.CUSTOM || preset === 'custom') {
+            filtered = filterByDate(filtered, 'custom', customFromDate, customToDate);
+        } else {
+            let mappedPreset = preset;
+            if (preset === 'WEEK' || preset === FILTER_OPTIONS.WEEK) {
+                mappedPreset = DATE_PRESETS.THIS_WEEK;
+            } else if (preset === 'MONTH' || preset === FILTER_OPTIONS.MONTH) {
+                mappedPreset = DATE_PRESETS.THIS_MONTH;
+            } else if (preset === 'TODAY' || preset === FILTER_OPTIONS.TODAY) {
+                const today = new Date();
+                const todayStr = today.toISOString().split('T')[0];
+                filtered = filterByDate(filtered, 'custom', todayStr, todayStr);
+            } else if (preset === 'THIS_WEEK') {
+                mappedPreset = DATE_PRESETS.THIS_WEEK;
+            } else if (preset === 'THIS_MONTH') {
+                mappedPreset = DATE_PRESETS.THIS_MONTH;
+            } else if (preset === 'LAST_MONTH') {
+                mappedPreset = DATE_PRESETS.LAST_MONTH;
+            }
             
-            switch (dateFilter) {
-                case FILTER_OPTIONS.TODAY:
-                    filterDate.setHours(0, 0, 0, 0);
-                    filtered = filtered.filter(transaction => 
-                        new Date(transaction.transactionDate) >= filterDate
-                    );
-                    break;
-                case FILTER_OPTIONS.WEEK:
-                    filterDate.setDate(now.getDate() - 7);
-                    filtered = filtered.filter(transaction => 
-                        new Date(transaction.transactionDate) >= filterDate
-                    );
-                    break;
-                case FILTER_OPTIONS.MONTH:
-                    filterDate.setMonth(now.getMonth() - 1);
-                    filtered = filtered.filter(transaction => 
-                        new Date(transaction.transactionDate) >= filterDate
-                    );
-                    break;
-                case FILTER_OPTIONS.YEAR:
-                    filterDate.setFullYear(now.getFullYear() - 1);
-                    filtered = filtered.filter(transaction => 
-                        new Date(transaction.transactionDate) >= filterDate
-                    );
-                    break;
-                default:
-                    break;
+            if (mappedPreset !== preset || [DATE_PRESETS.THIS_WEEK, DATE_PRESETS.THIS_MONTH, DATE_PRESETS.LAST_MONTH].includes(mappedPreset)) {
+                filtered = filterByDate(filtered, mappedPreset, null, null);
             }
         }
 
-        // Apply sorting
         filtered.sort((a, b) => {
             let aValue, bValue;
 
             switch (sortBy) {
                 case SORT_OPTIONS.DATE:
-                    aValue = new Date(a.transactionDate);
-                    bValue = new Date(b.transactionDate);
+                    const aDate = getTransactionDate(a);
+                    const bDate = getTransactionDate(b);
+
+                    if (!aDate && !bDate) return 0;
+                    if (!aDate) return 1;
+                    if (!bDate) return -1;
+                    aValue = aDate;
+                    bValue = bDate;
                     break;
                 case SORT_OPTIONS.AMOUNT:
                     aValue = parseFloat(a.amount);
@@ -101,8 +102,13 @@ export const useTransactionFilters = (transactions, filters) => {
                     bValue = b.categoryName?.toLowerCase() || '';
                     break;
                 default:
-                    aValue = new Date(a.transactionDate);
-                    bValue = new Date(b.transactionDate);
+                    const aDefaultDate = getTransactionDate(a);
+                    const bDefaultDate = getTransactionDate(b);
+                    if (!aDefaultDate && !bDefaultDate) return 0;
+                    if (!aDefaultDate) return 1;
+                    if (!bDefaultDate) return -1;
+                    aValue = aDefaultDate;
+                    bValue = bDefaultDate;
             }
 
             if (sortOrder === SORT_ORDERS.ASC) {
@@ -113,9 +119,8 @@ export const useTransactionFilters = (transactions, filters) => {
         });
 
         return filtered;
-    }, [transactions, searchTerm, typeFilter, categoryFilter, importanceFilter, dateFilter, sortBy, sortOrder]);
+    }, [transactions, searchTerm, typeFilter, categoryFilter, importanceFilter, dateFilter, datePreset, customFromDate, customToDate, sortBy, sortOrder]);
 
-    // Calculate filter statistics
     const filterStats = useMemo(() => {
         const total = transactions?.length || 0;
         const filtered = filteredTransactions.length;

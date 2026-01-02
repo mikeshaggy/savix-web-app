@@ -1,14 +1,26 @@
-// Utility functions for the expense tracker app
+export const getTransactionType = (transaction, categories) => {
+  if (!transaction || !categories) return null;
+  const category = categories.find(c => c.id === transaction.categoryId);
+  return category?.type || null;
+};
 
-// Format currency amounts
+export const enrichTransactionsWithType = (transactions, categories) => {
+  if (!transactions || !categories) return [];
+  
+  return transactions.map(transaction => ({
+    ...transaction,
+    type: getTransactionType(transaction, categories)
+  }));
+};
+
 export const formatCurrency = (amount) => {
   return new Intl.NumberFormat('pl-PL', {
     style: 'currency',
-    currency: 'PLN'
+    currency: 'PLN',
+    currencyDisplay: 'code'
   }).format(amount);
 };
 
-// Format dates consistently
 export const formatDate = (date) => {
   if (!date) return '';
   
@@ -20,7 +32,6 @@ export const formatDate = (date) => {
   });
 };
 
-// Format date for API calls (YYYY-MM-DD)
 export const formatDateForAPI = (date) => {
   if (!date) return '';
   
@@ -28,12 +39,10 @@ export const formatDateForAPI = (date) => {
   return dateObj.toISOString().split('T')[0];
 };
 
-// Get today's date in YYYY-MM-DD format
 export const getTodayForAPI = () => {
   return new Date().toISOString().split('T')[0];
 };
 
-// Format importance levels for display
 export const formatImportance = (importance) => {
   const map = {
     'ESSENTIAL': 'Essential',
@@ -44,7 +53,6 @@ export const formatImportance = (importance) => {
   return map[importance] || importance;
 };
 
-// Format cycle types for display
 export const formatCycle = (cycle) => {
   const map = {
     'ONE_TIME': 'One Time',
@@ -56,14 +64,12 @@ export const formatCycle = (cycle) => {
   return map[cycle] || cycle;
 };
 
-// Calculate total amount from transactions
 export const calculateTotal = (transactions, type = null) => {
   return transactions
     .filter(tx => !type || tx.type === type)
     .reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0);
 };
 
-// Get transactions for current month
 export const getCurrentMonthTransactions = (transactions) => {
   const now = new Date();
   const currentMonth = now.getMonth();
@@ -75,7 +81,6 @@ export const getCurrentMonthTransactions = (transactions) => {
   });
 };
 
-// Validate transaction data before submission
 export const validateTransaction = (transaction) => {
   const errors = {};
   
@@ -113,7 +118,6 @@ export const validateTransaction = (transaction) => {
   };
 };
 
-// Debounce function for search
 export const debounce = (func, wait) => {
   let timeout;
   return function executedFunction(...args) {

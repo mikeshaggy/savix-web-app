@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 
 export default function IncomeCard({ income }) {
     return (

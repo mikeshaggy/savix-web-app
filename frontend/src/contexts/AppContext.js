@@ -1,6 +1,8 @@
 'use client';
 import React, { createContext, useContext, useMemo, useCallback } from 'react';
-import { useDashboard, useTransactions, useCategories } from '../hooks/useApi';
+import { useDashboard, useCategories } from '@/hooks/useApi';
+import { useWallets } from './WalletContext';
+import { useUser } from './UserContext';
 
 const AppContext = createContext();
 
@@ -13,115 +15,82 @@ export const useAppContext = () => {
 };
 
 export const AppProvider = ({ children, globalState, globalActions }) => {
-    // Data hooks
+    const { currentWallet } = useWallets();
+    const { currentUser } = useUser();
+    
     const { 
         data: dashboardData, 
         loading: dashboardLoading, 
         error: dashboardError, 
-        refetch: refetchDashboard, 
-        usingMockData: dashboardMockData 
-    } = useDashboard();
-
-    const { 
-        transactions, 
-        loading: transactionsLoading, 
-        error: transactionsError, 
-        createTransaction, 
-        refetch: refetchTransactions, 
-        usingMockData: transactionsMockData 
-    } = useTransactions();
+        refetch: refetchDashboard
+    } = useDashboard(currentWallet?.id);
 
     const { 
         categories, 
         loading: categoriesLoading, 
-        error: categoriesError, 
-        usingMockData: categoriesMockData 
-    } = useCategories();
+        error: categoriesError
+    } = useCategories(currentUser.id);
 
-    // Computed values
-    const allTransactions = useMemo(() => 
-        transactions.length > 0 ? transactions : (dashboardData?.transactions || []), 
-        [transactions, dashboardData?.transactions]
+    const transactions = useMemo(() => 
+        dashboardData?.transactions || [], 
+        [dashboardData?.transactions]
     );
 
     const isLoading = useMemo(() => 
-        dashboardLoading || transactionsLoading || categoriesLoading, 
-        [dashboardLoading, transactionsLoading, categoriesLoading]
+        dashboardLoading || categoriesLoading, 
+        [dashboardLoading, categoriesLoading]
     );
 
     const hasError = useMemo(() => 
-        dashboardError || transactionsError || categoriesError, 
-        [dashboardError, transactionsError, categoriesError]
+        dashboardError || categoriesError, 
+        [dashboardError, categoriesError]
     );
 
-    const isUsingMockData = useMemo(() => 
-        dashboardMockData || transactionsMockData || categoriesMockData, 
-        [dashboardMockData, transactionsMockData, categoriesMockData]
-    );
-
-    // Action handlers
     const handleCreateTransaction = useCallback(async (transactionData) => {
         try {
-            await createTransaction(transactionData);
+            const { transactionApi } = await import('../lib/api');
+            await transactionApi.createTransaction(transactionData);
             refetchDashboard();
-            refetchTransactions();
         } catch (error) {
             console.error('Failed to create transaction:', error);
             throw error;
         }
-    }, [createTransaction, refetchDashboard, refetchTransactions]);
+    }, [refetchDashboard]);
 
     const handleRefresh = useCallback(() => {
         refetchDashboard();
-        refetchTransactions();
-    }, [refetchDashboard, refetchTransactions]);
+    }, [refetchDashboard]);
 
-    // Memoized context value
     const contextValue = useMemo(() => ({
-        // Data
         dashboardData: dashboardData || {},
-        allTransactions,
+        allTransactions: transactions,
         transactions,
         categories: categories || [],
         
-        // Loading states
         isLoading,
         dashboardLoading,
-        transactionsLoading,
         categoriesLoading,
         
-        // Error states
         hasError,
         dashboardError,
-        transactionsError,
         categoriesError,
         
-        // Status
-        isUsingMockData,
-        
-        // Actions
         onCreateTransaction: handleCreateTransaction,
         onRefresh: handleRefresh,
         
-        // Global state from parent
         ...globalState,
         
-        // Global actions from parent
         ...globalActions
     }), [
         dashboardData,
-        allTransactions,
         transactions,
         categories,
         isLoading,
         dashboardLoading,
-        transactionsLoading,
         categoriesLoading,
         hasError,
         dashboardError,
-        transactionsError,
         categoriesError,
-        isUsingMockData,
         handleCreateTransaction,
         handleRefresh,
         globalState,

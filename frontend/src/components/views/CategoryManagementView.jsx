@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Tag, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
-import { useCategories } from '../hooks/useApi';
-import CategoryModal from './CategoryModal';
-import { Loading } from './Loading';
+import { useCategories } from '@/hooks/useApi';
+import { useWallets } from '@/contexts/WalletContext';
+import { useUser } from '@/contexts/UserContext';
+import CategoryModal from '@/components/modals/CategoryModal';
+import { Loading } from '@/components/common/Loading';
 
 export default function CategoryManagementView() {
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory, usingMockData } = useCategories();
+  const { currentWallet } = useWallets();
+  const { currentUser } = useUser();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory } = useCategories(currentUser.id);
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
-  const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL', 'INCOME', 'EXPENSE'
+  const [typeFilter, setTypeFilter] = useState('ALL');
 
   const filteredCategories = categories.filter(category => {
     if (typeFilter === 'ALL') return true;
@@ -18,7 +22,7 @@ export default function CategoryManagementView() {
 
   const handleCreateCategory = async (categoryData) => {
     try {
-      await createCategory(categoryData);
+      await createCategory(categoryData, currentUser.id);
       setShowModal(false);
     } catch (error) {
       console.error('Failed to create category:', error);
@@ -43,7 +47,6 @@ export default function CategoryManagementView() {
       setDeletingCategory(null);
     } catch (error) {
       console.error('Failed to delete category:', error);
-      // You might want to show an error message to the user
     }
   };
 
@@ -66,12 +69,28 @@ export default function CategoryManagementView() {
     return <Loading message="Loading categories..." />;
   }
 
-  if (error && !usingMockData) {
+  if (!currentWallet) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-8">
+        <div className="text-center max-w-md">
+          <div className="mb-6">
+            <Tag className="w-16 h-16 text-violet-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-semibold text-white mb-2">No Wallet Selected</h2>
+            <p className="text-gray-400 mb-6">
+              Please select a wallet to manage its categories. Each wallet has its own set of categories.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Error loading categories</h2>
+          <h2 className="text-xl font-semibold mb-2">Backend not available</h2>
           <p className="text-gray-400">{error}</p>
         </div>
       </div>
@@ -85,19 +104,24 @@ export default function CategoryManagementView() {
         <div>
           <h2 className="text-2xl font-bold">Category Management</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Manage your transaction categories ({categories.length} total)
-            {usingMockData && (
-              <span className="text-yellow-400 ml-2">• Using offline data</span>
+            {currentWallet ? (
+              <>
+                Managing categories for <span className="text-violet-400 font-medium">{currentWallet.name}</span> ({categories.length} total)
+              </>
+            ) : (
+              'No wallet selected. Please select a wallet to manage categories.'
             )}
           </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Category
-        </button>
+        {currentWallet && (
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Category
+          </button>
+        )}
       </div>
 
       {/* Filter Tabs */}

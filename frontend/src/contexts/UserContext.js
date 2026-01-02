@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext, useState } from 'react';
 
 const UserContext = createContext();
@@ -11,8 +12,7 @@ export const useUser = () => {
 };
 
 export const UserProvider = ({ children }) => {
-  // For now, we'll use a default user ID of 1
-  // In a real app, this would come from authentication
+  // temporary static user for demo purposes
   const [currentUser] = useState({
     id: 1,
     username: 'demo-user'

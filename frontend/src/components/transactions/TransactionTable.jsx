@@ -1,16 +1,17 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, DollarSign } from 'lucide-react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 
 const importanceColors = {
-    'ESSENTIAL': 'bg-red-500/20 text-red-400 border-red-500/30',
-    'HAVE_TO_HAVE': 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    'NICE_TO_HAVE': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    'ESSENTIAL': 'bg-green-700/20 text-green-500 border-green-500/30',
+    'HAVE_TO_HAVE': 'bg-yellow-700/20 text-yellow-500 border-yellow-500/30',
+    'NICE_TO_HAVE': 'bg-orange-700/20 text-orange-500 border-orange-500/30',
     'SHOULDNT_HAVE': 'bg-gray-500/20 text-gray-400 border-gray-500/30'
 };
 
 export default function TransactionTable({ 
     filteredTransactions = [], 
+    categories = [],
     sortBy, 
     setSortBy, 
     sortOrder, 
@@ -23,6 +24,11 @@ export default function TransactionTable({
     const handleSort = (field) => {
         setSortBy(field);
         setSortOrder(sortBy === field && sortOrder === 'desc' ? 'asc' : 'desc');
+    };
+
+    const getCategoryName = (categoryId) => {
+        const category = categories.find(cat => cat.id === categoryId);
+        return category ? category.name : 'Unknown Category';
     };
 
     const hasActiveFilters = typeFilter !== 'ALL' || categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || dateFilter !== 'ALL';
@@ -130,7 +136,7 @@ export default function TransactionTable({
                                 </td>
                                 <td className="py-4 px-6 text-sm text-gray-300">
                                     <span className="px-2 py-1 bg-gray-700 rounded-md text-xs font-medium">
-                                        {transaction.categoryName}
+                                        {getCategoryName(transaction.categoryId)}
                                     </span>
                                 </td>
                                 <td className="py-4 px-6 text-sm">
@@ -148,8 +154,8 @@ export default function TransactionTable({
                                     </span>
                                 </td>
                                 <td className="py-4 px-6 text-sm">
-                                    <span className={`px-2 py-1 rounded-md text-xs border ${importanceColors[transaction.importance]}`}>
-                                        {transaction.importance?.replace('_', ' ')}
+                                    <span className={`text-xs px-2 py-0.5 rounded-full border ${importanceColors[transaction.importance]}`}>
+                                        {transaction.importance?.split('_')[0] || 'N/A'}
                                     </span>
                                 </td>
                                 <td className="py-4 px-6 text-sm text-gray-300">

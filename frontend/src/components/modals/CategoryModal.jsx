@@ -1,34 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 
-export default function CategoryModal({ isOpen, onClose, onSave, category = null, transactionType = 'EXPENSE', loading = false }) {
+export default function CategoryModal({ isOpen, onClose, onSave, category = null, loading = false }) {
   const [formData, setFormData] = useState({
     name: '',
-    type: transactionType,
+    type: 'EXPENSE',
   });
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Update form data when category prop changes (for editing)
   useEffect(() => {
     if (category) {
       setFormData({
         name: category.name || '',
-        type: category.type || transactionType,
+        type: category.type || 'EXPENSE',
       });
     } else {
       setFormData({
         name: '',
-        type: transactionType,
+        type: 'EXPENSE',
       });
     }
     setErrors({});
-  }, [category, isOpen, transactionType]);
+  }, [category, isOpen]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
+    
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -63,22 +62,20 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     try {
       setSubmitting(true);
       
-      // Debug: Log the form data to see what's being sent
       console.log('Submitting category with data:', {
         ...formData,
         name: formData.name.trim(),
         type: formData.type,
-        userId: 1, // Ensure userId is explicitly set
+        userId: 1,
       });
       
       await onSave({
         ...formData,
         name: formData.name.trim(),
-        type: formData.type, // Make sure type is included
-        userId: 1, // Ensure userId is explicitly set
+        type: formData.type,
+        userId: 1,
       });
       
-      // Reset form only if creating a new category
       if (!category) {
         setFormData({
           name: '',

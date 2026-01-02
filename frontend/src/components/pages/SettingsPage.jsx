@@ -1,8 +1,8 @@
 'use client';
 import React from 'react';
-import { SettingsView } from '../PlaceholderViews';
+import { SettingsView } from '../views/PlaceholderViews';
 import { useAppContext } from '../../contexts/AppContext';
-import { Loading } from '../Loading';
+import { Loading } from '../common/Loading';
 
 export default function SettingsPage() {
     const { 

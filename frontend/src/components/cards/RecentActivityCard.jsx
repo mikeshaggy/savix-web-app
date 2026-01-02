@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, DollarSign, MoreVertical } from 'lucide-react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 
 const importanceColors = {
     'ESSENTIAL': 'bg-red-500/20 text-red-400 border-red-500/30',

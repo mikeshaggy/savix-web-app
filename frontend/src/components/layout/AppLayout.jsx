@@ -1,35 +1,30 @@
 'use client';
 import React, { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { AppProvider, useAppContext } from '../contexts/AppContext';
-import ErrorBoundary from './ErrorBoundary';
-import { PageLoading } from './Loading';
+import { AppProvider, useAppContext } from '@/contexts/AppContext';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { PageLoading } from '@/components/common/Loading';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
-import TransactionModal from './TransactionModal';
-import BackendStatusIndicator from './BackendStatusIndicator';
+import TransactionModal from '../modals/TransactionModal';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function AppLayout({ children }) {
     const pathname = usePathname();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
 
-    // Handle opening transaction modal
     const handleNewTransaction = useCallback(() => {
         setShowTransactionModal(true);
     }, []);
 
-    // Handle closing transaction modal
     const handleCloseModal = useCallback(() => {
         setShowTransactionModal(false);
     }, []);
 
-    // Global state to pass to context
     const globalState = {
         showTransactionModal
     };
 
-    // Global actions to pass to context
     const globalActions = {
         onNewTransaction: handleNewTransaction,
         onCloseModal: handleCloseModal
@@ -51,7 +46,6 @@ export default function AppLayout({ children }) {
     );
 }
 
-// Separated component to access context
 function AppLayoutContent({ 
     children, 
     pathname, 
@@ -66,23 +60,16 @@ function AppLayoutContent({
         dashboardError,
         transactionsError,
         categoriesError,
-        isUsingMockData,
         onCreateTransaction,
         onRefresh
     } = useAppContext();
 
-    // Loading state
-    if (isLoading) {
-        return <PageLoading message="Loading your financial data..." />;
-    }
-
-    // Error state
     if (hasError) {
         return (
             <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4 text-center max-w-md">
                     <AlertCircle className="w-12 h-12 text-red-500" />
-                    <h2 className="text-xl font-semibold">Unable to Load Data</h2>
+                    <h2 className="text-xl font-semibold">Unable to Connect to Backend</h2>
                     <p className="text-gray-400">
                         {dashboardError || transactionsError || categoriesError}
                     </p>
@@ -94,7 +81,7 @@ function AppLayoutContent({
                         Try Again
                     </button>
                     <p className="text-xs text-gray-500">
-                        Using demo data for now. Make sure your backend is running on port 8000.
+                        Make sure your backend is running on port 8000.
                     </p>
                 </div>
             </div>
@@ -115,14 +102,6 @@ function AppLayoutContent({
                 <TopBar 
                     onRefresh={onRefresh}
                 />
-
-                {/* Backend Status Indicator */}
-                <div className="px-8 py-2">
-                    <BackendStatusIndicator 
-                        isUsingMockData={isUsingMockData}
-                        onRefresh={onRefresh}
-                    />
-                </div>
 
                 {/* Main Content Area */}
                 <div className="flex-1 p-8 overflow-y-auto">

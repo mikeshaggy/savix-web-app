@@ -1,4 +1,3 @@
-// Transaction-related constants
 export const TRANSACTION_TYPES = {
     INCOME: 'INCOME',
     EXPENSE: 'EXPENSE',
@@ -28,6 +27,14 @@ export const FILTER_OPTIONS = {
     YEAR: 'YEAR'
 };
 
+export const DATE_PRESETS = {
+    ALL_TIME: 'all_time',
+    THIS_WEEK: 'this_week',
+    THIS_MONTH: 'this_month',
+    LAST_MONTH: 'last_month',
+    CUSTOM: 'custom'
+};
+
 export const SORT_OPTIONS = {
     DATE: 'date',
     AMOUNT: 'amount',
@@ -40,7 +47,6 @@ export const SORT_ORDERS = {
     DESC: 'desc'
 };
 
-// UI Constants
 export const COLORS = {
     PRIMARY: {
         DEFAULT: 'violet-500',
@@ -64,7 +70,6 @@ export const COLORS = {
     }
 };
 
-// Form validation constants
 export const VALIDATION_RULES = {
     TRANSACTION_TITLE: {
         MIN_LENGTH: 1,
@@ -78,19 +83,4 @@ export const VALIDATION_RULES = {
         MIN_LENGTH: 1,
         MAX_LENGTH: 30
     }
-};
-
-// API endpoints
-export const API_ENDPOINTS = {
-    TRANSACTIONS: '/api/transactions',
-    CATEGORIES: '/api/categories',
-    USERS: '/api/users',
-    DASHBOARD: '/api/dashboard'
-};
-
-// Local storage keys
-export const STORAGE_KEYS = {
-    USER_PREFERENCES: 'expenseTracker_userPreferences',
-    FILTER_STATE: 'expenseTracker_filterState',
-    THEME: 'expenseTracker_theme'
 };

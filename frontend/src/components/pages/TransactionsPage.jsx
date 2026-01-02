@@ -1,50 +1,135 @@
 'use client';
-import React, { useState } from 'react';
-import TransactionsView from '../TransactionsView';
-import { useAppContext } from '../../contexts/AppContext';
-import { useTransactionFilters } from '../../hooks/useTransactionFilters';
-import { Loading } from '../Loading';
-import { FILTER_OPTIONS, SORT_OPTIONS, SORT_ORDERS } from '../../constants';
+import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { Wallet, Plus, Receipt } from 'lucide-react';
+import TransactionsView from '@/components/views/TransactionsView';
+import TransactionModal from '@/components/modals/TransactionModal';
+import { useWallets } from '@/contexts/WalletContext';
+import { useAppContext } from '@/contexts/AppContext';
+import { useTransactionFilters } from '@/hooks/useTransactionFilters';
+import { Loading } from '@/components/common/Loading';
+import { SORT_OPTIONS, SORT_ORDERS, DATE_PRESETS } from '@/constants';
+import { enrichTransactionsWithType } from '@/utils/helpers';
 
 export default function TransactionsPage() {
+    const { currentWallet, wallets, loading: walletsLoading } = useWallets();
     const { 
-        allTransactions, 
-        transactions, 
-        categories,
-        isLoading,
-        hasError
+        dashboardData, 
+        categories, 
+        dashboardLoading, 
+        dashboardError,
+        onCreateTransaction 
     } = useAppContext();
+    const router = useRouter();
+    const [showTransactionModal, setShowTransactionModal] = useState(false);
 
-    // Local state for transaction-specific filters
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
     const [importanceFilter, setImportanceFilter] = useState('ALL');
     const [dateFilter, setDateFilter] = useState('ALL');
+    const [datePreset, setDatePreset] = useState(DATE_PRESETS.ALL_TIME);
+    const [customFromDate, setCustomFromDate] = useState('');
+    const [customToDate, setCustomToDate] = useState('');
     const [sortBy, setSortBy] = useState(SORT_OPTIONS.DATE);
     const [sortOrder, setSortOrder] = useState(SORT_ORDERS.DESC);
 
-    // Use the custom filtering hook
-    const { filteredTransactions, filterStats } = useTransactionFilters(allTransactions, {
+    const enrichedTransactions = useMemo(
+        () => enrichTransactionsWithType(dashboardData?.transactions || [], categories || []),
+        [dashboardData?.transactions, categories]
+    );
+
+    const { filteredTransactions, filterStats } = useTransactionFilters(enrichedTransactions, {
         typeFilter,
         categoryFilter,
         importanceFilter,
         dateFilter,
+        datePreset,
+        customFromDate,
+        customToDate,
         sortBy,
         sortOrder
     });
 
-    // Show loading state
-    if (isLoading) {
+    const handleNewTransaction = () => {
+        setShowTransactionModal(true);
+    };
+
+    const handleSaveTransaction = async (transactionData) => {
+        try {
+            await onCreateTransaction(transactionData);
+            setShowTransactionModal(false);
+        } catch (error) {
+            console.error('Failed to create transaction:', error);
+            throw error;
+        }
+    };
+
+    if (walletsLoading) {
+        return <Loading message="Loading wallets..." />;
+    }
+
+    if (dashboardLoading) {
         return <Loading message="Loading transactions..." />;
     }
 
-    // Show error state
-    if (hasError) {
+    if (!walletsLoading && wallets.length === 0) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px] p-8">
+                <div className="text-center max-w-md">
+                    <div className="mb-6">
+                        <Receipt className="w-16 h-16 text-violet-400 mx-auto mb-4" />
+                        <h2 className="text-2xl font-semibold text-white mb-2">No Transactions Yet</h2>
+                        <p className="text-gray-400 mb-6">
+                            Create your first wallet to start tracking your transactions and manage your finances.
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => router.push('/wallets')}
+                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Create Your First Wallet
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (!currentWallet && wallets.length > 0) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px] p-8">
+                <div className="text-center max-w-md">
+                    <div className="mb-6">
+                        <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
+                        <h2 className="text-xl font-semibold text-white mb-2">No Wallet Selected</h2>
+                        <p className="text-gray-400 mb-6">
+                            Please select a wallet from the top bar to view your transactions
+                        </p>
+                    </div>
+                    <button 
+                        onClick={() => router.push('/wallets')}
+                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
+                    >
+                        <Wallet className="w-5 h-5 mr-2" />
+                        Manage Wallets
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (dashboardError) {
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
-                    <h2 className="text-xl font-semibold mb-2">Error loading transactions</h2>
-                    <p className="text-gray-400">Please try refreshing the page</p>
+                    <h2 className="text-xl font-semibold text-white mb-2">Error Loading Transactions</h2>
+                    <p className="text-gray-400 mb-4">{dashboardError}</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+                    >
+                        Retry
+                    </button>
                 </div>
             </div>
         );
@@ -73,9 +158,8 @@ export default function TransactionsPage() {
             {/* Transactions View */}
             <TransactionsView 
                 filteredTransactions={filteredTransactions}
-                allTransactions={allTransactions}
-                transactions={transactions}
-                categories={categories}
+                allTransactions={enrichedTransactions}
+                categories={categories || []}
                 typeFilter={typeFilter}
                 setTypeFilter={setTypeFilter}
                 categoryFilter={categoryFilter}
@@ -84,12 +168,29 @@ export default function TransactionsPage() {
                 setImportanceFilter={setImportanceFilter}
                 dateFilter={dateFilter}
                 setDateFilter={setDateFilter}
+                datePreset={datePreset}
+                setDatePreset={setDatePreset}
+                customFromDate={customFromDate}
+                setCustomFromDate={setCustomFromDate}
+                customToDate={customToDate}
+                setCustomToDate={setCustomToDate}
                 sortBy={sortBy}
                 setSortBy={setSortBy}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
                 filterStats={filterStats}
+                onNewTransaction={handleNewTransaction}
             />
+
+            {/* Transaction Modal */}
+            {showTransactionModal && (
+                <TransactionModal
+                    isOpen={showTransactionModal}
+                    onClose={() => setShowTransactionModal(false)}
+                    onSave={handleSaveTransaction}
+                    categories={categories || []}
+                />
+            )}
         </div>
     );
 }

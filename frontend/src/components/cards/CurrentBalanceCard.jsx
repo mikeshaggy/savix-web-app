@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency } from '@/utils/helpers';
 
 export default function CurrentBalanceCard({ balance, savingsRate }) {
     return (

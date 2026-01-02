@@ -1,9 +1,9 @@
 import React from 'react';
-import IncomeCard from './IncomeCard';
-import ExpenseCard from './ExpenseCard';
-import CurrentBalanceCard from './CurrentBalanceCard';
-import RecentActivityCard from './RecentActivityCard';
-import QuickStatsCards from './QuickStatsCards';
+import IncomeCard from '@/components/cards/IncomeCard';
+import ExpenseCard from '@/components/cards/ExpenseCard';
+import CurrentBalanceCard from '@/components/cards/CurrentBalanceCard';
+import RecentActivityCard from '@/components/cards/RecentActivityCard';
+import QuickStatsCards from '@/components/cards/QuickStatsCards';
 
 export default function DashboardView({ 
     summary = {}, 

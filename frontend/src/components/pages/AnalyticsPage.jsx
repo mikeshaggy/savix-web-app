@@ -1,8 +1,8 @@
 'use client';
 import React from 'react';
-import { AnalyticsView } from '../PlaceholderViews';
+import { AnalyticsView } from '@/views/PlaceholderViews';
 import { useAppContext } from '../../contexts/AppContext';
-import { Loading } from '../Loading';
+import { Loading } from '../common/Loading';
 
 export default function AnalyticsPage() {
     const { 

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
-import TransactionFilters from './TransactionFilters';
-import TransactionTable from './TransactionTable';
-import TransactionStatsCards from './TransactionStatsCards';
+import TransactionFilters from '../transactions/TransactionFilters';
+import TransactionTable from '../transactions/TransactionTable';
+import TransactionStatsCards from '../cards/TransactionStatsCards';
 
 export default function TransactionsView({
     filteredTransactions = [],
@@ -16,6 +16,12 @@ export default function TransactionsView({
     setImportanceFilter,
     dateFilter,
     setDateFilter,
+    datePreset,
+    setDatePreset,
+    customFromDate,
+    setCustomFromDate,
+    customToDate,
+    setCustomToDate,
     sortBy,
     setSortBy,
     sortOrder,
@@ -51,6 +57,12 @@ export default function TransactionsView({
                 setImportanceFilter={setImportanceFilter}
                 dateFilter={dateFilter}
                 setDateFilter={setDateFilter}
+                datePreset={datePreset}
+                setDatePreset={setDatePreset}
+                customFromDate={customFromDate}
+                setCustomFromDate={setCustomFromDate}
+                customToDate={customToDate}
+                setCustomToDate={setCustomToDate}
                 sortBy={sortBy}
                 setSortBy={setSortBy}
                 sortOrder={sortOrder}
@@ -61,6 +73,7 @@ export default function TransactionsView({
             {/* Transactions Table */}
             <TransactionTable
                 filteredTransactions={filteredTransactions}
+                categories={categories}
                 sortBy={sortBy}
                 setSortBy={setSortBy}
                 sortOrder={sortOrder}

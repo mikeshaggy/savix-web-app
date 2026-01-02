@@ -1,25 +1,15 @@
-// API Configuration
+import { checkBackendHealth } from './backendHealth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Check if backend is running
-export const checkBackendHealth = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/users`);
-    return response.ok;
-  } catch (error) {
-    console.warn('Backend not accessible, falling back to mock data');
-    return false;
-  }
-};
+export { checkBackendHealth };
 
-// Generic API request handler
 async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
   const config = {
     headers: {
       'Content-Type': 'application/json',
-      // Add CORS headers if needed
       'Accept': 'application/json',
       ...options.headers,
     },
@@ -32,8 +22,7 @@ async function apiRequest(endpoint, options = {}) {
     if (!response.ok) {
       const errorText = await response.text();
       let errorMessage = `HTTP error! status: ${response.status}`;
-      
-      // Try to parse error response
+      e
       try {
         const errorData = JSON.parse(errorText);
         errorMessage = errorData.message || errorData.error || errorMessage;
@@ -44,7 +33,6 @@ async function apiRequest(endpoint, options = {}) {
       throw new Error(errorMessage);
     }
     
-    // Handle empty responses for DELETE requests
     if (response.status === 204) {
       return null;
     }
@@ -56,7 +44,6 @@ async function apiRequest(endpoint, options = {}) {
   }
 }
 
-// User API functions
 export const userApi = {
   getAllUsers: () => apiRequest('/api/users'),
   getUserById: (id) => apiRequest(`/api/users/${id}`),
@@ -74,11 +61,11 @@ export const userApi = {
   }),
 };
 
-// Category API functions
 export const categoryApi = {
   getAllCategories: () => apiRequest('/api/categories'),
   getCategoryById: (id) => apiRequest(`/api/categories/${id}`),
   getCategoriesByUserId: (userId) => apiRequest(`/api/categories/user/${userId}`),
+  getCategoriesByUserIdAndType: (userId, type) => apiRequest(`/api/categories/user/${userId}/type/${type}`),
   createCategory: (categoryData) => apiRequest('/api/categories', {
     method: 'POST',
     body: JSON.stringify(categoryData),
@@ -92,11 +79,31 @@ export const categoryApi = {
   }),
 };
 
-// Transaction API functions
+export const walletApi = {
+  getAllWallets: () => apiRequest('/api/wallets'),
+  getWalletById: (id) => apiRequest(`/api/wallets/${id}`),
+  getWalletsByUserId: (userId) => apiRequest(`/api/wallets/user/${userId}`),
+  createWallet: (walletData) => apiRequest('/api/wallets', {
+    method: 'POST',
+    body: JSON.stringify(walletData),
+  }),
+  updateWallet: (id, walletData) => apiRequest(`/api/wallets/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(walletData),
+  }),
+  updateWalletBalance: (id, newBalance) => apiRequest(`/api/wallets/${id}/balance`, {
+    method: 'PATCH',
+    body: JSON.stringify(newBalance),
+  }),
+  deleteWallet: (id) => apiRequest(`/api/wallets/${id}`, {
+    method: 'DELETE',
+  }),
+};
+
 export const transactionApi = {
   getAllTransactions: () => apiRequest('/api/transactions'),
   getTransactionById: (id) => apiRequest(`/api/transactions/${id}`),
-  getTransactionsByUserId: (userId) => apiRequest(`/api/transactions/user/${userId}`),
+  getTransactionsByWalletId: (walletId) => apiRequest(`/api/transactions/wallet/${walletId}`),
   createTransaction: (transactionData) => apiRequest('/api/transactions', {
     method: 'POST',
     body: JSON.stringify(transactionData),
@@ -110,57 +117,52 @@ export const transactionApi = {
   }),
 };
 
-// Combined API functions for dashboard
 export const dashboardApi = {
   getUserDashboardData: async (userId) => {
     try {
-      const [transactions, categories] = await Promise.all([
-        transactionApi.getTransactionsByUserId(userId),
+      const wallets = await walletApi.getWalletsByUserId(userId);
+      
+      if (!wallets || wallets.length === 0) {
+        return { transactions: [], categories: [], wallets: [] };
+      }
+
+      const [allCategories, ...transactionsByWallet] = await Promise.all([
         categoryApi.getCategoriesByUserId(userId),
+        ...wallets.map(wallet => transactionApi.getTransactionsByWalletId(wallet.id))
       ]);
       
-      return { transactions, categories };
+      const allTransactions = transactionsByWallet.flat();
+      
+      return { 
+        transactions: allTransactions, 
+        categories: allCategories, 
+        wallets 
+      };
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
       throw error;
     }
   },
+  
+  getWalletDashboardData: async (walletId) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new Error('Invalid walletId provided: ' + walletId);
+    }
+    
+    try {
+      const [transactions, wallet] = await Promise.all([
+        transactionApi.getTransactionsByWalletId(walletId),
+        walletApi.getWalletById(walletId),
+      ]);
+      
+      const categories = await categoryApi.getCategoriesByUserId(wallet.userId);
+      
+      return { transactions, categories, wallet };
+    } catch (error) {
+      console.error('Failed to fetch wallet dashboard data:', error);
+      throw error;
+    }
+  },
 };
 
-// Mock endpoints (since some features might need these but don't exist in backend yet)
-export const mockApi = {
-  // Mock analytics data
-  getAnalytics: (userId) => {
-    return Promise.resolve({
-      monthlySpending: [
-        { month: 'Jan', amount: 2500 },
-        { month: 'Feb', amount: 3200 },
-        { month: 'Mar', amount: 2800 },
-        { month: 'Apr', amount: 3500 },
-        { month: 'May', amount: 2900 },
-        { month: 'Jun', amount: 3800 },
-      ],
-      categoryBreakdown: [
-        { category: 'Groceries', amount: 1200, percentage: 35 },
-        { category: 'Transport', amount: 800, percentage: 23 },
-        { category: 'Utilities', amount: 600, percentage: 17 },
-        { category: 'Entertainment', amount: 400, percentage: 12 },
-        { category: 'Other', amount: 450, percentage: 13 },
-      ],
-      savingsGoal: {
-        target: 5000,
-        current: 3250,
-        percentage: 65,
-      },
-    });
-  },
-  
-  // Mock budget data
-  getBudgets: (userId) => {
-    return Promise.resolve([
-      { id: 1, category: 'Groceries', budgetAmount: 1500, spentAmount: 1200, month: '2025-01' },
-      { id: 2, category: 'Transport', budgetAmount: 1000, spentAmount: 800, month: '2025-01' },
-      { id: 3, category: 'Entertainment', budgetAmount: 500, spentAmount: 400, month: '2025-01' },
-    ]);
-  },
-};
+
