@@ -4,14 +4,14 @@ import com.mikeshaggy.backend.domain.user.User;
 import com.mikeshaggy.backend.dto.UserDTO;
 import com.mikeshaggy.backend.mapper.UserMapper;
 import com.mikeshaggy.backend.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -19,23 +19,19 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final EntityFetchingService entityFetchingService;
 
     public List<UserDTO> getAllUsers() {
-        return userRepository.findAll()
-                .stream()
-                .map(userMapper::toDTO)
-                .collect(Collectors.toList());
+        return mapToDTO(userRepository.findAll());
     }
 
     public UserDTO getUserById(Integer id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+        User user = entityFetchingService.getUserOrThrow(id);
         return userMapper.toDTO(user);
     }
 
     public UserDTO getUserByUsername(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with username: " + username));
+        User user = entityFetchingService.getUserOrThrow(username);
         return userMapper.toDTO(user);
     }
 
@@ -43,24 +39,39 @@ public class UserService {
     public UserDTO createUser(UserDTO userDTO) {
         User user = userMapper.toEntity(userDTO);
         User savedUser = userRepository.save(user);
+        
+        log.info("Created user '{}' with id: {}",
+                savedUser.getUsername(), savedUser.getId());
+        
         return userMapper.toDTO(savedUser);
     }
 
     @Transactional
     public UserDTO updateUser(Integer id, UserDTO userDTO) {
-        User existingUser = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+        User existingUser = entityFetchingService.getUserOrThrow(id);
 
-        existingUser.setUsername(userDTO.getUsername());
+        existingUser.setUsername(userDTO.username());
         User updatedUser = userRepository.save(existingUser);
+        
+        log.info("Updated user id: {} to username: '{}'",
+                id, updatedUser.getUsername());
+        
         return userMapper.toDTO(updatedUser);
     }
 
     @Transactional
     public void deleteUser(Integer id) {
-        if (!userRepository.existsById(id)) {
-            throw new EntityNotFoundException("User not found with id: " + id);
-        }
-        userRepository.deleteById(id);
+        User user = entityFetchingService.getUserOrThrow(id);
+
+        log.info("Deleting user '{}' with id: {}",
+                user.getUsername(), user.getId());
+
+        userRepository.delete(user);
+    }
+
+    private List<UserDTO> mapToDTO(List<User> users) {
+        return users.stream()
+                .map(userMapper::toDTO)
+                .toList();
     }
 }

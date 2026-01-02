@@ -1,23 +1,22 @@
 package com.mikeshaggy.backend.dto;
 
-import com.mikeshaggy.backend.domain.transaction.Type;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
-public record CategoryDTO(
+public record WalletDTO(
         Integer id,
 
         @NotNull(message = "User ID is required")
         Integer userId,
 
-        @NotBlank(message = "Name is required")
+        @NotNull(message = "Name is required")
         @Size(max = 50, message = "Name must not exceed 50 characters")
         String name,
 
-        @NotNull(message = "Type is required")
-        Type type,
+        BigDecimal balance,
+
         Instant createdAt
 ) {}

@@ -2,61 +2,41 @@ package com.mikeshaggy.backend.dto;
 
 import com.mikeshaggy.backend.domain.transaction.Cycle;
 import com.mikeshaggy.backend.domain.transaction.Importance;
-import com.mikeshaggy.backend.domain.transaction.Type;
-import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class TransactionDTO {
+public record TransactionDTO(
+        Long id,
 
-    private Long id;
+        @NotNull(message = "Wallet ID is required")
+        Integer walletId,
 
-    @NotNull(message = "User ID is required")
-    private Integer userId;
+        @NotNull(message = "Category ID is required")
+        Integer categoryId,
 
-    @NotNull(message = "Category ID is required")
-    private Integer categoryId;
+        @NotBlank(message = "Title is required")
+        @Size(max = 50, message = "Title must not exceed 50 characters")
+        String title,
 
-    // todo: Consider removing this field if not needed in the DTO
-    private String categoryName;
+        @NotNull(message = "Amount is required")
+        @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
+        BigDecimal amount,
 
-    @NotBlank(message = "Title is required")
-    @Size(max = 50, message = "Title must not exceed 50 characters")
-    private String title;
+        @NotNull(message = "Transaction date is required")
+        LocalDate transactionDate,
 
-    @NotNull(message = "Amount is required")
-    @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
-    private BigDecimal amount;
+        String notes,
 
-    @NotNull(message = "Transaction date is required")
-    private LocalDate transactionDate;
+        Importance importance,
 
-    private String notes;
+        @NotNull(message = "Cycle is required")
+        Cycle cycle,
 
-    @NotNull(message = "Importance is required")
-    private Importance importance;
-
-    @NotNull(message = "Cycle is required")
-    private Cycle cycle;
-
-    @NotNull(message = "Type is required")
-    private Type type;
-
-    @AssertTrue(message = "Importance can only be set for expenses")
-    public boolean isImportanceValidForType() {
-        if (type == Type.EXPENSE) return importance == null;
-        return importance != null;
-    }
-
-    private LocalDateTime createdAt;
-}
+        Instant createdAt
+) {}

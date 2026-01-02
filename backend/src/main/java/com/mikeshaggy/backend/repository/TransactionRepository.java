@@ -8,6 +8,6 @@ import java.util.List;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    @Query("SELECT t FROM Transaction t WHERE t.user.id = :userId")
-    List<Transaction> findByUserId(Integer userId);
+    @Query("SELECT t FROM Transaction t WHERE t.wallet.id = :walletId")
+    List<Transaction> findByWalletId(Integer walletId);
 }

@@ -1,15 +1,12 @@
 package com.mikeshaggy.backend.domain.user;
 
 import com.mikeshaggy.backend.domain.transaction.Category;
-import com.mikeshaggy.backend.domain.transaction.Transaction;
+import com.mikeshaggy.backend.domain.transaction.Wallet;
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,19 +15,9 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
-
-    @Builder
-    public User(Integer id, String username, String password,
-                LocalDateTime createdAt, Set<Category> categories,
-                Set<Transaction> transactions) {
-        this.id = id;
-        this.username = username;
-        this.password = password;
-        this.createdAt = createdAt;
-        this.categories = categories;
-        this.transactions = transactions;
-    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,7 +30,7 @@ public class User {
     private String password;
 
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @OneToMany(
             mappedBy = "user",
@@ -52,30 +39,32 @@ public class User {
     )
     private Set<Category> categories = new HashSet<>();
 
-    public void addCategory(Category category) {
-        categories.add(category);
-        category.setUser(this);
-    }
-
-    public void removeCategory(Category category) {
-        categories.remove(category);
-        category.setUser(null);
-    }
-
     @OneToMany(
             mappedBy = "user",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private Set<Transaction> transactions = new HashSet<>();
+    private Set<Wallet> wallets = new HashSet<>();
 
-    public void addTransaction(Transaction transaction) {
-        transactions.add(transaction);
-        transaction.setUser(this);
+    public void addWallet(Wallet wallet) {
+        wallets.add(wallet);
+        wallet.setUser(this);
     }
 
-    public void removeTransaction(Transaction transaction) {
-        transactions.remove(transaction);
-        transaction.setUser(null);
+    public void removeWallet(Wallet wallet) {
+        wallets.remove(wallet);
+        wallet.setUser(null);
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof User)) return false;
+        return id != null && id.equals(((User) o).getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

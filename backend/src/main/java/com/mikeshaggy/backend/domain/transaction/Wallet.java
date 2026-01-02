@@ -5,19 +5,20 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "categories",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "name", "type"}))
+@Table(name = "wallets",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "name"}))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Category {
+public class Wallet {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,15 +31,14 @@ public class Category {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Type type;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal balance = BigDecimal.ZERO;
 
     @CreationTimestamp
     private Instant createdAt;
 
     @OneToMany(
-            mappedBy = "category",
+            mappedBy = "wallet",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
@@ -46,19 +46,19 @@ public class Category {
 
     public void addTransaction(Transaction transaction) {
         transactions.add(transaction);
-        transaction.setCategory(this);
+        transaction.setWallet(this);
     }
 
     public void removeTransaction(Transaction transaction) {
         transactions.remove(transaction);
-        transaction.setCategory(null);
+        transaction.setWallet(null);
     }
 
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Category)) return false;
-        return id != null && id.equals(((Category) o).getId());
+        if (!(o instanceof Wallet)) return false;
+        return id != null && id.equals(((Wallet) o).getId());
     }
 
     @Override

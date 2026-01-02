@@ -1,20 +1,17 @@
 package com.mikeshaggy.backend.mapper;
 
-import com.mikeshaggy.backend.domain.transaction.Category;
-import com.mikeshaggy.backend.dto.CategoryDTO;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
+import com.mikeshaggy.backend.domain.transaction.Wallet;
+import com.mikeshaggy.backend.dto.WalletDTO;
+import org.mapstruct.*;
 import org.mapstruct.factory.Mappers;
 
 @Mapper(componentModel = "spring")
-public interface CategoryMapper {
+public interface WalletMapper {
 
-    CategoryMapper INSTANCE = Mappers.getMapper(CategoryMapper.class);
+    WalletMapper INSTANCE = Mappers.getMapper(WalletMapper.class);
 
     @Mapping(source = "user.id", target = "userId")
-    CategoryDTO toDTO(Category category);
+    WalletDTO toDTO(Wallet wallet);
 
     @Mapping(source = "userId", target = "user.id")
     @Mapping(target = "user.username", ignore = true)
@@ -23,11 +20,12 @@ public interface CategoryMapper {
     @Mapping(target = "user.categories", ignore = true)
     @Mapping(target = "user.wallets", ignore = true)
     @Mapping(target = "transactions", ignore = true)
-    Category toEntity(CategoryDTO categoryDTO);
+    Wallet toEntity(WalletDTO walletDTO);
 
-    @BeanMapping(nullValuePropertyMappingStrategy = org.mapstruct.NullValuePropertyMappingStrategy.IGNORE)
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
+    @Mapping(target = "transactions", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    void updateEntityFromDTO(CategoryDTO categoryDTO, @MappingTarget Category category);
+    void updateEntityFromDTO(WalletDTO walletDTO, @MappingTarget Wallet wallet);
 }
