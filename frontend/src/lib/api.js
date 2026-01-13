@@ -1,11 +1,9 @@
 import { checkBackendHealth } from './backendHealth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 export { checkBackendHealth };
 
 async function apiRequest(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${endpoint}`;
   
   const config = {
     headers: {
@@ -22,7 +20,7 @@ async function apiRequest(endpoint, options = {}) {
     if (!response.ok) {
       const errorText = await response.text();
       let errorMessage = `HTTP error! status: ${response.status}`;
-      e
+      
       try {
         const errorData = JSON.parse(errorText);
         errorMessage = errorData.message || errorData.error || errorMessage;

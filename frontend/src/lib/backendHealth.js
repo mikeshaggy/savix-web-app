@@ -1,4 +1,3 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const HEALTH_CHECK_TTL = 30000; // 30 seconds
 
 let cachedResult = null;
@@ -28,7 +27,7 @@ export const checkBackendHealth = async () => {
 
 async function performHealthCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/users`);
+    const response = await fetch(`/api/users`);
     return response.ok;
   } catch (error) {
     console.warn('Backend not accessible:', error.message);

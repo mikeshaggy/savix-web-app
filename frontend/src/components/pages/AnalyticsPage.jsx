@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { AnalyticsView } from '@/views/PlaceholderViews';
+import { AnalyticsView } from '@/components/views/PlaceholderViews';
 import { useAppContext } from '../../contexts/AppContext';
 import { Loading } from '../common/Loading';
 
