@@ -12,6 +12,8 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class EntityFetcher {
@@ -21,7 +23,7 @@ public class EntityFetcher {
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
 
-    public User getUserOrThrow(Integer userId) {
+    public User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
     }
@@ -46,7 +48,7 @@ public class EntityFetcher {
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + categoryId));
     }
 
-    public void validateUserExists(Integer userId) {
+    public void validateUserExists(UUID userId) {
         if (!userRepository.existsById(userId)) {
             throw new EntityNotFoundException("User not found with id: " + userId);
         }

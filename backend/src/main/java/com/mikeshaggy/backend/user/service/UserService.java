@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -26,7 +27,7 @@ public class UserService {
         return mapToDTO(userRepository.findAll());
     }
 
-    public UserDTO getUserById(Integer id) {
+    public UserDTO getUserById(UUID id) {
         User user = entityFetcher.getUserOrThrow(id);
         return userMapper.toDTO(user);
     }
@@ -48,7 +49,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserDTO updateUser(Integer id, UserDTO userDTO) {
+    public UserDTO updateUser(UUID id, UserDTO userDTO) {
         User existingUser = entityFetcher.getUserOrThrow(id);
 
         existingUser.setUsername(userDTO.username());
@@ -61,7 +62,7 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(Integer id) {
+    public void deleteUser(UUID id) {
         User user = entityFetcher.getUserOrThrow(id);
 
         log.info("Deleting user '{}' with id: {}",

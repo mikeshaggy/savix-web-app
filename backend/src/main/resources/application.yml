@@ -9,5 +9,83 @@ spring:
   jpa:
     show-sql: true
 
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      timeout: 2000ms
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+        debug: false
+  profiles:
+    active:
+
 server:
-  port: 8000
+  port: ${SERVER_PORT}
+
+app:
+  frontend:
+    url: ${FRONTEND_URL}
+  email:
+    from: ${EMAIL_FROM}
+    from-name: ${EMAIL_FROM_NAME}
+
+auth:
+  jwt:
+    issuer: ${JWT_ISSUER}
+    audience: ${JWT_AUDIENCE}
+    clock-skew-seconds: 30
+    public-key-location: ${JWT_PUBLIC_KEY_PATH}
+    private-key-location: ${JWT_PRIVATE_KEY_PATH}
+
+  access-token:
+    ttl-seconds: 600 # 10 minutes
+    cookie-name: access_token
+
+  refresh-token:
+    ttl-seconds: 1209600 # 14 days
+    cookie-name: refresh_token
+
+  reset-token:
+    ttl-seconds: 900 # 15 minutes
+
+  cookie:
+    secure: true
+    domain: ${COOKIE_DOMAIN}
+
+  password:
+    min-length: 12
+    require-categories: 3
+
+  rate-limit:
+    max-attempts: 3
+    window-seconds: 900 # 15 minutes
+    lockout-seconds: 900 # 15 minutes
+
+logging:
+  level:
+    com.mikeshaggy.backend: INFO
+    org.springframework.security: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

@@ -1,13 +1,15 @@
 create table users (
-    id serial primary key,
+    id uuid primary key default gen_random_uuid(),
+    email varchar(100) unique not null,
     username varchar(100) unique not null,
-    password varchar(100) not null,
-    created_at timestamp default NOW()
+    password_hash varchar(255) not null,
+    created_at timestamp default NOW(),
+    updated_at timestamp default NOW()
 );
 
 create table wallets (
     id serial primary key,
-    user_id int not null references users(id) on delete cascade,
+    user_id uuid not null references users(id) on delete cascade,
     name varchar(50) not null,
     balance numeric(12,2) not null default 0.00,
     created_at timestamp default NOW(),
@@ -16,7 +18,7 @@ create table wallets (
 
 create table categories (
     id serial primary key,
-    user_id int not null references users(id) on delete cascade,
+    user_id uuid not null references users(id) on delete cascade,
     name varchar(50) not null,
     type varchar(20) not null check (type in ('INCOME', 'EXPENSE')),
     created_at timestamp default NOW(),

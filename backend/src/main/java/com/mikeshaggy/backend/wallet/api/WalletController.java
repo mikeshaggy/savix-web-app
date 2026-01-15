@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping(WalletController.BASE_URL)
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class WalletController {
 
     public static final String BASE_URL = "/api/wallets";
@@ -34,7 +34,7 @@ public class WalletController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<WalletDTO>> getWalletsByUserId(@PathVariable Integer userId) {
+    public ResponseEntity<List<WalletDTO>> getWalletsByUserId(@PathVariable UUID userId) {
         List<WalletDTO> wallets = walletService.getWalletsByUserId(userId);
         return new ResponseEntity<>(wallets, HttpStatus.OK);
     }

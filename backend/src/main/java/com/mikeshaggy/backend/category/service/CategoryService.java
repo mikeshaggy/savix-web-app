@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -28,12 +29,12 @@ public class CategoryService {
         return mapToDTO(categoryRepository.findAll());
     }
 
-    public List<CategoryDTO> getCategoriesByUserId(Integer userId) {
+    public List<CategoryDTO> getCategoriesByUserId(UUID userId) {
         entityFetcher.validateUserExists(userId);
         return mapToDTO(categoryRepository.findByUserId(userId));
     }
 
-    public List<CategoryDTO> getCategoriesByUserIdAndType(Integer userId, Type type) {
+    public List<CategoryDTO> getCategoriesByUserIdAndType(UUID userId, Type type) {
         entityFetcher.validateUserExists(userId);
         return mapToDTO(categoryRepository.findByUserIdAndType(userId, type));
     }

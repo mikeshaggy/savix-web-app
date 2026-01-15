@@ -10,11 +10,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping(CategoryController.BASE_URL)
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class CategoryController {
 
     public static final String BASE_URL = "/api/categories";
@@ -34,13 +34,13 @@ public class CategoryController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserId(@PathVariable Integer userId) {
+    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserId(@PathVariable UUID userId) {
         List<CategoryDTO> categories = categoryService.getCategoriesByUserId(userId);
         return new ResponseEntity<>(categories, HttpStatus.OK);
     }
 
     @GetMapping("/user/{userId}/type/{type}")
-    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserIdAndType(@PathVariable Integer userId, @PathVariable Type type) {
+    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserIdAndType(@PathVariable UUID userId, @PathVariable Type type) {
         List<CategoryDTO> categories = categoryService.getCategoriesByUserIdAndType(userId, type);
         return new ResponseEntity<>(categories, HttpStatus.OK);
     }

@@ -14,7 +14,7 @@ public interface WalletMapper {
 
     @Mapping(source = "userId", target = "user.id")
     @Mapping(target = "user.username", ignore = true)
-    @Mapping(target = "user.password", ignore = true)
+    @Mapping(target = "user.passwordHash", ignore = true)
     @Mapping(target = "user.createdAt", ignore = true)
     @Mapping(target = "user.categories", ignore = true)
     @Mapping(target = "user.wallets", ignore = true)

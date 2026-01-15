@@ -12,7 +12,8 @@ public interface UserMapper {
 
     UserDTO toDTO(User user);
 
-    @Mapping(target = "password", ignore = true)
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "wallets", ignore = true)
     @Mapping(target = "categories", ignore = true)
     User toEntity(UserDTO userDTO);

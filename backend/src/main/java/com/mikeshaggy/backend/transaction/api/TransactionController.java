@@ -13,7 +13,6 @@ import java.util.List;
 @RestController
 @RequestMapping(TransactionController.BASE_URL)
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class TransactionController {
 
     public static final String BASE_URL = "/api/transactions";

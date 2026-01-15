@@ -1,9 +1,11 @@
 package com.mikeshaggy.backend.user.dto;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public record UserDTO(
-        Integer id,
+        UUID id,
         String username,
+        String email,
         Instant createdAt
 ) {}

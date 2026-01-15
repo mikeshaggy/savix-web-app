@@ -7,13 +7,11 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface WalletRepository extends JpaRepository<Wallet, Integer> {
     
-    List<Wallet> findByUserId(Integer userId);
-
-    @Query("SELECT w FROM Wallet w JOIN FETCH w.user WHERE w.id = :id")
-    Optional<Wallet> findByIdWithUser(@Param("id") Integer id);
+    List<Wallet> findByUserId(UUID userId);
     
-    boolean existsByUserIdAndName(Integer userId, String name);
+    boolean existsByUserIdAndName(UUID userId, String name);
 }

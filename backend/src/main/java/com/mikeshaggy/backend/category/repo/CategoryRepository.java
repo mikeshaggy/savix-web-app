@@ -5,9 +5,10 @@ import com.mikeshaggy.backend.category.domain.Type;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface CategoryRepository extends JpaRepository<Category, Integer> {
 
-    List<Category> findByUserId(Integer userId);
-    List<Category> findByUserIdAndType(Integer userId, Type type);
+    List<Category> findByUserId(UUID userId);
+    List<Category> findByUserIdAndType(UUID userId, Type type);
 }

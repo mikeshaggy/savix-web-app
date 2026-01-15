@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -29,7 +30,7 @@ public class WalletService {
         return mapToDTO(walletRepository.findAll());
     }
 
-    public List<WalletDTO> getWalletsByUserId(Integer userId) {
+    public List<WalletDTO> getWalletsByUserId(UUID userId) {
         entityFetcher.validateUserExists(userId);
         return mapToDTO(walletRepository.findByUserId(userId));
     }
