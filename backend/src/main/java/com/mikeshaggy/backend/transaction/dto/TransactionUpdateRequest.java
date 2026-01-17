@@ -2,18 +2,16 @@ package com.mikeshaggy.backend.transaction.dto;
 
 import com.mikeshaggy.backend.transaction.domain.Cycle;
 import com.mikeshaggy.backend.transaction.domain.Importance;
+import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
 
-public record TransactionDTO(
-        Long id,
-
+public record TransactionUpdateRequest(
         @NotNull(message = "Wallet ID is required")
         Integer walletId,
 
@@ -36,7 +34,14 @@ public record TransactionDTO(
         Importance importance,
 
         @NotNull(message = "Cycle is required")
-        Cycle cycle,
-
-        Instant createdAt
-) {}
+        Cycle cycle
+) {
+    public void applyTo(Transaction transaction) {
+        transaction.setTitle(title);
+        transaction.setAmount(amount);
+        transaction.setTransactionDate(transactionDate);
+        transaction.setNotes(notes);
+        transaction.setImportance(importance);
+        transaction.setCycle(cycle);
+    }
+}

@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.common.exception;
 
-import com.mikeshaggy.backend.auth.service.AuthService;
+import com.mikeshaggy.backend.auth.exception.AuthException;
+import com.mikeshaggy.backend.auth.exception.RateLimitException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -32,8 +33,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    @ExceptionHandler(AuthService.AuthException.class)
-    public ResponseEntity<ErrorResponse> handleAuthException(AuthService.AuthException ex) {
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("Bad Request")
+                .message(ex.getMessage())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.UNAUTHORIZED.value())
@@ -44,8 +57,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
-    @ExceptionHandler(AuthService.RateLimitException.class)
-    public ResponseEntity<ErrorResponse> handleRateLimitException(AuthService.RateLimitException ex) {
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.TOO_MANY_REQUESTS.value())

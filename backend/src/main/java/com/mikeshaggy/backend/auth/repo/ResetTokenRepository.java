@@ -1,5 +1,6 @@
-package com.mikeshaggy.backend.auth.domain.reset;
+package com.mikeshaggy.backend.auth.repo;
 
+import com.mikeshaggy.backend.auth.domain.reset.ResetToken;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 

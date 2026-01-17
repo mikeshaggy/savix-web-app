@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.dto.TokenPair;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
@@ -39,10 +40,10 @@ public class JwtService {
     @Value("${auth.jwt.clock-skew-seconds}")
     private int clockSkewSeconds;
 
-    public AuthService.Tokens generateTokens(UUID userId) {
+    public TokenPair generateTokenPair(UUID userId) {
         String accessToken = generateToken(userId, accessTokenTtl);
         String refreshToken = generateToken(userId, refreshTokenTtl);
-        return new AuthService.Tokens(accessToken, refreshToken);
+        return new TokenPair(accessToken, refreshToken);
     }
 
     private String generateToken(UUID userId, int ttlSeconds) {

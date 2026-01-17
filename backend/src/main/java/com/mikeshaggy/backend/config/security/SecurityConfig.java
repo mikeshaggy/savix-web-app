@@ -1,7 +1,6 @@
 package com.mikeshaggy.backend.config.security;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,14 +10,7 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -26,32 +18,13 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
-    @Value("${app.frontend.url")
-    private String frontendUrl;
+    private final ProxySecretFilter proxySecretFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        csrfTokenRepository.setCookiePath("/");
-        csrfTokenRepository.setCookieName("XSRF-TOKEN");
-        
-        CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
-        csrfHandler.setCsrfRequestAttributeName("_csrf");
-
         http
-                .csrf(csrf -> csrf
-                        .csrfTokenRepository(csrfTokenRepository)
-                        .csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers(
-                                "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/refresh",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
-                        )
-                )
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -68,7 +41,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(proxySecretFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(jwtAuthenticationFilter, ProxySecretFilter.class)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable);
@@ -90,19 +64,5 @@ public class SecurityConfig {
         );
 
         return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendUrl));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration);
-        return source;
     }
 }

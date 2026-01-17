@@ -33,7 +33,7 @@ public class CookieUtils {
     }
 
     public Cookie createRefreshTokenCookie(String token) {
-        return createCookie(refreshTokenCookieName, token, refreshTokenTtl, "/api/auth");
+        return createCookie(refreshTokenCookieName, token, refreshTokenTtl, "/");
     }
 
     public Cookie deleteAccessTokenCookie() {
@@ -41,7 +41,7 @@ public class CookieUtils {
     }
 
     public Cookie deleteRefreshTokenCookie() {
-        return createCookie(refreshTokenCookieName, "", 0, "/api/auth");
+        return createCookie(refreshTokenCookieName, "", 0, "/");
     }
 
     private Cookie createCookie(String name, String value, int maxAgeSeconds, String path) {

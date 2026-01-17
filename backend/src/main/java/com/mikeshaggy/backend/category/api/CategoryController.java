@@ -1,8 +1,11 @@
 package com.mikeshaggy.backend.category.api;
 
 import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.category.dto.CategoryDTO;
+import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
+import com.mikeshaggy.backend.category.dto.CategoryResponse;
+import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
 import com.mikeshaggy.backend.category.service.CategoryService;
+import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -10,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping(CategoryController.BASE_URL)
@@ -20,46 +22,51 @@ public class CategoryController {
     public static final String BASE_URL = "/api/categories";
 
     private final CategoryService categoryService;
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
-    public ResponseEntity<List<CategoryDTO>> getAllCategories() {
-        List<CategoryDTO> categories = categoryService.getAllCategories();
-        return new ResponseEntity<>(categories, HttpStatus.OK);
+    public ResponseEntity<List<CategoryResponse>> getCategories(
+            @RequestParam(required = false) Type type) {
+        List<CategoryResponse> categories = categoryService.getCategoriesForUser(
+                currentUserProvider.getCurrentUserId(),
+                type
+        );
+        return ResponseEntity.ok(categories);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryDTO> getCategoryById(@PathVariable Integer id) {
-        CategoryDTO category = categoryService.getCategoryById(id);
-        return new ResponseEntity<>(category, HttpStatus.OK);
-    }
-
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserId(@PathVariable UUID userId) {
-        List<CategoryDTO> categories = categoryService.getCategoriesByUserId(userId);
-        return new ResponseEntity<>(categories, HttpStatus.OK);
-    }
-
-    @GetMapping("/user/{userId}/type/{type}")
-    public ResponseEntity<List<CategoryDTO>> getCategoriesByUserIdAndType(@PathVariable UUID userId, @PathVariable Type type) {
-        List<CategoryDTO> categories = categoryService.getCategoriesByUserIdAndType(userId, type);
-        return new ResponseEntity<>(categories, HttpStatus.OK);
+    public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable Integer id) {
+        CategoryResponse category = categoryService.getCategoryByIdForUser(
+                id, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(category);
     }
 
     @PostMapping
-    public ResponseEntity<CategoryDTO> createCategory(@Valid @RequestBody CategoryDTO categoryDTO) {
-        CategoryDTO createdCategory = categoryService.createCategory(categoryDTO);
-        return new ResponseEntity<>(createdCategory, HttpStatus.CREATED);
+    public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryCreateRequest request) {
+        CategoryResponse createdCategory = categoryService.createCategory(
+                request, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdCategory);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CategoryDTO> updateCategory(@PathVariable Integer id, @Valid @RequestBody CategoryDTO categoryDTO) {
-        CategoryDTO updatedCategory = categoryService.updateCategory(id, categoryDTO);
-        return new ResponseEntity<>(updatedCategory, HttpStatus.OK);
+    public ResponseEntity<CategoryResponse> updateCategory(
+            @PathVariable Integer id, 
+            @Valid @RequestBody CategoryUpdateRequest request) {
+        CategoryResponse updatedCategory = categoryService.updateCategory(
+                id, 
+                request, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(updatedCategory);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(@PathVariable Integer id) {
-        categoryService.deleteCategory(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        categoryService.deleteCategory(id, currentUserProvider.getCurrentUserId());
+        return ResponseEntity.noContent().build();
     }
 }

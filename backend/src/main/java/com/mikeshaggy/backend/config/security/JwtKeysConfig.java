@@ -29,7 +29,7 @@ public class JwtKeysConfig {
     @Value("${auth.jwt.public-key-location}")
     private Resource publicKeyResource;
 
-    @Value("${auth.jwt.private-key-location")
+    @Value("${auth.jwt.private-key-location}")
     private Resource privateKeyResource;
 
     @Bean

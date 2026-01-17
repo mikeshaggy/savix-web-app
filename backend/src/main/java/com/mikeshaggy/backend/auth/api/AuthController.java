@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.auth.api;
 
+import com.mikeshaggy.backend.auth.dto.LoginResult;
 import com.mikeshaggy.backend.auth.dto.request.*;
 import com.mikeshaggy.backend.auth.dto.response.AuthResponse;
 import com.mikeshaggy.backend.auth.service.AuthService;
@@ -40,7 +41,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        AuthService.LoginResult result = authService.login(request, httpRequest);
+        LoginResult result = authService.login(request, httpRequest);
 
         cookieManager.writeTokens(httpResponse, result.tokens());
 
@@ -57,7 +58,7 @@ public class AuthController {
                     .body(AuthResponse.of("No refresh token provided"));
         }
 
-        AuthService.LoginResult result = authService.refresh(refreshToken, httpRequest);
+        LoginResult result = authService.refresh(refreshToken, httpRequest);
 
         cookieManager.writeTokens(httpResponse, result.tokens());
 

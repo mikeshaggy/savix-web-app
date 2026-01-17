@@ -40,7 +40,7 @@ public class EmailService {
     @Async
     public void sendPasswordResetEmail(String recipientEmail, String resetToken) {
         try {
-            String resetLink = frontendUrl + "/auth/reset-password?token=" + resetToken;
+            String resetLink = frontendUrl + "/reset-password?token=" + resetToken;
             
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

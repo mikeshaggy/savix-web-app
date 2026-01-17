@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.ratelimit.RateLimitEntry;
-import com.mikeshaggy.backend.auth.domain.ratelimit.RateLimitRepository;
+import com.mikeshaggy.backend.auth.repo.RateLimitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,13 +27,17 @@ public class RateLimitService {
     private int lockoutSeconds;
 
     public boolean isAllowed(String type, String identifier) {
+        return isAllowed(type, identifier, maxAttempts, windowSeconds, lockoutSeconds);
+    }
+
+    public boolean isAllowed(String type, String identifier, int customMaxAttempts, int customWindowSeconds, int customLockoutSeconds) {
         String key = buildKey(type, identifier);
         RateLimitEntry entry = rateLimitRepository.findById(key).orElse(null);
 
         Instant now = Instant.now();
 
         if (entry == null) {
-            createNewEntry(key, now);
+            createNewEntry(key, now, customWindowSeconds);
             return true;
         }
 
@@ -43,20 +47,20 @@ public class RateLimitService {
         }
 
         Duration timeSinceFirst = Duration.between(entry.getFirstAttemptAt(), now);
-        if (timeSinceFirst.getSeconds() > windowSeconds) {
-            createNewEntry(key, now);
+        if (timeSinceFirst.getSeconds() > customWindowSeconds) {
+            createNewEntry(key, now, customWindowSeconds);
             return true;
         }
 
-        if (entry.getAttempts() < maxAttempts) {
+        if (entry.getAttempts() < customMaxAttempts) {
             entry.setAttempts(entry.getAttempts() + 1);
             entry.setLastAttemptAt(now);
             rateLimitRepository.save(entry);
             return true;
         }
 
-        entry.setLockedUntil(now.plusSeconds(lockoutSeconds));
-        entry.setTtl((long) (lockoutSeconds + windowSeconds));
+        entry.setLockedUntil(now.plusSeconds(customLockoutSeconds));
+        entry.setTtl((long) (customLockoutSeconds + customWindowSeconds));
         rateLimitRepository.save(entry);
         
         log.warn("Rate limit exceeded for {}. Locked until {}", key, entry.getLockedUntil());
@@ -90,15 +94,19 @@ public class RateLimitService {
         return Math.max(0, maxAttempts - entry.getAttempts());
     }
 
-    private void createNewEntry(String key, Instant now) {
+    private void createNewEntry(String key, Instant now, int ttlSeconds) {
         RateLimitEntry entry = RateLimitEntry.builder()
                 .key(key)
                 .attempts(1)
                 .firstAttemptAt(now)
                 .lastAttemptAt(now)
-                .ttl((long) windowSeconds)
+                .ttl((long) ttlSeconds)
                 .build();
         rateLimitRepository.save(entry);
+    }
+
+    private void createNewEntry(String key, Instant now) {
+        createNewEntry(key, now, windowSeconds);
     }
 
     private String buildKey(String type, String identifier) {

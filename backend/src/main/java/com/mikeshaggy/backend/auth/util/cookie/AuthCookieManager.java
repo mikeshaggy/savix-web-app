@@ -1,6 +1,6 @@
 package com.mikeshaggy.backend.auth.util.cookie;
 
-import com.mikeshaggy.backend.auth.service.AuthService;
+import com.mikeshaggy.backend.auth.dto.TokenPair;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +35,7 @@ public class AuthCookieManager {
         return extractToken(request, cookieUtils.getRefreshTokenCookieName());
     }
 
-    public void writeTokens(HttpServletResponse response, AuthService.Tokens tokens) {
+    public void writeTokens(HttpServletResponse response, TokenPair tokens) {
         response.addCookie(cookieUtils.createAccessTokenCookie(tokens.accessToken()));
         response.addCookie(cookieUtils.createRefreshTokenCookie(tokens.refreshToken()));
     }

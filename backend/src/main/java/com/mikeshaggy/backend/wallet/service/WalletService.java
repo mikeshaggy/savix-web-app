@@ -1,12 +1,13 @@
 package com.mikeshaggy.backend.wallet.service;
 
-import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.common.util.EntityFetcher;
+import com.mikeshaggy.backend.user.service.UserService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.user.domain.User;
-import com.mikeshaggy.backend.wallet.dto.WalletDTO;
-import com.mikeshaggy.backend.wallet.dto.WalletMapper;
+import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
+import com.mikeshaggy.backend.wallet.dto.WalletResponse;
+import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
 import com.mikeshaggy.backend.wallet.repo.WalletRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,127 +24,82 @@ import java.util.UUID;
 public class WalletService {
 
     private final WalletRepository walletRepository;
-    private final WalletMapper walletMapper;
-    private final EntityFetcher entityFetcher;
+    private final UserService userService;
 
-    public List<WalletDTO> getAllWallets() {
-        return mapToDTO(walletRepository.findAll());
+    public List<WalletResponse> getWalletsForUser(UUID userId) {
+        return walletRepository.findByUserId(userId).stream()
+                .map(WalletResponse::from)
+                .toList();
     }
 
-    public List<WalletDTO> getWalletsByUserId(UUID userId) {
-        entityFetcher.validateUserExists(userId);
-        return mapToDTO(walletRepository.findByUserId(userId));
+    public WalletResponse getWalletByIdForUser(Integer id, UUID userId) {
+        Wallet wallet = getWalletOrThrowForUser(id, userId);
+        return WalletResponse.from(wallet);
     }
 
-    public Wallet getWalletById(Integer id) {
-        return entityFetcher.getWalletOrThrow(id);
-    }
-
-    public WalletDTO getWalletDTOById(Integer id) {
-        Wallet wallet = entityFetcher.getWalletOrThrow(id);
-        return walletMapper.toDTO(wallet);
+    public Wallet getWalletEntityByIdForUser(Integer id, UUID userId) {
+        return getWalletOrThrowForUser(id, userId);
     }
 
     @Transactional
-    public WalletDTO createWallet(WalletDTO walletDTO) {
-        User user = entityFetcher.getUserOrThrow(walletDTO.userId());
+    public WalletResponse createWallet(WalletCreateRequest request, UUID userId) {
+        User user = userService.getUserOrThrow(userId);
 
-        if (walletRepository.existsByUserIdAndName(walletDTO.userId(), walletDTO.name())) {
-            throw new IllegalArgumentException("Wallet with name '" + walletDTO.name() + "' already exists for this user");
+        if (walletRepository.existsByUserIdAndName(userId, request.name())) {
+            throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
-        Wallet wallet = walletMapper.toEntity(walletDTO);
+        Wallet wallet = request.toEntity();
         wallet.setUser(user);
-        
-        if (wallet.getBalance() == null) {
-            wallet.setBalance(BigDecimal.ZERO);
-        }
 
         Wallet savedWallet = walletRepository.save(wallet);
         
         log.info("Created wallet '{}' with id: {} for user: {}",
-                savedWallet.getName(), savedWallet.getId(), user.getId());
+                savedWallet.getName(), savedWallet.getId(), userId);
         
-        return walletMapper.toDTO(savedWallet);
+        return WalletResponse.from(savedWallet);
     }
 
     @Transactional
-    public WalletDTO updateWallet(Integer id, WalletDTO walletDTO) {
-        Wallet existingWallet = entityFetcher.getWalletOrThrow(id);
+    public WalletResponse updateWallet(Integer id, WalletUpdateRequest request, UUID userId) {
+        Wallet wallet = getWalletOrThrowForUser(id, userId);
 
-        if (!existingWallet.getName().equals(walletDTO.name()) &&
-            walletRepository.existsByUserIdAndName(existingWallet.getUser().getId(), walletDTO.name())) {
-            throw new IllegalArgumentException("Wallet with name '" + walletDTO.name() + "' already exists for this user");
+        if (!wallet.getName().equals(request.name()) &&
+            walletRepository.existsByUserIdAndName(userId, request.name())) {
+            throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
-        walletMapper.updateEntityFromDTO(walletDTO, existingWallet);
+        request.applyTo(wallet);
 
-        Wallet updatedWallet = walletRepository.save(existingWallet);
+        Wallet updatedWallet = walletRepository.save(wallet);
         
         log.info("Updated wallet id: {} to name: '{}', balance: {}",
                 id, updatedWallet.getName(), updatedWallet.getBalance());
         
-        return walletMapper.toDTO(updatedWallet);
+        return WalletResponse.from(updatedWallet);
     }
 
     @Transactional
-    public void deleteWallet(Integer id) {
-        Wallet wallet = getWalletById(id);
+    public void deleteWallet(Integer id, UUID userId) {
+        Wallet wallet = getWalletOrThrowForUser(id, userId);
         
         log.info("Deleting wallet '{}' (id: {}) for user: {}",
-                wallet.getName(), id, wallet.getUser().getId());
+                wallet.getName(), id, userId);
         
         walletRepository.delete(wallet);
     }
 
     @Transactional
-    public WalletDTO updateWalletBalance(Integer id, BigDecimal newBalance) {
-        Wallet wallet = entityFetcher.getWalletOrThrow(id);
+    public WalletResponse updateWalletBalance(Integer id, BigDecimal newBalance, UUID userId) {
+        Wallet wallet = getWalletOrThrowForUser(id, userId);
         
         wallet.setBalance(newBalance);
         Wallet updatedWallet = walletRepository.save(wallet);
-        return walletMapper.toDTO(updatedWallet);
+        return WalletResponse.from(updatedWallet);
     }
 
-    @Transactional
-    public void applyTransaction(Integer walletId, BigDecimal amount, Type type) {
-        Wallet wallet = getWalletById(walletId);
-        BigDecimal oldBalance = wallet.getBalance();
-        BigDecimal newBalance = calculateBalanceAfterTransaction(oldBalance, amount, type);
-        wallet.setBalance(newBalance);
-        walletRepository.save(wallet);
-        
-        log.debug("Applied {} transaction of {} to wallet {}: {} -> {}",
-                type, amount, walletId, oldBalance, newBalance);
-    }
-
-    @Transactional
-    public void reverseTransaction(Integer walletId, BigDecimal amount, Type type) {
-        Wallet wallet = getWalletById(walletId);
-        BigDecimal oldBalance = wallet.getBalance();
-        BigDecimal newBalance = calculateBalanceAfterReversal(oldBalance, amount, type);
-        wallet.setBalance(newBalance);
-        walletRepository.save(wallet);
-        
-        log.debug("Reversed {} transaction of {} from wallet {}: {} -> {}",
-                type, amount, walletId, oldBalance, newBalance);
-    }
-
-    private BigDecimal calculateBalanceAfterTransaction(BigDecimal currentBalance, BigDecimal amount, Type type) {
-        return type.equals(Type.EXPENSE)
-                ? currentBalance.subtract(amount)
-                : currentBalance.add(amount);
-    }
-
-    private BigDecimal calculateBalanceAfterReversal(BigDecimal currentBalance, BigDecimal amount, Type type) {
-        return type.equals(Type.EXPENSE)
-                ? currentBalance.add(amount)
-                : currentBalance.subtract(amount);
-    }
-
-    private List<WalletDTO> mapToDTO(List<Wallet> wallets) {
-        return wallets.stream()
-                .map(walletMapper::toDTO)
-                .toList();
+    private Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
+        return walletRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
     }
 }

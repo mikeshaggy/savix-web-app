@@ -1,6 +1,9 @@
 package com.mikeshaggy.backend.wallet.api;
 
-import com.mikeshaggy.backend.wallet.dto.WalletDTO;
+import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
+import com.mikeshaggy.backend.wallet.dto.WalletResponse;
+import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping(WalletController.BASE_URL)
@@ -20,46 +22,61 @@ public class WalletController {
     public static final String BASE_URL = "/api/wallets";
 
     private final WalletService walletService;
+    private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
-    public ResponseEntity<List<WalletDTO>> getAllWallets() {
-        List<WalletDTO> wallets = walletService.getAllWallets();
-        return new ResponseEntity<>(wallets, HttpStatus.OK);
+    public ResponseEntity<List<WalletResponse>> getWallets() {
+        List<WalletResponse> wallets = walletService.getWalletsForUser(
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(wallets);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<WalletDTO> getWalletDById(@PathVariable Integer id) {
-        WalletDTO wallet = walletService.getWalletDTOById(id);
-        return new ResponseEntity<>(wallet, HttpStatus.OK);
-    }
-
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<WalletDTO>> getWalletsByUserId(@PathVariable UUID userId) {
-        List<WalletDTO> wallets = walletService.getWalletsByUserId(userId);
-        return new ResponseEntity<>(wallets, HttpStatus.OK);
+    public ResponseEntity<WalletResponse> getWalletById(@PathVariable Integer id) {
+        WalletResponse wallet = walletService.getWalletByIdForUser(
+                id, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(wallet);
     }
 
     @PostMapping
-    public ResponseEntity<WalletDTO> createWallet(@Valid @RequestBody WalletDTO walletDTO) {
-        WalletDTO createdWallet = walletService.createWallet(walletDTO);
-        return new ResponseEntity<>(createdWallet, HttpStatus.CREATED);
+    public ResponseEntity<WalletResponse> createWallet(@Valid @RequestBody WalletCreateRequest request) {
+        WalletResponse createdWallet = walletService.createWallet(
+                request, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdWallet);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<WalletDTO> updateWallet(@PathVariable Integer id, @Valid @RequestBody WalletDTO walletDTO) {
-        WalletDTO updatedWallet = walletService.updateWallet(id, walletDTO);
-        return new ResponseEntity<>(updatedWallet, HttpStatus.OK);
+    public ResponseEntity<WalletResponse> updateWallet(
+            @PathVariable Integer id, 
+            @Valid @RequestBody WalletUpdateRequest request) {
+        WalletResponse updatedWallet = walletService.updateWallet(
+                id, 
+                request, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(updatedWallet);
     }
 
     @PatchMapping("/{id}/balance")
-    public ResponseEntity<WalletDTO> updateWalletBalance(@PathVariable Integer id, @RequestBody BigDecimal newBalance) {
-        WalletDTO updatedWallet = walletService.updateWalletBalance(id, newBalance);
-        return new ResponseEntity<>(updatedWallet, HttpStatus.OK);
+    public ResponseEntity<WalletResponse> updateWalletBalance(
+            @PathVariable Integer id, 
+            @RequestBody BigDecimal newBalance) {
+        WalletResponse updatedWallet = walletService.updateWalletBalance(
+                id, 
+                newBalance, 
+                currentUserProvider.getCurrentUserId()
+        );
+        return ResponseEntity.ok(updatedWallet);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteWallet(@PathVariable Integer id) {
-        walletService.deleteWallet(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        walletService.deleteWallet(id, currentUserProvider.getCurrentUserId());
+        return ResponseEntity.noContent().build();
     }
 }

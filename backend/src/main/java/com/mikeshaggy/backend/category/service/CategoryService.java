@@ -3,10 +3,12 @@ package com.mikeshaggy.backend.category.service;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.user.domain.User;
-import com.mikeshaggy.backend.category.dto.CategoryDTO;
-import com.mikeshaggy.backend.category.dto.CategoryMapper;
+import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
+import com.mikeshaggy.backend.category.dto.CategoryResponse;
+import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
 import com.mikeshaggy.backend.category.repo.CategoryRepository;
-import com.mikeshaggy.backend.common.util.EntityFetcher;
+import com.mikeshaggy.backend.user.service.UserService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,69 +24,71 @@ import java.util.UUID;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-    private final CategoryMapper categoryMapper;
-    private final EntityFetcher entityFetcher;
+    private final UserService userService;
 
-    public List<CategoryDTO> getAllCategories() {
-        return mapToDTO(categoryRepository.findAll());
+    public List<CategoryResponse> getCategoriesForUser(UUID userId, Type type) {
+        if (type != null) {
+            return categoryRepository.findByUserIdAndType(userId, type).stream()
+                    .map(CategoryResponse::from)
+                    .toList();
+        }
+
+        return categoryRepository.findByUserId(userId).stream()
+                .map(CategoryResponse::from)
+                .toList();
     }
 
-    public List<CategoryDTO> getCategoriesByUserId(UUID userId) {
-        entityFetcher.validateUserExists(userId);
-        return mapToDTO(categoryRepository.findByUserId(userId));
+    public CategoryResponse getCategoryByIdForUser(Integer id, UUID userId) {
+        Category category = getCategoryOrThrowForUser(id, userId);
+        return CategoryResponse.from(category);
     }
 
-    public List<CategoryDTO> getCategoriesByUserIdAndType(UUID userId, Type type) {
-        entityFetcher.validateUserExists(userId);
-        return mapToDTO(categoryRepository.findByUserIdAndType(userId, type));
-    }
-
-    public CategoryDTO getCategoryById(Integer id) {
-        Category category = entityFetcher.getCategoryOrThrow(id);
-        return categoryMapper.toDTO(category);
+    public Category getCategoryEntityByIdForUser(Integer id, UUID userId) {
+        return getCategoryOrThrowForUser(id, userId);
     }
 
     @Transactional
-    public CategoryDTO createCategory(CategoryDTO categoryDTO) {
-        User user = entityFetcher.getUserOrThrow(categoryDTO.userId());
+    public CategoryResponse createCategory(CategoryCreateRequest request, UUID userId) {
+        User user = userService.getUserOrThrow(userId);
 
-        Category category = categoryMapper.toEntity(categoryDTO);
+        Category category = request.toEntity();
         category.setUser(user);
+
         Category savedCategory = categoryRepository.save(category);
         
-        log.info("Created category '{}' with id: {} for user: {}", 
-                savedCategory.getName(), savedCategory.getId(), categoryDTO.userId());
+        log.info("Created category '{}' (type: {}) with id: {} for user: {}", 
+                savedCategory.getName(), savedCategory.getType(), savedCategory.getId(), userId);
         
-        return categoryMapper.toDTO(savedCategory);
+        return CategoryResponse.from(savedCategory);
     }
 
     @Transactional
-    public CategoryDTO updateCategory(Integer id, CategoryDTO categoryDTO) {
-        Category category = entityFetcher.getCategoryOrThrow(id);
+    public CategoryResponse updateCategory(Integer id, CategoryUpdateRequest request, UUID userId) {
+        Category category = getCategoryOrThrowForUser(id, userId);
 
-        categoryMapper.updateEntityFromDTO(categoryDTO, category);
+        request.applyTo(category);
         
         Category updatedCategory = categoryRepository.save(category);
         
         log.info("Updated category id: {} to name: '{}', type: {}", 
-                id, categoryDTO.name(), categoryDTO.type());
+                id, request.name(), request.type());
 
-        return categoryMapper.toDTO(updatedCategory);
+        return CategoryResponse.from(updatedCategory);
     }
 
     @Transactional
-    public void deleteCategory(Integer id) {
-        Category category = entityFetcher.getCategoryOrThrow(id);
+    public void deleteCategory(Integer id, UUID userId) {
+        Category category = getCategoryOrThrowForUser(id, userId);
         
         log.info("Deleting category '{}' (id: {}) for user: {}", 
-                category.getName(), id, category.getUser().getId());
+                category.getName(), id, userId);
         
         categoryRepository.delete(category);
     }
 
-    private List<CategoryDTO> mapToDTO(List<Category> categories) {
-        return categories.stream()
-                .map(categoryMapper::toDTO)
-                .toList();
+    private Category getCategoryOrThrowForUser(Integer id, UUID userId) {
+        return categoryRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
     }
+
 }

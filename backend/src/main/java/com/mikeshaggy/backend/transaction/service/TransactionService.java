@@ -1,14 +1,18 @@
 package com.mikeshaggy.backend.transaction.service;
 
-import com.mikeshaggy.backend.common.util.EntityFetcher;
-import com.mikeshaggy.backend.wallet.service.WalletService;
 import com.mikeshaggy.backend.category.domain.Category;
+import com.mikeshaggy.backend.category.service.CategoryService;
+import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.transaction.dto.TransactionDTO;
-import com.mikeshaggy.backend.transaction.dto.TransactionMapper;
+import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
+import com.mikeshaggy.backend.wallet.service.WalletService;
+import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
+import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
+import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -24,34 +29,42 @@ import java.util.List;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final TransactionMapper transactionMapper;
     private final WalletService walletService;
-    private final EntityFetcher entityFetcher;
+    private final WalletBalanceService walletBalanceService;
+    private final CategoryService categoryService;
 
-    public List<TransactionDTO> getAllTransactions() {
-        return mapToDTO(transactionRepository.findAll());
+    public List<TransactionResponse> getTransactionsForUser(UUID userId) {
+        return transactionRepository.findAllByWalletUserId(userId).stream()
+                .map(TransactionResponse::from)
+                .toList();
     }
 
-    public List<TransactionDTO> getTransactionsByWalletId(Integer walletId) {
-        entityFetcher.validateWalletExists(walletId);
-        return mapToDTO(transactionRepository.findByWalletId(walletId));
+    public List<TransactionResponse> getTransactionsByWalletIdForUser(Integer walletId, UUID userId) {
+        walletService.getWalletEntityByIdForUser(walletId, userId);
+        
+        return transactionRepository.findByWalletIdAndWalletUserId(walletId, userId).stream()
+                .map(TransactionResponse::from)
+                .toList();
     }
 
-    public TransactionDTO getTransactionById(Long id) {
-        Transaction transaction = entityFetcher.getTransactionOrThrow(id);
-        return transactionMapper.toDTO(transaction);
+    public TransactionResponse getTransactionByIdForUser(Long id, UUID userId) {
+        Transaction transaction = getTransactionOrThrowForUser(id, userId);
+        return TransactionResponse.from(transaction);
     }
 
     @Transactional
-    public TransactionDTO createTransaction(TransactionDTO transactionDTO) {
-        Wallet wallet = entityFetcher.getWalletOrThrow(transactionDTO.walletId());
-        Category category = entityFetcher.getCategoryOrThrow(transactionDTO.categoryId());
+    public TransactionResponse createTransaction(TransactionCreateRequest request, UUID userId) {
+        Wallet wallet = walletService.getWalletEntityByIdForUser(request.walletId(), userId);
+        
+        Category category = categoryService.getCategoryEntityByIdForUser(request.categoryId(), userId);
 
-        Transaction transaction = transactionMapper.toEntity(transactionDTO);
+        validateImportance(request.importance(), category.getType());
+
+        Transaction transaction = request.toEntity();
         transaction.setWallet(wallet);
         transaction.setCategory(category);
 
-        walletService.applyTransaction(wallet.getId(), transaction.getAmount(), category.getType());
+        walletBalanceService.applyTransaction(wallet.getId(), transaction.getAmount(), category.getType(), userId);
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -59,46 +72,66 @@ public class TransactionService {
                 savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
                 savedTransaction.getAmount(), category.getType());
 
-        return transactionMapper.toDTO(savedTransaction);
+        return TransactionResponse.from(savedTransaction);
     }
 
     @Transactional
-    public TransactionDTO updateTransaction(Long id, TransactionDTO transactionDTO) {
-        Transaction existingTransaction = entityFetcher.getTransactionOrThrow(id);
+    public TransactionResponse updateTransaction(Long id, TransactionUpdateRequest request, UUID userId) {
+        Transaction existingTransaction = getTransactionOrThrowForUser(id, userId);
 
         BigDecimal oldAmount = existingTransaction.getAmount();
         Type oldType = existingTransaction.getCategory().getType();
         Wallet oldWallet = existingTransaction.getWallet();
 
-        transactionMapper.updateEntityFromDTO(transactionDTO, existingTransaction);
+        Wallet newWallet = oldWallet;
+        if (!request.walletId().equals(oldWallet.getId())) {
+            newWallet = walletService.getWalletEntityByIdForUser(request.walletId(), userId);
+        }
+
+        Category newCategory = existingTransaction.getCategory();
+        if (!request.categoryId().equals(existingTransaction.getCategory().getId())) {
+            newCategory = categoryService.getCategoryEntityByIdForUser(request.categoryId(), userId);
+        }
+
+        validateImportance(request.importance(), newCategory.getType());
+
+        request.applyTo(existingTransaction);
+        existingTransaction.setWallet(newWallet);
+        existingTransaction.setCategory(newCategory);
 
         Transaction updatedTransaction = transactionRepository.save(existingTransaction);
 
-        adjustWalletBalancesOnUpdate(oldWallet, oldAmount, oldType,
-                updatedTransaction.getWallet(),
-                updatedTransaction.getAmount(),
-                updatedTransaction.getCategory().getType());
+        adjustWalletBalancesOnUpdate(
+                oldWallet, oldAmount, oldType,
+                newWallet, updatedTransaction.getAmount(), newCategory.getType(),
+                userId
+        );
 
         log.info("Updated transaction id: {} to title: '{}', amount: {}",
                 id, updatedTransaction.getTitle(), updatedTransaction.getAmount());
 
-        return transactionMapper.toDTO(updatedTransaction);
+        return TransactionResponse.from(updatedTransaction);
     }
 
-    private void adjustWalletBalancesOnUpdate(Wallet oldWallet, BigDecimal oldAmount, Type oldType,
-                                              Wallet newWallet, BigDecimal newAmount, Type newType) {
-        walletService.reverseTransaction(oldWallet.getId(), oldAmount, oldType);
-        walletService.applyTransaction(newWallet.getId(), newAmount, newType);
+    private void adjustWalletBalancesOnUpdate(
+            Wallet oldWallet, BigDecimal oldAmount, Type oldType,
+            Wallet newWallet, BigDecimal newAmount, Type newType,
+            UUID userId) {
+        walletBalanceService.reverseTransaction(oldWallet.getId(), oldAmount, oldType, userId);
+        walletBalanceService.applyTransaction(newWallet.getId(), newAmount, newType, userId);
     }
 
     @Transactional
-    public void deleteTransaction(Long id) {
-        Transaction transaction = entityFetcher.getTransactionOrThrow(id);
+    public void deleteTransaction(Long id, UUID userId) {
+        Transaction transaction = getTransactionOrThrowForUser(id, userId);
         Wallet wallet = transaction.getWallet();
 
-        walletService.reverseTransaction(wallet.getId(),
+        walletBalanceService.reverseTransaction(
+                wallet.getId(),
                 transaction.getAmount(),
-                transaction.getCategory().getType());
+                transaction.getCategory().getType(),
+                userId
+        );
 
         log.info("Deleting transaction '{}' (id: {}) from wallet: {}, rolled back balance",
                 transaction.getTitle(), id, wallet.getId());
@@ -106,9 +139,17 @@ public class TransactionService {
         transactionRepository.delete(transaction);
     }
 
-    private List<TransactionDTO> mapToDTO(List<Transaction> transactions) {
-        return transactions.stream()
-                .map(transactionMapper::toDTO)
-                .toList();
+    private void validateImportance(Importance importance, Type categoryType) {
+        if (categoryType == Type.INCOME && importance != null) {
+            throw new IllegalArgumentException("Importance must be null for INCOME transactions");
+        }
+        if (categoryType == Type.EXPENSE && importance == null) {
+            throw new IllegalArgumentException("Importance is required for EXPENSE transactions");
+        }
+    }
+
+    private Transaction getTransactionOrThrowForUser(Long id, UUID userId) {
+        return transactionRepository.findByIdAndWalletUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
     }
 }
