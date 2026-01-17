@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useWallets } from '@/contexts/WalletContext';
-import { Wallet, Plus, Edit3, Trash2, DollarSign } from 'lucide-react';
+import { Wallet, Plus, Edit3, Trash2, DollarSign, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function WalletManagementView() {
   const { 
@@ -10,12 +10,25 @@ export default function WalletManagementView() {
     error, 
     createWallet, 
     updateWallet, 
+    updateWalletBalance,
     deleteWallet, 
-    setCurrentWallet
+    setCurrentWallet,
+    fetchWallets
   } = useWallets();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWallet, setEditingWallet] = useState(null);
+  const [balanceEditWallet, setBalanceEditWallet] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchWallets();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleWalletSelect = (wallet) => {
     setCurrentWallet(wallet);
@@ -49,6 +62,15 @@ export default function WalletManagementView() {
     }
   };
 
+  const handleUpdateBalance = async (id, newBalance) => {
+    try {
+      await updateWalletBalance(id, newBalance);
+      setBalanceEditWallet(null);
+    } catch (error) {
+      console.error('Failed to update balance:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -65,24 +87,43 @@ export default function WalletManagementView() {
           <h1 className="text-2xl font-bold text-white">Switch Wallet</h1>
           <p className="text-gray-400">Select a wallet to make it active, or manage your wallets</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Wallet
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+            title="Refresh wallets"
+          >
+            <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Wallet
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-2 rounded-lg mb-6">
-          {error}
+        <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={handleRefresh}
+            className="text-red-400 hover:text-red-300 text-sm underline"
+          >
+            Try again
+          </button>
         </div>
       )}
 
       {/* Current Wallet Display */}
       {currentWallet && (
-        <div className="bg-gradient-to-r from-violet-600 to-purple-600 rounded-xl p-6 mb-6">
+        <div className="bg-linear-to-r from-violet-600 to-purple-600 rounded-xl p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-violet-100 text-sm">Current Wallet</p>
@@ -147,11 +188,22 @@ export default function WalletManagementView() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-green-500" />
-              <span className="text-white font-bold">
-                {wallet.balance?.toLocaleString() || '0.00'} PLN
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-500" />
+                <span className="text-white font-bold">
+                  {wallet.balance?.toLocaleString() || '0.00'} PLN
+                </span>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBalanceEditWallet(wallet);
+                }}
+                className="text-xs text-gray-400 hover:text-violet-400 transition-colors"
+              >
+                Edit balance
+              </button>
             </div>
             
             {currentWallet?.id === wallet.id && (
@@ -187,6 +239,16 @@ export default function WalletManagementView() {
           wallet={editingWallet}
         />
       )}
+
+      {/* Balance Edit Modal */}
+      {balanceEditWallet && (
+        <BalanceModal
+          isOpen={true}
+          onClose={() => setBalanceEditWallet(null)}
+          onSave={(newBalance) => handleUpdateBalance(balanceEditWallet.id, newBalance)}
+          wallet={balanceEditWallet}
+        />
+      )}
     </div>
   );
 }
@@ -205,6 +267,8 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
     const newErrors = {};
     if (!formData.name.trim()) {
       newErrors.name = 'Wallet name is required';
+    } else if (formData.name.trim().length > 50) {
+      newErrors.name = 'Wallet name must be 50 characters or less';
     }
     if (formData.balance < 0) {
       newErrors.balance = 'Balance cannot be negative';
@@ -288,6 +352,82 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
               className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
             >
               {submitting ? 'Saving...' : (wallet ? 'Update' : 'Create')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BalanceModal({ isOpen, onClose, onSave, wallet }) {
+  const [balance, setBalance] = useState(wallet?.balance || 0);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const newBalance = parseFloat(balance);
+    if (isNaN(newBalance) || newBalance < 0) {
+      setError('Please enter a valid balance (0 or greater)');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+      await onSave(newBalance);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to update balance');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+        <h2 className="text-xl font-bold text-white mb-2">Update Balance</h2>
+        <p className="text-gray-400 text-sm mb-4">{wallet?.name}</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              New Balance (PLN)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={balance}
+              onChange={(e) => {
+                setBalance(e.target.value);
+                setError(null);
+              }}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-violet-500 text-white"
+              autoFocus
+            />
+            {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+            >
+              {submitting ? 'Updating...' : 'Update'}
             </button>
           </div>
         </form>

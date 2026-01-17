@@ -62,24 +62,15 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     try {
       setSubmitting(true);
       
-      console.log('Submitting category with data:', {
-        ...formData,
-        name: formData.name.trim(),
-        type: formData.type,
-        userId: 1,
-      });
-      
       await onSave({
-        ...formData,
         name: formData.name.trim(),
         type: formData.type,
-        userId: 1,
       });
       
       if (!category) {
         setFormData({
           name: '',
-          type: transactionType,
+          type: 'EXPENSE',
         });
       }
       
@@ -98,7 +89,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     if (!category) {
       setFormData({
         name: '',
-        type: transactionType,
+        type: 'EXPENSE',
       });
     }
     onClose();
@@ -193,7 +184,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-linear-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>

@@ -9,6 +9,12 @@ import TopBar from './TopBar';
 import TransactionModal from '../modals/TransactionModal';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
+const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+const isPublicRoute = (pathname) => {
+  return PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`));
+};
+
 export default function AppLayout({ children }) {
     const pathname = usePathname();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -20,6 +26,10 @@ export default function AppLayout({ children }) {
     const handleCloseModal = useCallback(() => {
         setShowTransactionModal(false);
     }, []);
+
+    if (isPublicRoute(pathname)) {
+        return children;
+    }
 
     const globalState = {
         showTransactionModal

@@ -2,130 +2,424 @@ import { checkBackendHealth } from './backendHealth';
 
 export { checkBackendHealth };
 
-async function apiRequest(endpoint, options = {}) {
-  const url = `${endpoint}`;
-  
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  };
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/proxy';
+
+const sessionState = {
+  refreshPromise: null,
+  authChangeListeners: new Set(),
+  isAuthenticated: null,
+};
+
+export const onAuthStateChange = (listener) => {
+  sessionState.authChangeListeners.add(listener);
+  return () => sessionState.authChangeListeners.delete(listener);
+};
+
+const notifyAuthStateChange = (isAuthenticated) => {
+  if (sessionState.isAuthenticated !== isAuthenticated) {
+    sessionState.isAuthenticated = isAuthenticated;
+    sessionState.authChangeListeners.forEach(listener => {
+      try {
+        listener(isAuthenticated);
+      } catch (error) {
+        console.error('Auth state listener error:', error);
+      }
+    });
+  }
+};
+
+export const markAuthenticated = () => {
+  notifyAuthStateChange(true);
+};
+
+export const markUnauthenticated = () => {
+  notifyAuthStateChange(false);
+};
+
+export const getAuthState = () => sessionState.isAuthenticated;
+
+const attemptTokenRefresh = async () => {
+  if (sessionState.refreshPromise) {
+    return sessionState.refreshPromise;
+  }
+
+  sessionState.refreshPromise = performTokenRefresh();
 
   try {
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `HTTP error! status: ${response.status}`;
-      
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
-      }
-      
-      throw new Error(errorMessage);
+    const result = await sessionState.refreshPromise;
+    return result;
+  } finally {
+    sessionState.refreshPromise = null;
+  }
+};
+
+const performTokenRefresh = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      notifyAuthStateChange(true);
+      return true;
     }
-    
-    if (response.status === 204) {
-      return null;
-    }
-    
-    return await response.json();
+
+    notifyAuthStateChange(false);
+    return false;
   } catch (error) {
-    console.error('API request failed:', error);
-    throw error;
+    console.error('Token refresh failed:', error);
+    notifyAuthStateChange(false);
+    return false;
+  }
+};
+
+export class ApiError extends Error {
+  constructor(status, message, details = null, code = null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.details = details;
+    this.code = code;
+    this.isApiError = true;
+  }
+
+  get isUnauthorized() {
+    return this.status === 401;
+  }
+
+  get isForbidden() {
+    return this.status === 403;
+  }
+
+  get isNotFound() {
+    return this.status === 404;
+  }
+
+  get isValidationError() {
+    return this.status === 400;
+  }
+
+  get isServerError() {
+    return this.status >= 500;
   }
 }
 
-export const userApi = {
-  getAllUsers: () => apiRequest('/api/users'),
-  getUserById: (id) => apiRequest(`/api/users/${id}`),
-  getUserByUsername: (username) => apiRequest(`/api/users/username/${username}`),
-  createUser: (userData) => apiRequest('/api/users', {
-    method: 'POST',
-    body: JSON.stringify(userData),
-  }),
-  updateUser: (id, userData) => apiRequest(`/api/users/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(userData),
-  }),
-  deleteUser: (id) => apiRequest(`/api/users/${id}`, {
-    method: 'DELETE',
-  }),
+function safeParseJson(text) {
+  if (!text || text.trim() === '') {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function parseErrorResponse(response) {
+  let message = `HTTP error! status: ${response.status}`;
+  let details = null;
+  let code = null;
+
+  try {
+    const text = await response.text();
+    const json = safeParseJson(text);
+
+    if (json) {
+      message = json.message || json.error || json.title || message;
+      details = json.details || json.errors || null;
+      code = json.code || json.errorCode || null;
+    } else if (text) {
+      message = text;
+    }
+  } catch {
+
+  }
+
+  return { message, details, code };
+}
+
+async function parseSuccessResponse(response) {
+  if (response.status === 204) {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type');
+  
+  if (contentType && contentType.includes('application/json')) {
+    const text = await response.text();
+    return safeParseJson(text);
+  }
+
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return null;
+  }
+
+  const json = safeParseJson(text);
+  if (json !== null) {
+    return json;
+  }
+
+  return text;
+}
+
+const NO_AUTO_REFRESH_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
+
+const shouldSkipAutoRefresh = (endpoint) => {
+  return NO_AUTO_REFRESH_ENDPOINTS.some(skip => endpoint.startsWith(skip));
 };
 
-export const categoryApi = {
-  getAllCategories: () => apiRequest('/api/categories'),
-  getCategoryById: (id) => apiRequest(`/api/categories/${id}`),
-  getCategoriesByUserId: (userId) => apiRequest(`/api/categories/user/${userId}`),
-  getCategoriesByUserIdAndType: (userId, type) => apiRequest(`/api/categories/user/${userId}/type/${type}`),
-  createCategory: (categoryData) => apiRequest('/api/categories', {
-    method: 'POST',
-    body: JSON.stringify(categoryData),
-  }),
-  updateCategory: (id, categoryData) => apiRequest(`/api/categories/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(categoryData),
-  }),
-  deleteCategory: (id) => apiRequest(`/api/categories/${id}`, {
-    method: 'DELETE',
-  }),
+const executeFetch = async (url, config) => {
+  const response = await fetch(url, config);
+  return response;
+};
+
+async function apiRequest(endpoint, options = {}) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const {
+    headers: customHeaders = {},
+    body,
+    skipJsonBody = false,
+    _isRetry = false,
+    ...restOptions
+  } = options;
+
+  const headers = {
+    'Accept': 'application/json',
+    ...customHeaders,
+  };
+
+  if (body !== undefined && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const config = {
+    ...restOptions,
+    headers,
+    credentials: 'include',
+  };
+
+  let processedBody;
+  if (body !== undefined) {
+    if (skipJsonBody || typeof body === 'string') {
+      processedBody = body;
+    } else {
+      processedBody = JSON.stringify(body);
+    }
+    config.body = processedBody;
+  }
+
+  try {
+    const response = await executeFetch(url, config);
+
+    if (!response.ok) {
+      const { message, details, code } = await parseErrorResponse(response);
+      
+      if (response.status === 401 && !_isRetry && !shouldSkipAutoRefresh(endpoint)) {
+        const refreshSucceeded = await attemptTokenRefresh();
+        
+        if (refreshSucceeded) {
+          return apiRequest(endpoint, {
+            ...options,
+            _isRetry: true,
+          });
+        }
+
+      }
+      
+      if (response.status !== 401 && response.status !== 403) {
+        // Non-auth errors don't affect auth state
+      }
+      
+      throw new ApiError(response.status, message, details, code);
+    }
+
+    if (!shouldSkipAutoRefresh(endpoint)) {
+      notifyAuthStateChange(true);
+    }
+
+    return await parseSuccessResponse(response);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    console.error('API request failed:', error);
+    throw new ApiError(
+      0,
+      error.message || 'Network error - please check your connection',
+      null,
+      'NETWORK_ERROR'
+    );
+  }
+}
+
+export const get = (endpoint, options = {}) => 
+  apiRequest(endpoint, { ...options, method: 'GET' });
+
+export const post = (endpoint, body, options = {}) => 
+  apiRequest(endpoint, { ...options, method: 'POST', body });
+
+export const put = (endpoint, body, options = {}) => 
+  apiRequest(endpoint, { ...options, method: 'PUT', body });
+
+export const patch = (endpoint, body, options = {}) => 
+  apiRequest(endpoint, { ...options, method: 'PATCH', body });
+
+export const del = (endpoint, options = {}) => 
+  apiRequest(endpoint, { ...options, method: 'DELETE' });
+
+// =============================================================================
+// Authentication API
+// =============================================================================
+
+export const authApi = {
+  register: (data) => post('/auth/register', data),
+
+  login: async (data) => {
+    const result = await post('/auth/login', data);
+    markAuthenticated();
+    return result;
+  },
+
+  logout: async () => {
+    try {
+      const result = await post('/auth/logout');
+      markUnauthenticated();
+      return result;
+    } catch (error) {
+      markUnauthenticated();
+      throw error;
+    }
+  },
+
+  refresh: async () => {
+    const result = await post('/auth/refresh');
+    markAuthenticated();
+    return result;
+  },
+
+  forgotPassword: (data) => post('/auth/forgot-password', data),
+
+  resetPassword: (data) => post('/auth/reset-password', data),
+
+  changePassword: async (data) => {
+    const result = await post('/auth/change-password', data);
+    markUnauthenticated();
+    return result;
+  },
+};
+
+export const meApi = {
+  getCurrentUser: () => get('/me'),
+
+  updateCurrentUser: (data) => patch('/me', data),
+
+  deleteCurrentUser: () => del('/me'),
 };
 
 export const walletApi = {
-  getAllWallets: () => apiRequest('/api/wallets'),
-  getWalletById: (id) => apiRequest(`/api/wallets/${id}`),
-  getWalletsByUserId: (userId) => apiRequest(`/api/wallets/user/${userId}`),
-  createWallet: (walletData) => apiRequest('/api/wallets', {
-    method: 'POST',
-    body: JSON.stringify(walletData),
-  }),
-  updateWallet: (id, walletData) => apiRequest(`/api/wallets/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(walletData),
-  }),
-  updateWalletBalance: (id, newBalance) => apiRequest(`/api/wallets/${id}/balance`, {
-    method: 'PATCH',
-    body: JSON.stringify(newBalance),
-  }),
-  deleteWallet: (id) => apiRequest(`/api/wallets/${id}`, {
-    method: 'DELETE',
-  }),
+  getAllWallets: () => get('/wallets'),
+
+  getWalletById: (id) => get(`/wallets/${id}`),
+
+  createWallet: (walletData) => post('/wallets', walletData),
+
+  updateWallet: (id, walletData) => put(`/wallets/${id}`, walletData),
+
+  updateWalletBalance: (id, newBalance) => patch(`/wallets/${id}/balance`, newBalance),
+
+  deleteWallet: (id) => del(`/wallets/${id}`),
+};
+
+export const categoryApi = {
+  getAllCategories: (type) => {
+    const endpoint = type ? `/categories?type=${type}` : '/categories';
+    return get(endpoint);
+  },
+
+  getCategoryById: (id) => get(`/categories/${id}`),
+
+  createCategory: (categoryData) => post('/categories', categoryData),
+
+  updateCategory: (id, categoryData) => put(`/categories/${id}`, categoryData),
+
+  deleteCategory: (id) => del(`/categories/${id}`),
 };
 
 export const transactionApi = {
-  getAllTransactions: () => apiRequest('/api/transactions'),
-  getTransactionById: (id) => apiRequest(`/api/transactions/${id}`),
-  getTransactionsByWalletId: (walletId) => apiRequest(`/api/transactions/wallet/${walletId}`),
-  createTransaction: (transactionData) => apiRequest('/api/transactions', {
-    method: 'POST',
-    body: JSON.stringify(transactionData),
-  }),
-  updateTransaction: (id, transactionData) => apiRequest(`/api/transactions/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(transactionData),
-  }),
-  deleteTransaction: (id) => apiRequest(`/api/transactions/${id}`, {
-    method: 'DELETE',
-  }),
+  getAllTransactions: () => get('/transactions'),
+
+  getTransactionById: (id) => get(`/transactions/${id}`),
+
+  getTransactionsByWalletId: (walletId) => get(`/transactions/wallet/${walletId}`),
+
+  createTransaction: (transactionData) => post('/transactions', transactionData),
+
+  updateTransaction: (id, transactionData) => put(`/transactions/${id}`, transactionData),
+
+  deleteTransaction: (id) => del(`/transactions/${id}`),
+};
+
+export const csvImportApi = {
+  importCsv: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return apiRequest('/csv-import/csv', {
+      method: 'POST',
+      body: formData,
+      skipJsonBody: true,
+      headers: {
+      },
+    });
+  },
 };
 
 export const dashboardApi = {
-  getUserDashboardData: async (userId) => {
+  getWalletDashboardData: async (walletId) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    
     try {
-      const wallets = await walletApi.getWalletsByUserId(userId);
+      const [transactions, wallet] = await Promise.all([
+        transactionApi.getTransactionsByWalletId(walletId),
+        walletApi.getWalletById(walletId),
+      ]);
+      
+      const categories = await categoryApi.getAllCategories();
+      
+      return { transactions, categories, wallet };
+    } catch (error) {
+      console.error('Failed to fetch wallet dashboard data:', error);
+      throw error;
+    }
+  },
+
+  getAuthenticatedDashboardData: async () => {
+    try {
+      const wallets = await walletApi.getAllWallets();
       
       if (!wallets || wallets.length === 0) {
         return { transactions: [], categories: [], wallets: [] };
       }
 
       const [allCategories, ...transactionsByWallet] = await Promise.all([
-        categoryApi.getCategoriesByUserId(userId),
+        categoryApi.getAllCategories(),
         ...wallets.map(wallet => transactionApi.getTransactionsByWalletId(wallet.id))
       ]);
       
@@ -137,30 +431,8 @@ export const dashboardApi = {
         wallets 
       };
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      throw error;
-    }
-  },
-  
-  getWalletDashboardData: async (walletId) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new Error('Invalid walletId provided: ' + walletId);
-    }
-    
-    try {
-      const [transactions, wallet] = await Promise.all([
-        transactionApi.getTransactionsByWalletId(walletId),
-        walletApi.getWalletById(walletId),
-      ]);
-      
-      const categories = await categoryApi.getCategoriesByUserId(wallet.userId);
-      
-      return { transactions, categories, wallet };
-    } catch (error) {
-      console.error('Failed to fetch wallet dashboard data:', error);
+      console.error('Failed to fetch authenticated dashboard data:', error);
       throw error;
     }
   },
 };
-
-

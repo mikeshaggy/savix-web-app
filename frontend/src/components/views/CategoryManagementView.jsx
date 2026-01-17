@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Tag, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Tag, AlertCircle, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import { useUser } from '@/contexts/UserContext';
@@ -8,21 +8,32 @@ import { Loading } from '@/components/common/Loading';
 
 export default function CategoryManagementView() {
   const { currentWallet } = useWallets();
-  const { currentUser } = useUser();
-  const { categories, loading, error, createCategory, updateCategory, deleteCategory } = useCategories(currentUser.id);
+  const { user } = useUser();
+  const { categories, loading, error, createCategory, updateCategory, deleteCategory, refetch } = useCategories();
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filteredCategories = categories.filter(category => {
     if (typeFilter === 'ALL') return true;
     return category.type === typeFilter;
   });
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleCreateCategory = async (categoryData) => {
     try {
-      await createCategory(categoryData, currentUser.id);
+      // No userId needed - backend uses auth token
+      await createCategory(categoryData);
       setShowModal(false);
     } catch (error) {
       console.error('Failed to create category:', error);
@@ -90,8 +101,15 @@ export default function CategoryManagementView() {
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Backend not available</h2>
-          <p className="text-gray-400">{error}</p>
+          <h2 className="text-xl font-semibold mb-2">Failed to load categories</h2>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -114,13 +132,23 @@ export default function CategoryManagementView() {
           </p>
         </div>
         {currentWallet && (
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Category
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              title="Refresh categories"
+            >
+              <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={openCreateModal}
+              className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Category
+            </button>
+          </div>
         )}
       </div>
 

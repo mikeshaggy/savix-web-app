@@ -20,10 +20,12 @@ const CYCLE_OPTIONS = [
   { value: 'IRREGULAR', label: 'Irregular' },
 ];
 
-export default function TransactionModal({ isOpen, onClose, onSave, categories, loading = false }) {
+export default function TransactionModal({ isOpen, onClose, onSave, categories, loading = false, transaction = null }) {
   const { currentWallet, wallets } = useWallets();
-  const { currentUser } = useUser();
-  const { createCategory } = useCategories(currentUser.id);
+  const { user } = useUser();
+  const { createCategory } = useCategories();
+  
+  const isEditing = !!transaction;
   
   const [formData, setFormData] = useState({
     title: '',
@@ -40,6 +42,33 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
   const [submitting, setSubmitting] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [localCategories, setLocalCategories] = useState(categories || []);
+
+  React.useEffect(() => {
+    if (transaction) {
+      setFormData({
+        title: transaction.title || '',
+        amount: transaction.amount?.toString() || '',
+        transactionDate: transaction.transactionDate || new Date().toISOString().split('T')[0],
+        walletId: transaction.walletId?.toString() || currentWallet?.id?.toString() || '',
+        categoryId: transaction.categoryId?.toString() || '',
+        notes: transaction.notes || '',
+        importance: transaction.importance || 'ESSENTIAL',
+        cycle: transaction.cycle || 'ONE_TIME',
+      });
+    } else {
+      setFormData({
+        title: '',
+        amount: '',
+        transactionDate: new Date().toISOString().split('T')[0],
+        walletId: currentWallet?.id?.toString() || '',
+        categoryId: '',
+        notes: '',
+        importance: 'ESSENTIAL',
+        cycle: 'ONE_TIME',
+      });
+    }
+    setErrors({});
+  }, [transaction, currentWallet?.id]);
 
   React.useEffect(() => {
     setLocalCategories(categories || []);
@@ -73,7 +102,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
 
   const handleCreateCategory = async (categoryData) => {
     try {
-      const newCategory = await createCategory(categoryData, currentUser.id);
+      const newCategory = await createCategory(categoryData);
       setLocalCategories(prev => [...prev, newCategory]);
       setFormData(prev => ({ ...prev, categoryId: newCategory.id.toString() }));
       setShowCategoryModal(false);
@@ -89,10 +118,13 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
 
     if (!formData.title.trim()) {
       newErrors.title = 'Title is required';
+    } else if (formData.title.trim().length > 50) {
+      newErrors.title = 'Title must be 50 characters or less';
     }
 
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Amount must be greater than 0';
+    const amount = parseFloat(formData.amount);
+    if (!formData.amount || isNaN(amount) || amount < 0.01) {
+      newErrors.amount = 'Amount must be at least 0.01';
     }
 
     if (!formData.walletId) {
@@ -105,6 +137,10 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
 
     if (!formData.transactionDate) {
       newErrors.transactionDate = 'Date is required';
+    }
+
+    if (!formData.cycle) {
+      newErrors.cycle = 'Cycle is required';
     }
 
     if (selectedCategory?.type === 'EXPENSE' && !formData.importance) {
@@ -124,28 +160,39 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
 
     try {
       setSubmitting(true);
-      await onSave({
-        ...formData,
+      
+      const transactionData = {
+        title: formData.title.trim(),
         amount: parseFloat(formData.amount),
+        transactionDate: formData.transactionDate,
         walletId: parseInt(formData.walletId),
         categoryId: parseInt(formData.categoryId),
+        notes: formData.notes?.trim() || undefined,
         importance: selectedCategory?.type === 'INCOME' ? undefined : formData.importance,
-      });
+        cycle: formData.cycle,
+      };
       
-      setFormData({
-        title: '',
-        amount: '',
-        transactionDate: new Date().toISOString().split('T')[0],
-        walletId: currentWallet?.id || '',
-        categoryId: '',
-        notes: '',
-        importance: 'ESSENTIAL',
-        cycle: 'ONE_TIME',
-      });
+      await onSave(transactionData, isEditing ? transaction.id : null);
+      
+      if (!isEditing) {
+        setFormData({
+          title: '',
+          amount: '',
+          transactionDate: new Date().toISOString().split('T')[0],
+          walletId: currentWallet?.id?.toString() || '',
+          categoryId: '',
+          notes: '',
+          importance: 'ESSENTIAL',
+          cycle: 'ONE_TIME',
+        });
+      }
       setErrors({});
       onClose();
     } catch (error) {
       console.error('Failed to save transaction:', error);
+      if (error.message) {
+        setErrors(prev => ({ ...prev, submit: error.message }));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -157,7 +204,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">Add New Transaction</h2>
+          <h2 className="text-xl font-semibold">{isEditing ? 'Edit Transaction' : 'Add New Transaction'}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
@@ -165,6 +212,12 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {errors.submit && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+            <p className="text-red-400 text-sm">{errors.submit}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
@@ -377,7 +430,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-linear-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>
@@ -387,7 +440,7 @@ export default function TransactionModal({ isOpen, onClose, onSave, categories, 
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Save Transaction
+                  {isEditing ? 'Update Transaction' : 'Save Transaction'}
                 </>
               )}
             </button>

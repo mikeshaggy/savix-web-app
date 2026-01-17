@@ -1,15 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Bell, User, Wallet, ChevronDown, Check } from 'lucide-react';
+import { RefreshCw, Bell, User, Wallet, ChevronDown, Check, LogOut, Settings } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
+import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'next/navigation';
 
 export default function TopBar({ 
     onRefresh 
 }) {
     const { currentWallet, wallets, setCurrentWallet } = useWallets();
+    const { user, logout } = useUser();
     const router = useRouter();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const dropdownRef = useRef(null);
+    const userMenuRef = useRef(null);
 
     const handleWalletSwitch = () => {
         router.push('/wallets');
@@ -20,10 +25,26 @@ export default function TopBar({
         setIsDropdownOpen(false);
     };
 
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await logout();
+            router.replace('/login');
+        } catch (error) {
+            console.error('Logout failed:', error);
+            router.replace('/login');
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsDropdownOpen(false);
+            }
+            if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+                setIsUserMenuOpen(false);
             }
         };
 
@@ -118,9 +139,62 @@ export default function TopBar({
                     <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
                         <Bell className="w-5 h-5 text-gray-400" />
                     </button>
-                    <button className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
-                        <User className="w-5 h-5 text-gray-400" />
-                    </button>
+                    
+                    {/* User Menu */}
+                    <div className="relative" ref={userMenuRef}>
+                        <button 
+                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                            className="flex items-center gap-2 p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                        >
+                            <User className="w-5 h-5 text-gray-400" />
+                            {user && (
+                                <span className="text-sm text-gray-300 hidden sm:inline">
+                                    {user.username || user.email}
+                                </span>
+                            )}
+                            <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${
+                                isUserMenuOpen ? 'rotate-180' : ''
+                            }`} />
+                        </button>
+
+                        {/* User Dropdown Menu */}
+                        {isUserMenuOpen && (
+                            <div className="absolute top-full right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+                                <div className="p-2">
+                                    {user && (
+                                        <div className="px-3 py-2 border-b border-gray-700 mb-2">
+                                            <div className="text-sm font-medium text-white truncate">
+                                                {user.username}
+                                            </div>
+                                            <div className="text-xs text-gray-400 truncate">
+                                                {user.email}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    <button
+                                        onClick={() => {
+                                            router.push('/settings');
+                                            setIsUserMenuOpen(false);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-700 text-gray-300 text-sm"
+                                    >
+                                        <Settings className="w-4 h-4" />
+                                        Settings
+                                    </button>
+                                    
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-red-500/20 text-red-400 text-sm disabled:opacity-50"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

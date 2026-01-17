@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus, Receipt } from 'lucide-react';
+import { Wallet, Plus, Receipt, AlertTriangle, X } from 'lucide-react';
 import TransactionsView from '@/components/views/TransactionsView';
 import TransactionModal from '@/components/modals/TransactionModal';
 import { useWallets } from '@/contexts/WalletContext';
@@ -18,10 +18,15 @@ export default function TransactionsPage() {
         categories, 
         dashboardLoading, 
         dashboardError,
-        onCreateTransaction 
+        onCreateTransaction,
+        onUpdateTransaction,
+        onDeleteTransaction
     } = useAppContext();
     const router = useRouter();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     const [typeFilter, setTypeFilter] = useState('ALL');
     const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -51,17 +56,51 @@ export default function TransactionsPage() {
     });
 
     const handleNewTransaction = () => {
+        setEditingTransaction(null);
         setShowTransactionModal(true);
     };
 
-    const handleSaveTransaction = async (transactionData) => {
+    const handleEditTransaction = (transaction) => {
+        setEditingTransaction(transaction);
+        setShowTransactionModal(true);
+    };
+
+    const handleSaveTransaction = async (transactionData, transactionId) => {
         try {
-            await onCreateTransaction(transactionData);
+            if (transactionId) {
+                await onUpdateTransaction(transactionId, transactionData);
+            } else {
+                await onCreateTransaction(transactionData);
+            }
             setShowTransactionModal(false);
+            setEditingTransaction(null);
         } catch (error) {
-            console.error('Failed to create transaction:', error);
+            console.error('Failed to save transaction:', error);
             throw error;
         }
+    };
+
+    const handleDeleteClick = (transaction) => {
+        setDeleteConfirm(transaction);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteConfirm) return;
+        
+        try {
+            setDeleteLoading(true);
+            await onDeleteTransaction(deleteConfirm.id);
+            setDeleteConfirm(null);
+        } catch (error) {
+            console.error('Failed to delete transaction:', error);
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setShowTransactionModal(false);
+        setEditingTransaction(null);
     };
 
     if (walletsLoading) {
@@ -180,16 +219,53 @@ export default function TransactionsPage() {
                 setSortOrder={setSortOrder}
                 filterStats={filterStats}
                 onNewTransaction={handleNewTransaction}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={handleDeleteClick}
             />
 
             {/* Transaction Modal */}
             {showTransactionModal && (
                 <TransactionModal
                     isOpen={showTransactionModal}
-                    onClose={() => setShowTransactionModal(false)}
+                    onClose={handleCloseModal}
                     onSave={handleSaveTransaction}
                     categories={categories || []}
+                    transaction={editingTransaction}
                 />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 w-full max-w-md">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-500/20 rounded-lg">
+                                <AlertTriangle className="w-6 h-6 text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold">Delete Transaction</h3>
+                        </div>
+                        <p className="text-gray-400 mb-6">
+                            Are you sure you want to delete "<span className="text-white">{deleteConfirm.title}</span>"? 
+                            This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                disabled={deleteLoading}
+                                className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmDelete}
+                                disabled={deleteLoading}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {deleteLoading ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

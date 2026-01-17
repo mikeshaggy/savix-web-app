@@ -16,7 +16,7 @@ export const useAppContext = () => {
 
 export const AppProvider = ({ children, globalState, globalActions }) => {
     const { currentWallet } = useWallets();
-    const { currentUser } = useUser();
+    const { user, isAuthenticated, isLoading: userLoading } = useUser();
     
     const { 
         data: dashboardData, 
@@ -29,7 +29,7 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         categories, 
         loading: categoriesLoading, 
         error: categoriesError
-    } = useCategories(currentUser.id);
+    } = useCategories(user?.id);
 
     const transactions = useMemo(() => 
         dashboardData?.transactions || [], 
@@ -37,8 +37,8 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
     );
 
     const isLoading = useMemo(() => 
-        dashboardLoading || categoriesLoading, 
-        [dashboardLoading, categoriesLoading]
+        userLoading || dashboardLoading || categoriesLoading, 
+        [userLoading, dashboardLoading, categoriesLoading]
     );
 
     const hasError = useMemo(() => 
@@ -57,11 +57,37 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         }
     }, [refetchDashboard]);
 
+    const handleUpdateTransaction = useCallback(async (id, transactionData) => {
+        try {
+            const { transactionApi } = await import('../lib/api');
+            await transactionApi.updateTransaction(id, transactionData);
+            refetchDashboard();
+        } catch (error) {
+            console.error('Failed to update transaction:', error);
+            throw error;
+        }
+    }, [refetchDashboard]);
+
+    const handleDeleteTransaction = useCallback(async (id) => {
+        try {
+            const { transactionApi } = await import('../lib/api');
+            await transactionApi.deleteTransaction(id);
+            refetchDashboard();
+        } catch (error) {
+            console.error('Failed to delete transaction:', error);
+            throw error;
+        }
+    }, [refetchDashboard]);
+
     const handleRefresh = useCallback(() => {
         refetchDashboard();
     }, [refetchDashboard]);
 
     const contextValue = useMemo(() => ({
+        user,
+        isAuthenticated,
+        userLoading,
+        
         dashboardData: dashboardData || {},
         allTransactions: transactions,
         transactions,
@@ -76,12 +102,17 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         categoriesError,
         
         onCreateTransaction: handleCreateTransaction,
+        onUpdateTransaction: handleUpdateTransaction,
+        onDeleteTransaction: handleDeleteTransaction,
         onRefresh: handleRefresh,
         
         ...globalState,
         
         ...globalActions
     }), [
+        user,
+        isAuthenticated,
+        userLoading,
         dashboardData,
         transactions,
         categories,
@@ -92,6 +123,8 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         dashboardError,
         categoriesError,
         handleCreateTransaction,
+        handleUpdateTransaction,
+        handleDeleteTransaction,
         handleRefresh,
         globalState,
         globalActions

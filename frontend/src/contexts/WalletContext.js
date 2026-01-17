@@ -1,6 +1,7 @@
 'use client';
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { walletApi, checkBackendHealth } from '@/lib/api';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { walletApi, checkBackendHealth, onAuthStateChange } from '@/lib/api';
+import { useUser } from './UserContext';
 
 const WalletContext = createContext();
 
@@ -9,6 +10,7 @@ const initialState = {
   currentWallet: null,
   loading: false,
   error: null,
+  initialized: false,
 };
 
 const CURRENT_WALLET_KEY = 'savix_current_wallet_id';
@@ -92,58 +94,60 @@ const walletReducer = (state, action) => {
         wallets: remainingWallets,
         currentWallet: newCurrentWallet,
       };
+    case 'RESET':
+      return {
+        ...initialState,
+        initialized: false,
+      };
+    case 'SET_INITIALIZED':
+      return { ...state, initialized: action.payload };
     default:
       return state;
   }
 };
 
-export const WalletProvider = ({ children, userId = 1 }) => {
+export const WalletProvider = ({ children }) => {
   const [state, dispatch] = useReducer(walletReducer, initialState);
+  const { isAuthenticated, isLoading: userLoading } = useUser();
 
-  const fetchWallets = async () => {
-    let cancelled = false;
-    
+  const fetchWallets = useCallback(async () => {
+    if (!isAuthenticated) {
+      dispatch({ type: 'SET_WALLETS', payload: [] });
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
+      return;
+    }
+
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
     
     try {
       const backendAvailable = await checkBackendHealth();
       
-      if (cancelled) return;
-      
       if (!backendAvailable) {
         throw new Error('Backend not available');
       }
 
-      const wallets = await walletApi.getWalletsByUserId(userId);
-      
-      if (cancelled) return;
+      const wallets = await walletApi.getAllWallets();
     
       dispatch({ type: 'SET_WALLETS', payload: wallets || [] });
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
     } catch (error) {
-      if (!cancelled) {
-        console.error('Failed to fetch wallets:', error);
-        
-        if (error.message && error.message.includes('not found')) {
-          dispatch({ type: 'SET_WALLETS', payload: [] });
-          dispatch({ type: 'SET_ERROR', payload: null });
-        } else {
-          dispatch({ type: 'SET_ERROR', payload: error.message });
-          dispatch({ type: 'SET_WALLETS', payload: [] });
-        }
+      console.error('Failed to fetch wallets:', error);
+      
+      if (error.message && error.message.includes('not found')) {
+        dispatch({ type: 'SET_WALLETS', payload: [] });
+        dispatch({ type: 'SET_ERROR', payload: null });
+      } else {
+        dispatch({ type: 'SET_ERROR', payload: error.message });
+        dispatch({ type: 'SET_WALLETS', payload: [] });
       }
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
     } finally {
-      if (!cancelled) {
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-    
-    return () => {
-      cancelled = true;
-    };
-  };
+  }, [isAuthenticated]);
 
-  const createWallet = async (walletData) => {
+  const createWallet = useCallback(async (walletData) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
       const backendAvailable = await checkBackendHealth();
@@ -152,16 +156,16 @@ export const WalletProvider = ({ children, userId = 1 }) => {
         throw new Error('Backend not available');
       }
 
-      const newWallet = await walletApi.createWallet({ ...walletData, userId });
+      const newWallet = await walletApi.createWallet(walletData);
       dispatch({ type: 'ADD_WALLET', payload: newWallet });
       return newWallet;
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  const updateWallet = async (id, walletData) => {
+  const updateWallet = useCallback(async (id, walletData) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
       const backendAvailable = await checkBackendHealth();
@@ -177,9 +181,27 @@ export const WalletProvider = ({ children, userId = 1 }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  const deleteWallet = async (id) => {
+  const updateWalletBalance = useCallback(async (id, newBalance) => {
+    try {
+      dispatch({ type: 'SET_ERROR', payload: null });
+      const backendAvailable = await checkBackendHealth();
+      
+      if (!backendAvailable) {
+        throw new Error('Backend not available');
+      }
+
+      const updatedWallet = await walletApi.updateWalletBalance(id, newBalance);
+      dispatch({ type: 'UPDATE_WALLET', payload: updatedWallet });
+      return updatedWallet;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+
+  const deleteWallet = useCallback(async (id) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
       const backendAvailable = await checkBackendHealth();
@@ -194,34 +216,47 @@ export const WalletProvider = ({ children, userId = 1 }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message });
       throw error;
     }
-  };
+  }, []);
 
-  const setCurrentWallet = (wallet) => {
+  const setCurrentWallet = useCallback((wallet) => {
     dispatch({ type: 'SET_CURRENT_WALLET', payload: wallet });
-  };
+  }, []);
+
+  const resetWallets = useCallback(() => {
+    dispatch({ type: 'RESET' });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    
-    const loadWallets = async () => {
-      await fetchWallets();
-      if (cancelled) return;
-    };
-    
-    loadWallets();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+    if (userLoading) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      fetchWallets();
+    } else {
+      resetWallets();
+    }
+  }, [isAuthenticated, userLoading, fetchWallets, resetWallets]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((authenticated) => {
+      if (!authenticated) {
+        resetWallets();
+      }
+    });
+
+    return unsubscribe;
+  }, [resetWallets]);
 
   const value = {
     ...state,
     fetchWallets,
     createWallet,
     updateWallet,
+    updateWalletBalance,
     deleteWallet,
     setCurrentWallet,
+    resetWallets,
   };
 
   return (

@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
+import ProtectedRoute from "@/components/common/ProtectedRoute";
 import { UserProvider } from "@/contexts/UserContext";
 import { WalletProvider } from "@/contexts/WalletContext";
 
@@ -28,11 +29,13 @@ export default function RootLayout({ children }) {
       >
         <ErrorBoundary>
           <UserProvider>
-            <WalletProvider>
-              <AppLayout>
-                {children}
-              </AppLayout>
-            </WalletProvider>
+            <ProtectedRoute>
+              <WalletProvider>
+                <AppLayout>
+                  {children}
+                </AppLayout>
+              </WalletProvider>
+            </ProtectedRoute>
           </UserProvider>
         </ErrorBoundary>
       </body>

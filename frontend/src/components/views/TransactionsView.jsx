@@ -26,7 +26,9 @@ export default function TransactionsView({
     setSortBy,
     sortOrder,
     setSortOrder,
-    onNewTransaction
+    onNewTransaction,
+    onEditTransaction,
+    onDeleteTransaction
 }) {
     return (
         <div className="space-y-6">
@@ -82,6 +84,8 @@ export default function TransactionsView({
                 categoryFilter={categoryFilter}
                 importanceFilter={importanceFilter}
                 dateFilter={dateFilter}
+                onEdit={onEditTransaction}
+                onDelete={onDeleteTransaction}
             />
 
             {/* Transaction Stats Summary */}

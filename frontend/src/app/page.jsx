@@ -1,20 +1,26 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useUser } from '@/contexts/UserContext';
+import { PageLoading } from '@/components/common/Loading';
 
 export default function HomePage() {
   const router = useRouter();
+  const { isLoading, isAuthenticated } = useUser();
   
   useEffect(() => {
-    router.push('/dashboard');
-  }, [router]);
+    // Wait for auth check to complete
+    if (isLoading) return;
+    
+    if (isAuthenticated) {
+      // Authenticated users go to dashboard
+      router.replace('/dashboard');
+    } else {
+      // Unauthenticated users go to login
+      router.replace('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">ExpenseTracker</h1>
-        <p className="text-gray-400">Redirecting to dashboard...</p>
-      </div>
-    </div>
-  );
+  // Show loading while checking auth
+  return <PageLoading message="Loading..." />;
 }

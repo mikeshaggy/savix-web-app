@@ -1,5 +1,5 @@
  import { useState, useEffect, useCallback, useRef } from 'react';
-import { dashboardApi, transactionApi, categoryApi, checkBackendHealth } from '@/lib/api';
+import { dashboardApi, transactionApi, categoryApi, checkBackendHealth, onAuthStateChange, getAuthState } from '@/lib/api';
 
 export const useDashboard = (walletId = null) => {
   const [data, setData] = useState({
@@ -93,24 +93,29 @@ export const useDashboard = (walletId = null) => {
 export const useTransactions = (walletId = null) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const fetchedWalletIdRef = useRef(null);
 
-  const fetchTransactions = useCallback(async () => {
+  const fetchTransactions = useCallback(async (forceRefresh = false) => {
     if (!walletId) {
       setTransactions([]);
       fetchedWalletIdRef.current = null;
       return;
     }
 
-    if (fetchedWalletIdRef.current === walletId && transactions.length > 0) {
+    if (!forceRefresh && fetchedWalletIdRef.current === walletId && transactions.length > 0) {
       return;
     }
 
     let cancelled = false;
 
     try {
-      setLoading(true);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
       const backendAvailable = await checkBackendHealth();
@@ -135,6 +140,7 @@ export const useTransactions = (walletId = null) => {
     } finally {
       if (!cancelled) {
         setLoading(false);
+        setIsRefreshing(false);
       }
     }
 
@@ -144,7 +150,6 @@ export const useTransactions = (walletId = null) => {
   }, [walletId]);
 
   const createTransaction = useCallback(async (transactionData) => {
-    // Don't create if no walletId is provided
     if (!walletId) {
       throw new Error('Cannot create transaction: No wallet selected');
     }
@@ -222,14 +227,21 @@ export const useTransactions = (walletId = null) => {
     };
   }, [walletId]);
 
+  const forceRefetch = useCallback(() => {
+    fetchedWalletIdRef.current = null;
+    return fetchTransactions(true);
+  }, [fetchTransactions]);
+
   return {
     transactions,
     loading,
+    isRefreshing,
     error,
     createTransaction,
     updateTransaction,
     deleteTransaction,
     refetch: fetchTransactions,
+    forceRefetch,
   };
 };
 
@@ -237,22 +249,20 @@ export const useCategories = (userId = null) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const fetchedUserIdRef = useRef(null);
+  const [initialized, setInitialized] = useState(false);
+  const isAuthenticatedRef = useRef(getAuthState());
 
   const fetchCategories = useCallback(async () => {
-    if (!userId) {
+    const isAuthenticated = getAuthState();
+    isAuthenticatedRef.current = isAuthenticated;
+
+    if (!isAuthenticated) {
       setCategories([]);
       setLoading(false);
       setError(null);
-      fetchedUserIdRef.current = null;
+      setInitialized(true);
       return;
     }
-
-    if (fetchedUserIdRef.current === userId && categories.length > 0) {
-      return;
-    }
-
-    let cancelled = false;
 
     try {
       setLoading(true);
@@ -260,39 +270,24 @@ export const useCategories = (userId = null) => {
       
       const backendAvailable = await checkBackendHealth();
       
-      if (cancelled) return;
-      
       if (!backendAvailable) {
         throw new Error('Backend not available');
       }
 
-      const data = await categoryApi.getCategoriesByUserId(userId);
-      
-      if (cancelled) return;
+      const data = await categoryApi.getAllCategories();
       
       setCategories(data || []);
-      fetchedUserIdRef.current = userId;
+      setInitialized(true);
     } catch (err) {
-      if (!cancelled) {
-        console.error('Failed to fetch categories:', err);
-        setError(err.message);
-      }
+      console.error('Failed to fetch categories:', err);
+      setError(err.message);
+      setInitialized(true);
     } finally {
-      if (!cancelled) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  const createCategory = useCallback(async (categoryData, userId) => {
-    if (!userId) {
-      throw new Error('Cannot create category: User ID is required');
-    }
-
+  const createCategory = useCallback(async (categoryData) => {
     try {
       setError(null);
       
@@ -302,10 +297,7 @@ export const useCategories = (userId = null) => {
         throw new Error('Backend not available');
       }
 
-      const newCategory = await categoryApi.createCategory({
-        ...categoryData,
-        userId,
-      });
+      const newCategory = await categoryApi.createCategory(categoryData);
       setCategories(prev => [...prev, newCategory]);
       return newCategory;
     } catch (err) {
@@ -354,29 +346,38 @@ export const useCategories = (userId = null) => {
     }
   }, []);
 
+  const resetCategories = useCallback(() => {
+    setCategories([]);
+    setError(null);
+    setInitialized(false);
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    
-    const runFetch = async () => {
-      await fetchCategories();
-      if (cancelled) return;
-    };
-    
-    runFetch();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((authenticated) => {
+      if (!authenticated) {
+        resetCategories();
+      } else if (!initialized) {
+        fetchCategories();
+      }
+    });
+
+    return unsubscribe;
+  }, [fetchCategories, resetCategories, initialized]);
 
   return {
     categories,
     loading,
     error,
+    initialized,
     createCategory,
     updateCategory,
     deleteCategory,
     refetch: fetchCategories,
+    resetCategories,
   };
 };
 
