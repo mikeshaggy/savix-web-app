@@ -15,4 +15,6 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     List<Category> findByUserIdAndType(UUID userId, Type type);
     
     Optional<Category> findByIdAndUserId(Integer id, UUID userId);
+
+    boolean existsByUserIdAndEmoji(UUID userId, String emoji);
 }

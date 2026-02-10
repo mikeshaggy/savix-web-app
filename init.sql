@@ -21,6 +21,7 @@ create table categories (
     user_id uuid not null references users(id) on delete cascade,
     name varchar(50) not null,
     type varchar(20) not null check (type in ('INCOME', 'EXPENSE')),
+    emoji varchar(16),
     created_at timestamp default NOW(),
     unique(user_id, name, type)
 );
@@ -46,3 +47,4 @@ CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
 CREATE INDEX idx_transactions_date ON transactions(transaction_date);
 CREATE INDEX idx_categories_user ON categories(user_id);
+CREATE UNIQUE INDEX uq_categories_user_emoji ON categories(user_id, emoji) WHERE emoji IS NOT NULL;

@@ -12,12 +12,16 @@ public record CategoryCreateRequest(
         String name,
 
         @NotNull(message = "Type is required")
-        Type type
+        Type type,
+
+        @Size(max = 16, message = "Emoji must not exceed 16 characters")
+        String emoji
 ) {
         public Category toEntity() {
                 return Category.builder()
                         .name(name)
                         .type(type)
+                        .emoji((emoji == null || emoji.isBlank()) ? null : emoji.trim())
                         .build();
         }
 }

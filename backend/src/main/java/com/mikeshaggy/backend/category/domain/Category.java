@@ -35,6 +35,9 @@ public class Category {
     @Column(nullable = false)
     private Type type;
 
+    @Column(length = 16)
+    private String emoji;
+
     @CreationTimestamp
     private Instant createdAt;
 

@@ -11,6 +11,7 @@ import com.mikeshaggy.backend.user.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +50,8 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse createCategory(CategoryCreateRequest request, UUID userId) {
+        validateEmojiUniqueness(request.emoji(), userId);
+
         User user = userService.getUserOrThrow(userId);
 
         Category category = request.toEntity();
@@ -64,6 +67,8 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse updateCategory(Integer id, CategoryUpdateRequest request, UUID userId) {
+        validateEmojiUniqueness(request.emoji(), userId);
+
         Category category = getCategoryOrThrowForUser(id, userId);
 
         request.applyTo(category);
@@ -91,4 +96,12 @@ public class CategoryService {
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
     }
 
+    private void validateEmojiUniqueness(String emoji, UUID userId) {
+        if (emoji != null && !emoji.isBlank()) {
+            boolean exists = categoryRepository.existsByUserIdAndEmoji(userId, emoji.trim());
+            if (exists) {
+                throw new IllegalArgumentException("Emoji '" + emoji + "' is already used in another category for this user.");
+            }
+        }
+    }
 }
