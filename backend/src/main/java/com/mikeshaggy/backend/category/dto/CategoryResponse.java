@@ -9,6 +9,7 @@ public record CategoryResponse(
         Integer id,
         String name,
         Type type,
+        String emoji,
         Instant createdAt
 ) {
     public static CategoryResponse from(Category category) {
@@ -16,6 +17,7 @@ public record CategoryResponse(
                 category.getId(),
                 category.getName(),
                 category.getType(),
+                category.getEmoji(),
                 category.getCreatedAt()
         );
     }
