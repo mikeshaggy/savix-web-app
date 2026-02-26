@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { PageLoading } from '@/components/common/Loading';
+import { useTranslations } from 'next-intl';
 
 const PUBLIC_ROUTES = [
   '/login',
@@ -20,6 +21,7 @@ export default function ProtectedRoute({ children }) {
   const router = useRouter();
   const pathname = usePathname();
   const { isLoading, isAuthenticated, sessionExpired, clearSessionExpired } = useUser();
+  const t = useTranslations();
 
   useEffect(() => {
     if (isLoading) return;
@@ -36,17 +38,17 @@ export default function ProtectedRoute({ children }) {
   }, [isLoading, isAuthenticated, sessionExpired, pathname, router, clearSessionExpired]);
 
   if (isLoading) {
-    return <PageLoading message="Checking authentication..." />;
+    return <PageLoading message={t('auth.checkingAuth')} />;
   }
 
   const publicRoute = isPublicRoute(pathname);
 
   if (!isAuthenticated && !publicRoute) {
-    return <PageLoading message="Redirecting to login..." />;
+    return <PageLoading message={t('auth.redirectingToLogin2')} />;
   }
 
   if (isAuthenticated && publicRoute) {
-    return <PageLoading message="Redirecting to dashboard..." />;
+    return <PageLoading message={t('auth.redirectingToDashboard')} />;
   }
 
   return children;

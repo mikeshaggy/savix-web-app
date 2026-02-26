@@ -1,10 +1,12 @@
 'use client';
 import React from 'react';
 import { AnalyticsView } from '@/components/views/PlaceholderViews';
-import { useAppContext } from '../../contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Loading } from '../common/Loading';
+import { useTranslations } from 'next-intl';
 
 export default function AnalyticsPage() {
+    const t = useTranslations();
     const { 
         dashboardData, 
         allTransactions, 
@@ -13,18 +15,16 @@ export default function AnalyticsPage() {
         hasError
     } = useAppContext();
 
-    // Show loading state
     if (isLoading) {
-        return <Loading message="Loading analytics..." />;
+        return <Loading message={t('analytics.loadingAnalytics')} />;
     }
 
-    // Show error state  
     if (hasError) {
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
-                    <h2 className="text-xl font-semibold mb-2">Error loading analytics</h2>
-                    <p className="text-gray-400">Please try refreshing the page</p>
+                    <h2 className="text-xl font-semibold mb-2">{t('errors.errorLoadingAnalytics')}</h2>
+                    <p className="text-gray-400">{t('errors.tryRefreshing')}</p>
                 </div>
             </div>
         );

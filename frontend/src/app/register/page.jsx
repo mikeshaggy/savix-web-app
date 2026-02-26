@@ -1,17 +1,28 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Loader2, Mail, Lock, User, AlertCircle, Wallet, CheckCircle } from 'lucide-react';
-import { authApi, ApiError } from '@/lib/api';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Loader2,
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  Wallet,
+  CheckCircle,
+} from "lucide-react";
+import { authApi, ApiError } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const t = useTranslations();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,29 +30,29 @@ export default function RegisterPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setError(null);
   };
 
   const validateForm = () => {
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t("auth.passwordsDoNotMatch"));
       return false;
     }
     if (formData.password.length < 12) {
-      setError('Password must be at least 12 characters');
+      setError(t("auth.passwordTooShort"));
       return false;
     }
     if (formData.password.length > 255) {
-      setError('Password must be at most 255 characters');
+      setError(t("auth.passwordTooLong"));
       return false;
     }
     if (formData.username.length < 3) {
-      setError('Username must be at least 3 characters');
+      setError(t("auth.usernameTooShort"));
       return false;
     }
     if (formData.username.length > 100) {
-      setError('Username must be at most 100 characters');
+      setError(t("auth.usernameTooLong"));
       return false;
     }
     return true;
@@ -49,9 +60,9 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
     setError(null);
 
@@ -61,26 +72,26 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
       });
-      
+
       setSuccess(true);
-      
+
       setTimeout(() => {
-        router.push('/login');
+        router.push("/login");
       }, 2000);
     } catch (err) {
-      console.error('Registration failed:', err);
-      
+      console.error("Registration failed:", err);
+
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          setError('An account with this email already exists');
+          setError(t("auth.emailAlreadyExists"));
         } else if (err.details?.errors) {
           const errorMessages = Object.values(err.details.errors).flat();
-          setError(errorMessages.join('. '));
+          setError(errorMessages.join(". "));
         } else {
-          setError(err.message || 'Registration failed. Please try again.');
+          setError(err.message || t("auth.registrationFailed"));
         }
       } else {
-        setError('Unable to connect to server. Please try again.');
+        setError(t("auth.serverError"));
       }
     } finally {
       setIsLoading(false);
@@ -94,8 +105,10 @@ export default function RegisterPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-4">
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Account Created!</h1>
-          <p className="text-gray-400 mb-4">Redirecting you to login...</p>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {t("auth.accountCreated")}
+          </h1>
+          <p className="text-gray-400 mb-4">{t("auth.redirectingToLogin")}</p>
           <Loader2 className="w-6 h-6 animate-spin text-violet-500 mx-auto" />
         </div>
       </div>
@@ -107,11 +120,21 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-violet-500/10 rounded-2xl mb-4">
-            <Wallet className="w-8 h-8 text-violet-500" />
+          <div className="inline-flex items-center justify-center w-18 h-18 rounded-3xl mb-4">
+            <Image
+              src="/logo.png"
+              alt="Savix"
+              width={192}
+              height={192}
+              className="rounded-3xl"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">Create an account</h1>
-          <p className="text-gray-400 mt-2">Start tracking your expenses today</p>
+          <h1 className="text-2xl font-bold text-white">
+            {t("auth.createAccount")}
+          </h1>
+          <p className="text-gray-400 mt-2">
+            {t("auth.startTrackingExpenses")}
+          </p>
         </div>
 
         {/* Register Form */}
@@ -127,8 +150,11 @@ export default function RegisterPage() {
 
             {/* Username Field */}
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-                Username
+              <label
+                htmlFor="username"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.username")}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -138,7 +164,7 @@ export default function RegisterPage() {
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  placeholder="johndoe"
+                  placeholder={t("auth.usernamePlaceholder")}
                   required
                   autoComplete="username"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
@@ -148,8 +174,11 @@ export default function RegisterPage() {
 
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                Email
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.email")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -159,7 +188,7 @@ export default function RegisterPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="you@example.com"
+                  placeholder={t("auth.enterEmail")}
                   required
                   autoComplete="email"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
@@ -169,8 +198,11 @@ export default function RegisterPage() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
-                Password
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.password")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -186,13 +218,18 @@ export default function RegisterPage() {
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">12-255 characters</p>
+              <p className="mt-1 text-xs text-gray-500">
+                {t("auth.passwordHintShort")}
+              </p>
             </div>
 
             {/* Confirm Password Field */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm Password
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.confirmPassword")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -219,10 +256,10 @@ export default function RegisterPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating account...
+                  {t("auth.creatingAccount")}
                 </>
               ) : (
-                'Create account'
+                t("auth.createAccount")
               )}
             </button>
           </form>
@@ -230,12 +267,12 @@ export default function RegisterPage() {
           {/* Login Link */}
           <div className="mt-6 pt-6 border-t border-gray-800 text-center">
             <p className="text-gray-400">
-              Already have an account?{' '}
+              {t("auth.alreadyHaveAccount")}{" "}
               <Link
                 href="/login"
                 className="text-violet-400 hover:text-violet-300 font-medium transition-colors"
               >
-                Sign in
+                {t("auth.signIn")}
               </Link>
             </p>
           </div>

@@ -1,7 +1,10 @@
 import React from 'react';
 import { Tag, Clock, TrendingUp, Calendar } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export default function QuickStatsCards({ categories = [], filteredTransactions = [], allTransactions = [] }) {
+    const t = useTranslations();
+    
     return (
         <div className="col-span-12 grid grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-xl p-4 flex items-center gap-4">
@@ -10,7 +13,7 @@ export default function QuickStatsCards({ categories = [], filteredTransactions 
                 </div>
                 <div>
                     <p className="text-2xl font-bold">{categories.length}</p>
-                    <p className="text-xs text-gray-500">Categories</p>
+                    <p className="text-xs text-gray-500">{t('stats.categories')}</p>
                 </div>
             </div>
 
@@ -20,7 +23,7 @@ export default function QuickStatsCards({ categories = [], filteredTransactions 
                 </div>
                 <div>
                     <p className="text-2xl font-bold">{filteredTransactions.length}</p>
-                    <p className="text-xs text-gray-500">Transactions</p>
+                    <p className="text-xs text-gray-500">{t('stats.transactions')}</p>
                 </div>
             </div>
 
@@ -30,7 +33,7 @@ export default function QuickStatsCards({ categories = [], filteredTransactions 
                 </div>
                 <div>
                     <p className="text-2xl font-bold">23%</p>
-                    <p className="text-xs text-gray-500">Growth</p>
+                    <p className="text-xs text-gray-500">{t('stats.growth')}</p>
                 </div>
             </div>
 
@@ -40,7 +43,7 @@ export default function QuickStatsCards({ categories = [], filteredTransactions 
                 </div>
                 <div>
                     <p className="text-2xl font-bold">{allTransactions.length}</p>
-                    <p className="text-xs text-gray-500">Total Records</p>
+                    <p className="text-xs text-gray-500">{t('stats.totalRecords')}</p>
                 </div>
             </div>
         </div>

@@ -1,72 +1,78 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Plus } from 'lucide-react';
-import DashboardView from '../views/DashboardView';
-import { useWallets } from '../../contexts/WalletContext';
-import { useAppContext } from '../../contexts/AppContext';
+import { useWallets } from '@/contexts/WalletContext';
 import { Loading } from '../common/Loading';
-import { TRANSACTION_TYPES } from '../../constants';
-import { enrichTransactionsWithType } from '../../utils/helpers';
+import { dashboardApi } from '@/lib/api';
+import DashboardHeader from '../dashboard/DashboardHeader';
+import SummaryCards from '../dashboard/SummaryCards';
+import FixedTransactionsTile from '../dashboard/FixedTransactionsTile';
+import { useTranslations } from 'next-intl';
+import TopCategories from "@/components/dashboard/TopCategories";
 
 export default function DashboardPage() {
+    const t = useTranslations();
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
-    const { dashboardData, categories, dashboardLoading, dashboardError } = useAppContext();
     const router = useRouter();
+    
+    const [dashboardData, setDashboardData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [periodType, setPeriodType] = useState('PAY_CYCLE');
+    const [customStartDate, setCustomStartDate] = useState(null);
+    const [customEndDate, setCustomEndDate] = useState(null);
 
-    // Calculate summary metrics using data from AppContext
-    const summary = useMemo(() => {
-        const transactionsList = dashboardData?.transactions || [];
-        const categoriesList = categories || [];
-        
-        // Enrich transactions with type information from categories
-        const enrichedTransactions = enrichTransactionsWithType(transactionsList, categoriesList);
-        
-        const income = enrichedTransactions
-            .filter(t => t.type === TRANSACTION_TYPES.INCOME)
-            .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    const fetchDashboard = useCallback(async (walletId, pType, startDate, endDate) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await dashboardApi.getDashboard(walletId, startDate, endDate, pType);
+            setDashboardData(data);
+        } catch (err) {
+            console.error('Failed to fetch dashboard:', err);
+            setError(err.message || 'Failed to load dashboard data');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-        const expenses = enrichedTransactions
-            .filter(t => t.type === TRANSACTION_TYPES.EXPENSE)
-            .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    useEffect(() => {
+        if (!currentWallet?.id) return;
 
-        const balance = currentWallet?.balance || 0;
-        const savingsRate = income > 0 ? ((balance / income) * 100).toFixed(1) : 0;
+        if (periodType === 'CUSTOM' && customStartDate && customEndDate) {
+            fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
+        } else if (periodType !== 'CUSTOM') {
+            fetchDashboard(currentWallet.id, periodType, null, null);
+        }
+    }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
 
-        return {
-            income,
-            expenses,
-            balance,
-            savingsRate
-        };
-    }, [dashboardData?.transactions, categories, currentWallet]);
+    const handlePeriodTypeChange = (newPeriodType) => {
+        if (newPeriodType === 'CUSTOM') return;
+        setPeriodType(newPeriodType);
+        setCustomStartDate(null);
+        setCustomEndDate(null);
+    };
 
-    // Memoize enriched transactions for rendering
-    const enrichedTransactions = useMemo(
-        () => enrichTransactionsWithType(dashboardData?.transactions || [], categories || []),
-        [dashboardData?.transactions, categories]
-    );
+    const handleCustomDateChange = (startDate, endDate) => {
+        setCustomStartDate(startDate);
+        setCustomEndDate(endDate);
+        setPeriodType('CUSTOM');
+    };
 
-    // Show loading state for wallets
     if (walletsLoading) {
-        return <Loading message="Loading wallets..." />;
+        return <Loading message={t('dashboard.loadingWallets')} />;
     }
 
-    // Show loading state for dashboard data
-    if (dashboardLoading) {
-        return <Loading message="Loading dashboard..." />;
-    }
-
-    // Show no wallets state - user hasn't created any wallets yet
     if (!walletsLoading && wallets.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-[400px] p-8">
                 <div className="text-center max-w-md">
                     <div className="mb-6">
                         <Wallet className="w-16 h-16 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-2xl font-semibold text-white mb-2">Welcome to Savix!</h2>
+                        <h2 className="text-2xl font-semibold text-white mb-2">{t('dashboard.welcomeToSavix')}</h2>
                         <p className="text-gray-400 mb-6">
-                            You don't have any wallets yet. Create your first wallet to start tracking your expenses and income.
+                            {t('dashboard.noWalletsYet')}
                         </p>
                     </div>
                     <button 
@@ -74,26 +80,25 @@ export default function DashboardPage() {
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
                         <Plus className="w-5 h-5 mr-2" />
-                        Create Your First Wallet
+                        {t('dashboard.createFirstWallet')}
                     </button>
                     <p className="text-sm text-gray-500 mt-4">
-                        A wallet helps you organize different accounts or budgets
+                        {t('dashboard.walletHelp')}
                     </p>
                 </div>
             </div>
         );
     }
 
-    // Show no wallet selected state (user has wallets but none selected)
     if (!currentWallet && wallets.length > 0) {
         return (
             <div className="flex items-center justify-center min-h-[400px] p-8">
                 <div className="text-center max-w-md">
                     <div className="mb-6">
                         <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-xl font-semibold text-white mb-2">No Wallet Selected</h2>
+                        <h2 className="text-xl font-semibold text-white mb-2">{t('dashboard.noWalletSelected')}</h2>
                         <p className="text-gray-400 mb-6">
-                            Please select a wallet from the top bar to view your dashboard
+                            {t('dashboard.selectWalletDashboard')}
                         </p>
                     </div>
                     <button 
@@ -101,35 +106,66 @@ export default function DashboardPage() {
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
                         <Wallet className="w-5 h-5 mr-2" />
-                        Manage Wallets
+                        {t('topbar.manageWallets')}
                     </button>
                 </div>
             </div>
         );
     }
 
-    // Show error state
-    if (dashboardError) {
+    if (loading) {
+        return <Loading message={t('dashboard.loadingDashboard')} />;
+    }
+
+    if (error) {
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
-                    <h2 className="text-xl font-semibold text-white mb-2">Error Loading Dashboard</h2>
-                    <p className="text-gray-400 mb-4">{dashboardError}</p>
+                    <h2 className="text-xl font-semibold text-white mb-2">{t('errors.errorLoadingDashboard')}</h2>
+                    <p className="text-gray-400 mb-4">{error}</p>
                     <button 
                         onClick={() => window.location.reload()} 
                         className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                     >
-                        Retry
+                        {t('common.retry')}
                     </button>
                 </div>
             </div>
         );
-    }    return (
-        <DashboardView 
-            summary={summary}
-            allTransactions={enrichedTransactions}
-            categories={categories || []}
-            filteredTransactions={enrichedTransactions}
-        />
+    }
+
+    if (!dashboardData) {
+        return null;
+    }
+
+    return (
+        <div>
+            <DashboardHeader 
+                period={dashboardData.period}
+                periodType={periodType}
+                currentBalance={currentWallet?.balance}
+                onPeriodTypeChange={handlePeriodTypeChange}
+                onCustomDateChange={handleCustomDateChange}
+            />
+
+            {/* Bento grid */}
+            <div className="grid grid-cols-12 gap-3.5 items-stretch">
+                {/* Stat banner — full width */}
+                <div className="col-span-12">
+                    <SummaryCards summary={dashboardData.summary} />
+                </div>
+
+                {/* Fixed transactions — 7 cols */}
+                <div className="col-span-7 flex">
+                    <FixedTransactionsTile />
+                </div>
+
+                {/* Categories — 5 cols */}
+                <div className="col-span-5 flex">
+                    <TopCategories categories={dashboardData.topCategories} />
+                </div>
+            </div>
+        </div>
     );
 }
+

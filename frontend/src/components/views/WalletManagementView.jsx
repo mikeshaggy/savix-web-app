@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useWallets } from '@/contexts/WalletContext';
 import { Wallet, Plus, Edit3, Trash2, DollarSign, RefreshCw, AlertCircle } from 'lucide-react';
+import { formatCurrency } from '@/utils/helpers';
+import { useTranslations } from 'next-intl';
 
 export default function WalletManagementView() {
+  const t = useTranslations();
   const { 
     wallets, 
     currentWallet, 
@@ -53,7 +56,7 @@ export default function WalletManagementView() {
   };
 
   const handleDeleteWallet = async (id) => {
-    if (window.confirm('Are you sure you want to delete this wallet? All associated categories and transactions will be deleted.')) {
+    if (window.confirm(t('wallet.deleteConfirm'))) {
       try {
         await deleteWallet(id);
       } catch (error) {
@@ -84,15 +87,15 @@ export default function WalletManagementView() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Switch Wallet</h1>
-          <p className="text-gray-400">Select a wallet to make it active, or manage your wallets</p>
+          <h1 className="text-2xl font-bold text-white">{t('wallet.switchWallet')}</h1>
+          <p className="text-gray-400">{t('wallet.switchWalletDesc')}</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
             className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh wallets"
+            title={t('wallet.refreshWallets')}
           >
             <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -101,7 +104,7 @@ export default function WalletManagementView() {
             className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Wallet
+            {t('wallet.addWallet')}
           </button>
         </div>
       </div>
@@ -116,7 +119,7 @@ export default function WalletManagementView() {
             onClick={handleRefresh}
             className="text-red-400 hover:text-red-300 text-sm underline"
           >
-            Try again
+            {t('common.tryAgain')}
           </button>
         </div>
       )}
@@ -126,13 +129,13 @@ export default function WalletManagementView() {
         <div className="bg-linear-to-r from-violet-600 to-purple-600 rounded-xl p-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-violet-100 text-sm">Current Wallet</p>
+              <p className="text-violet-100 text-sm">{t('wallet.currentWallet')}</p>
               <h2 className="text-white text-2xl font-bold">{currentWallet.name}</h2>
             </div>
             <div className="text-right">
-              <p className="text-violet-100 text-sm">Balance</p>
+              <p className="text-violet-100 text-sm">{t('wallet.balance')}</p>
               <p className="text-white text-2xl font-bold">
-                {currentWallet.balance?.toLocaleString() || '0.00'} PLN
+                {formatCurrency(currentWallet.balance ?? 0)}
               </p>
             </div>
           </div>
@@ -161,7 +164,7 @@ export default function WalletManagementView() {
                 <div>
                   <h3 className="text-white font-semibold">{wallet.name}</h3>
                   <p className="text-gray-400 text-sm">
-                    Created {new Date(wallet.createdAt).toLocaleDateString()}
+                    {t('wallet.created', { date: new Date(wallet.createdAt).toLocaleDateString() })}
                   </p>
                 </div>
               </div>
@@ -192,7 +195,7 @@ export default function WalletManagementView() {
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-green-500" />
                 <span className="text-white font-bold">
-                  {wallet.balance?.toLocaleString() || '0.00'} PLN
+                  {formatCurrency(wallet.balance ?? 0)}
                 </span>
               </div>
               <button
@@ -202,14 +205,14 @@ export default function WalletManagementView() {
                 }}
                 className="text-xs text-gray-400 hover:text-violet-400 transition-colors"
               >
-                Edit balance
+                {t('wallet.editBalance')}
               </button>
             </div>
             
             {currentWallet?.id === wallet.id && (
               <div className="mt-2">
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400">
-                  Active
+                  {t('common.active')}
                 </span>
               </div>
             )}
@@ -219,7 +222,7 @@ export default function WalletManagementView() {
         {wallets.length === 0 && (
           <div className="col-span-full text-center py-12">
             <Wallet className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No wallets found. Create your first wallet to get started!</p>
+            <p className="text-gray-400">{t('wallet.noWalletsFound')}</p>
           </div>
         )}
       </div>
@@ -254,6 +257,7 @@ export default function WalletManagementView() {
 }
 
 function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
+  const t = useTranslations();
   const [formData, setFormData] = useState({
     name: wallet?.name || '',
     balance: wallet?.balance || 0,
@@ -266,12 +270,12 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
     
     const newErrors = {};
     if (!formData.name.trim()) {
-      newErrors.name = 'Wallet name is required';
+      newErrors.name = t('wallet.walletNameRequired');
     } else if (formData.name.trim().length > 50) {
-      newErrors.name = 'Wallet name must be 50 characters or less';
+      newErrors.name = t('wallet.walletNameTooLong');
     }
     if (formData.balance < 0) {
-      newErrors.balance = 'Balance cannot be negative';
+      newErrors.balance = t('errors.balanceNegative');
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -300,27 +304,27 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold text-white mb-4">
-          {wallet ? 'Edit Wallet' : 'Create New Wallet'}
+          {wallet ? t('wallet.editWallet') : t('wallet.createNewWallet')}
         </h2>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Wallet Name *
+              {t('wallet.walletNameLabel')}
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-violet-500"
-              placeholder="My Wallet"
+              placeholder={t('wallet.walletNamePlaceholder')}
             />
             {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Initial Balance
+              {t('wallet.initialBalance')}
             </label>
             <input
               type="number"
@@ -344,14 +348,14 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
               onClick={onClose}
               className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
             >
-              {submitting ? 'Saving...' : (wallet ? 'Update' : 'Create')}
+              {submitting ? t('common.saving') : (wallet ? t('common.update') : t('common.create'))}
             </button>
           </div>
         </form>
@@ -361,6 +365,7 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
 }
 
 function BalanceModal({ isOpen, onClose, onSave, wallet }) {
+  const t = useTranslations();
   const [balance, setBalance] = useState(wallet?.balance || 0);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -370,7 +375,7 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
     
     const newBalance = parseFloat(balance);
     if (isNaN(newBalance) || newBalance < 0) {
-      setError('Please enter a valid balance (0 or greater)');
+      setError(t('errors.balanceInvalid'));
       return;
     }
 
@@ -380,7 +385,7 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
       await onSave(newBalance);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to update balance');
+      setError(err.message || t('errors.failedToUpdateBalance'));
     } finally {
       setSubmitting(false);
     }
@@ -391,13 +396,13 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
-        <h2 className="text-xl font-bold text-white mb-2">Update Balance</h2>
+        <h2 className="text-xl font-bold text-white mb-2">{t('wallet.updateBalance')}</h2>
         <p className="text-gray-400 text-sm mb-4">{wallet?.name}</p>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              New Balance (PLN)
+              {t('wallet.newBalance')}
             </label>
             <input
               type="number"
@@ -420,14 +425,14 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
               onClick={onClose}
               className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
             >
-              {submitting ? 'Updating...' : 'Update'}
+              {submitting ? t('common.updating') : t('common.update')}
             </button>
           </div>
         </form>

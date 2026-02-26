@@ -1,11 +1,21 @@
-'use client';
-import { useState } from 'react';
-import Link from 'next/link';
-import { Loader2, Mail, AlertCircle, Wallet, CheckCircle, ArrowLeft } from 'lucide-react';
-import { authApi, ApiError } from '@/lib/api';
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Loader2,
+  Mail,
+  AlertCircle,
+  Wallet,
+  CheckCircle,
+  ArrowLeft,
+} from "lucide-react";
+import { authApi, ApiError } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const t = useTranslations();
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -19,12 +29,12 @@ export default function ForgotPasswordPage() {
       await authApi.forgotPassword({ email });
       setSuccess(true);
     } catch (err) {
-      console.error('Forgot password failed:', err);
-      
+      console.error("Forgot password failed:", err);
+
       if (err instanceof ApiError) {
         setSuccess(true);
       } else {
-        setError('Unable to connect to server. Please try again.');
+        setError(t("auth.serverError"));
       }
     } finally {
       setIsLoading(false);
@@ -38,17 +48,20 @@ export default function ForgotPasswordPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-4">
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {t("auth.checkYourEmail")}
+          </h1>
           <p className="text-gray-400 mb-6">
-            If an account exists with <span className="text-white">{email}</span>, 
-            you'll receive a password reset link shortly.
+            {t("auth.resetLinkSent").replace("{email}", "")}
+            <span className="text-white">{email}</span>
+            {t("auth.resetLinkSent").split("{email}")[1]}
           </p>
           <Link
             href="/login"
             className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to login
+            {t("auth.backToLogin")}
           </Link>
         </div>
       </div>
@@ -60,12 +73,20 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-violet-500/10 rounded-2xl mb-4">
-            <Wallet className="w-8 h-8 text-violet-500" />
+          <div className="inline-flex items-center justify-center w-18 h-18 rounded-3xl mb-4">
+            <Image
+              src="/logo.png"
+              alt="Savix"
+              width={192}
+              height={192}
+              className="rounded-3xl"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">Forgot password?</h1>
+          <h1 className="text-2xl font-bold text-white">
+            {t("auth.forgotPasswordTitle")}
+          </h1>
           <p className="text-gray-400 mt-2">
-            No worries, we'll send you reset instructions
+            {t("auth.forgotPasswordDescription")}
           </p>
         </div>
 
@@ -82,8 +103,11 @@ export default function ForgotPasswordPage() {
 
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
-                Email
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.email")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -96,7 +120,7 @@ export default function ForgotPasswordPage() {
                     setEmail(e.target.value);
                     setError(null);
                   }}
-                  placeholder="you@example.com"
+                  placeholder={t("auth.enterEmail")}
                   required
                   autoComplete="email"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
@@ -113,10 +137,10 @@ export default function ForgotPasswordPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Sending...
+                  {t("auth.sending")}
                 </>
               ) : (
-                'Send reset link'
+                t("auth.sendResetLink")
               )}
             </button>
           </form>
@@ -128,7 +152,7 @@ export default function ForgotPasswordPage() {
               className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to login
+              {t("auth.backToLogin")}
             </Link>
           </div>
         </div>

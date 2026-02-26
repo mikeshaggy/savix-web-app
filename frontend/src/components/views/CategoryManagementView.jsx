@@ -5,8 +5,10 @@ import { useWallets } from '@/contexts/WalletContext';
 import { useUser } from '@/contexts/UserContext';
 import CategoryModal from '@/components/modals/CategoryModal';
 import { Loading } from '@/components/common/Loading';
+import { useTranslations } from 'next-intl';
 
 export default function CategoryManagementView() {
+  const t = useTranslations();
   const { currentWallet } = useWallets();
   const { user } = useUser();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, refetch } = useCategories();
@@ -32,7 +34,6 @@ export default function CategoryManagementView() {
 
   const handleCreateCategory = async (categoryData) => {
     try {
-      // No userId needed - backend uses auth token
       await createCategory(categoryData);
       setShowModal(false);
     } catch (error) {
@@ -77,7 +78,7 @@ export default function CategoryManagementView() {
   };
 
   if (loading) {
-    return <Loading message="Loading categories..." />;
+    return <Loading message={t('category.loadingCategories')} />;
   }
 
   if (!currentWallet) {
@@ -86,9 +87,9 @@ export default function CategoryManagementView() {
         <div className="text-center max-w-md">
           <div className="mb-6">
             <Tag className="w-16 h-16 text-violet-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-white mb-2">No Wallet Selected</h2>
+            <h2 className="text-2xl font-semibold text-white mb-2">{t('category.noWalletSelected')}</h2>
             <p className="text-gray-400 mb-6">
-              Please select a wallet to manage its categories. Each wallet has its own set of categories.
+              {t('category.selectWalletManage')}
             </p>
           </div>
         </div>
@@ -101,14 +102,14 @@ export default function CategoryManagementView() {
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Failed to load categories</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('errors.failedToLoadCategories')}</h2>
           <p className="text-gray-400 mb-4">{error}</p>
           <button
             onClick={handleRefresh}
             className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2 mx-auto"
           >
             <RefreshCw className="w-4 h-4" />
-            Try Again
+            {t('common.tryAgain')}
           </button>
         </div>
       </div>
@@ -120,14 +121,14 @@ export default function CategoryManagementView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Category Management</h2>
+          <h2 className="text-2xl font-bold">{t('category.management')}</h2>
           <p className="text-gray-400 text-sm mt-1">
             {currentWallet ? (
               <>
-                Managing categories for <span className="text-violet-400 font-medium">{currentWallet.name}</span> ({categories.length} total)
+                {t('category.managingFor', { wallet: currentWallet.name, count: categories.length })}
               </>
             ) : (
-              'No wallet selected. Please select a wallet to manage categories.'
+              t('category.noWalletCategoryMsg')
             )}
           </p>
         </div>
@@ -137,7 +138,7 @@ export default function CategoryManagementView() {
               onClick={handleRefresh}
               disabled={isRefreshing}
               className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-              title="Refresh categories"
+              title={t('category.refreshCategories')}
             >
               <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -146,7 +147,7 @@ export default function CategoryManagementView() {
               className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Add Category
+              {t('category.addCategory')}
             </button>
           </div>
         )}
@@ -162,7 +163,7 @@ export default function CategoryManagementView() {
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
           }`}
         >
-          All ({categories.length})
+          {t('common.all')} ({categories.length})
         </button>
         <button
           onClick={() => setTypeFilter('INCOME')}
@@ -173,7 +174,7 @@ export default function CategoryManagementView() {
           }`}
         >
           <TrendingUp className="w-4 h-4" />
-          Income ({categories.filter(c => c.type === 'INCOME').length})
+          {t('categoryType.income')} ({categories.filter(c => c.type === 'INCOME').length})
         </button>
         <button
           onClick={() => setTypeFilter('EXPENSE')}
@@ -184,7 +185,7 @@ export default function CategoryManagementView() {
           }`}
         >
           <TrendingDown className="w-4 h-4" />
-          Expense ({categories.filter(c => c.type === 'EXPENSE').length})
+          {t('categoryType.expense')} ({categories.filter(c => c.type === 'EXPENSE').length})
         </button>
       </div>
 
@@ -209,9 +210,12 @@ export default function CategoryManagementView() {
                   )}
                 </div>
                 <div>
-                  <h3 className="font-medium text-white">{category.name}</h3>
+                  <h3 className="font-medium text-white">
+                    {category.emoji && <span className="mr-1">{category.emoji}</span>}
+                    {category.name}
+                  </h3>
                   <p className="text-sm text-gray-400">
-                    Created {new Date(category.createdAt).toLocaleDateString()}
+                    {t('wallet.created', { date: new Date(category.createdAt).toLocaleDateString() })}
                   </p>
                 </div>
               </div>
@@ -219,14 +223,14 @@ export default function CategoryManagementView() {
                 <button
                   onClick={() => openEditModal(category)}
                   className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                  title="Edit category"
+                  title={t('category.editCategory')}
                 >
                   <Edit className="w-4 h-4 text-gray-400 hover:text-white" />
                 </button>
                 <button
                   onClick={() => setDeletingCategory(category)}
                   className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                  title="Delete category"
+                  title={t('category.deleteCategory')}
                 >
                   <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-400" />
                 </button>
@@ -240,16 +244,16 @@ export default function CategoryManagementView() {
       {filteredCategories.length === 0 && categories.length > 0 && (
         <div className="text-center py-12">
           <Tag className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No {typeFilter.toLowerCase()} categories</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('category.noTypeCategories', { type: typeFilter.toLowerCase() })}</h3>
           <p className="text-gray-400 mb-4">
-            You don't have any {typeFilter.toLowerCase()} categories yet.
+            {t('category.noTypeCategoriesDesc', { type: typeFilter.toLowerCase() })}
           </p>
           <button
             onClick={openCreateModal}
             className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2 mx-auto"
           >
             <Plus className="w-4 h-4" />
-            Create {typeFilter.toLowerCase()} Category
+            {t('category.createTypeCategory', { type: typeFilter.toLowerCase() })}
           </button>
         </div>
       )}
@@ -258,16 +262,16 @@ export default function CategoryManagementView() {
       {categories.length === 0 && (
         <div className="text-center py-12">
           <Tag className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No categories yet</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('category.noCategoriesYet')}</h3>
           <p className="text-gray-400 mb-4">
-            Start by creating your first category to organize your transactions.
+            {t('category.noCategoriesDesc')}
           </p>
           <button
             onClick={openCreateModal}
             className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2 mx-auto"
           >
             <Plus className="w-4 h-4" />
-            Create First Category
+            {t('category.createFirstCategory')}
           </button>
         </div>
       )}
@@ -290,13 +294,13 @@ export default function CategoryManagementView() {
                 <Trash2 className="w-6 h-6 text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Delete Category</h3>
-                <p className="text-gray-400 text-sm">This action cannot be undone</p>
+                <h3 className="text-lg font-semibold">{t('category.deleteCategory')}</h3>
+                <p className="text-gray-400 text-sm">{t('category.cannotBeUndone')}</p>
               </div>
             </div>
             
             <p className="text-gray-300 mb-6">
-              Are you sure you want to delete the category "{deletingCategory.name}"?
+              {t('category.deleteCategoryConfirm', { name: `${deletingCategory.emoji ? `${deletingCategory.emoji} ` : ''}${deletingCategory.name}` })}
             </p>
             
             <div className="flex gap-3">
@@ -304,13 +308,13 @@ export default function CategoryManagementView() {
                 onClick={() => setDeletingCategory(null)}
                 className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => handleDeleteCategory(deletingCategory)}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

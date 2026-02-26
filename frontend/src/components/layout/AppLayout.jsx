@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import TransactionModal from '../modals/TransactionModal';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
@@ -63,6 +64,7 @@ function AppLayoutContent({
     onNewTransaction, 
     onCloseModal 
 }) {
+    const t = useTranslations();
     const {
         categories,
         isLoading,
@@ -76,10 +78,10 @@ function AppLayoutContent({
 
     if (hasError) {
         return (
-            <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+            <div className="min-h-screen bg-[#06060f] text-white flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4 text-center max-w-md">
                     <AlertCircle className="w-12 h-12 text-red-500" />
-                    <h2 className="text-xl font-semibold">Unable to Connect to Backend</h2>
+                    <h2 className="text-xl font-semibold">{t('errors.unableToConnectBackend')}</h2>
                     <p className="text-gray-400">
                         {dashboardError || transactionsError || categoriesError}
                     </p>
@@ -88,10 +90,10 @@ function AppLayoutContent({
                         className="px-4 py-2 bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors flex items-center gap-2"
                     >
                         <RefreshCw className="w-4 h-4" />
-                        Try Again
+                        {t('common.tryAgain')}
                     </button>
                     <p className="text-xs text-gray-500">
-                        Make sure your backend is running on port 8000.
+                        {t('errors.backendHint')}
                     </p>
                 </div>
             </div>
@@ -99,7 +101,7 @@ function AppLayoutContent({
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white flex">
+        <div className="min-h-screen bg-[#06060f] text-white flex overflow-x-hidden">
             {/* Sidebar */}
             <Sidebar 
                 currentPath={pathname}
@@ -107,14 +109,14 @@ function AppLayoutContent({
             />
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col">
+            <main className="flex-1 flex flex-col min-w-0">
                 {/* Top Bar */}
                 <TopBar 
                     onRefresh={onRefresh}
                 />
 
                 {/* Main Content Area */}
-                <div className="flex-1 p-8 overflow-y-auto">
+                <div className="flex-1 p-7 overflow-y-auto">
                     {children}
                 </div>
             </main>

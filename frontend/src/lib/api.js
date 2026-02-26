@@ -390,6 +390,18 @@ export const csvImportApi = {
 };
 
 export const dashboardApi = {
+  getDashboard: async (walletId, startDate, endDate, periodType = 'PAY_CYCLE') => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    
+    const params = new URLSearchParams({ walletId, periodType });
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    return get(`/dashboard?${params.toString()}`);
+  },
+
   getWalletDashboardData: async (walletId) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');

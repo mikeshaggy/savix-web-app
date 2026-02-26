@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus, Receipt, AlertTriangle, X } from 'lucide-react';
+import { Wallet, Plus, Receipt, AlertTriangle } from 'lucide-react';
 import TransactionsView from '@/components/views/TransactionsView';
 import TransactionModal from '@/components/modals/TransactionModal';
 import { useWallets } from '@/contexts/WalletContext';
@@ -10,8 +10,12 @@ import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { Loading } from '@/components/common/Loading';
 import { SORT_OPTIONS, SORT_ORDERS, DATE_PRESETS } from '@/constants';
 import { enrichTransactionsWithType } from '@/utils/helpers';
+import { useTranslations } from 'next-intl';
+import { useLanguage } from '@/i18n/LanguageProvider';
 
 export default function TransactionsPage() {
+    const t = useTranslations();
+    const { lang } = useLanguage();
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
     const { 
         dashboardData, 
@@ -104,11 +108,11 @@ export default function TransactionsPage() {
     };
 
     if (walletsLoading) {
-        return <Loading message="Loading wallets..." />;
+        return <Loading message={t('transactionsPage.loadingWallets')} />;
     }
 
     if (dashboardLoading) {
-        return <Loading message="Loading transactions..." />;
+        return <Loading message={t('transactionsPage.loadingTransactions')} />;
     }
 
     if (!walletsLoading && wallets.length === 0) {
@@ -117,9 +121,9 @@ export default function TransactionsPage() {
                 <div className="text-center max-w-md">
                     <div className="mb-6">
                         <Receipt className="w-16 h-16 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-2xl font-semibold text-white mb-2">No Transactions Yet</h2>
+                        <h2 className="text-2xl font-semibold text-white mb-2">{t('transactionsPage.noTransactionsYet')}</h2>
                         <p className="text-gray-400 mb-6">
-                            Create your first wallet to start tracking your transactions and manage your finances.
+                            {t('transactionsPage.createFirstWallet')}
                         </p>
                     </div>
                     <button 
@@ -127,7 +131,7 @@ export default function TransactionsPage() {
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
                         <Plus className="w-5 h-5 mr-2" />
-                        Create Your First Wallet
+                        {t('transactionsPage.createYourFirstWallet')}
                     </button>
                 </div>
             </div>
@@ -140,9 +144,9 @@ export default function TransactionsPage() {
                 <div className="text-center max-w-md">
                     <div className="mb-6">
                         <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-xl font-semibold text-white mb-2">No Wallet Selected</h2>
+                        <h2 className="text-xl font-semibold text-white mb-2">{t('transactionsPage.noWalletSelected')}</h2>
                         <p className="text-gray-400 mb-6">
-                            Please select a wallet from the top bar to view your transactions
+                            {t('transactionsPage.selectWalletPrompt')}
                         </p>
                     </div>
                     <button 
@@ -150,7 +154,7 @@ export default function TransactionsPage() {
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
                         <Wallet className="w-5 h-5 mr-2" />
-                        Manage Wallets
+                        {t('transactionsPage.manageWallets')}
                     </button>
                 </div>
             </div>
@@ -161,13 +165,13 @@ export default function TransactionsPage() {
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
-                    <h2 className="text-xl font-semibold text-white mb-2">Error Loading Transactions</h2>
+                    <h2 className="text-xl font-semibold text-white mb-2">{t('transactionsPage.errorLoadingTransactions')}</h2>
                     <p className="text-gray-400 mb-4">{dashboardError}</p>
                     <button 
                         onClick={() => window.location.reload()} 
                         className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                     >
-                        Retry
+                        {t('transactionsPage.retry')}
                     </button>
                 </div>
             </div>
@@ -175,25 +179,7 @@ export default function TransactionsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Filter Statistics */}
-            <div className="bg-gray-900 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-400">
-                            Showing {filterStats.filtered} of {filterStats.total} transactions
-                        </span>
-                        <span className="text-sm text-gray-400">
-                            ({filterStats.percentage}% of total)
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm">
-                        <span className="text-green-400">Income: {filterStats.income}</span>
-                        <span className="text-red-400">Expenses: {filterStats.expense}</span>
-                    </div>
-                </div>
-            </div>
-
+        <div>
             {/* Transactions View */}
             <TransactionsView 
                 filteredTransactions={filteredTransactions}
@@ -236,32 +222,44 @@ export default function TransactionsPage() {
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 w-full max-w-md">
+                <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-6">
+                    <div 
+                        className="bg-[#0e0e1c] border border-white/[0.12] rounded-3xl w-full max-w-md p-7 relative overflow-hidden"
+                        style={{
+                            boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(248,113,113,0.1)',
+                            animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
+                        }}
+                    >
+                        {/* Top glow line - red for delete */}
+                        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-red-400 to-transparent opacity-60" />
+                        
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-red-500/20 rounded-lg">
-                                <AlertTriangle className="w-6 h-6 text-red-400" />
+                            <div className="p-2.5 bg-red-400/10 border border-red-400/20 rounded-xl">
+                                <AlertTriangle className="w-5 h-5 text-red-400" />
                             </div>
-                            <h3 className="text-lg font-semibold">Delete Transaction</h3>
+                            <h3 className="text-xl font-bold tracking-[-0.3px]">{t('transactionsPage.deleteTransaction')}</h3>
                         </div>
-                        <p className="text-gray-400 mb-6">
-                            Are you sure you want to delete "<span className="text-white">{deleteConfirm.title}</span>"? 
-                            This action cannot be undone.
+                        <p className="text-white/50 text-[15px] mb-6 leading-relaxed">
+                            {t('transactionsPage.deleteConfirmation', { title: deleteConfirm.title })}
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setDeleteConfirm(null)}
                                 disabled={deleteLoading}
-                                className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors disabled:opacity-50"
+                                className="flex-1 px-4 py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 transition-all hover:border-white/[0.12] hover:text-white disabled:opacity-50"
                             >
-                                Cancel
+                                {t('transactionsPage.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={deleteLoading}
-                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 px-4 py-3 rounded-xl text-base font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:-translate-y-px"
+                                style={{
+                                    background: 'linear-gradient(135deg, #ef4444, #f87171)',
+                                    boxShadow: '0 4px 20px rgba(248,113,113,0.3)'
+                                }}
                             >
-                                {deleteLoading ? 'Deleting...' : 'Delete'}
+                                {deleteLoading ? t('transactionsPage.deleting') : t('transactionsPage.delete')}
                             </button>
                         </div>
                     </div>

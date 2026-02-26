@@ -1,17 +1,27 @@
-'use client';
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Loader2, Lock, AlertCircle, Wallet, CheckCircle, ArrowLeft } from 'lucide-react';
-import { authApi, ApiError } from '@/lib/api';
+"use client";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  Loader2,
+  Lock,
+  AlertCircle,
+  Wallet,
+  CheckCircle,
+  ArrowLeft,
+} from "lucide-react";
+import { authApi, ApiError } from "@/lib/api";
+import { useTranslations } from "next-intl";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
+  const t = useTranslations();
 
   const [formData, setFormData] = useState({
-    newPassword: '',
-    confirmPassword: '',
+    newPassword: "",
+    confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,27 +29,27 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid or missing reset token. Please request a new password reset link.');
+      setError(t("auth.invalidResetToken"));
     }
-  }, [token]);
+  }, [token, t]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setError(null);
   };
 
   const validateForm = () => {
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t("auth.passwordsDoNotMatch"));
       return false;
     }
     if (formData.newPassword.length < 12) {
-      setError('Password must be at least 12 characters');
+      setError(t("auth.passwordTooShort"));
       return false;
     }
     if (formData.newPassword.length > 255) {
-      setError('Password must be at most 255 characters');
+      setError(t("auth.passwordTooLong"));
       return false;
     }
     return true;
@@ -49,7 +59,7 @@ function ResetPasswordForm() {
     e.preventDefault();
 
     if (!token) {
-      setError('Invalid reset token. Please request a new password reset link.');
+      setError(t("auth.invalidResetToken"));
       return;
     }
 
@@ -63,19 +73,19 @@ function ResetPasswordForm() {
         token,
         newPassword: formData.newPassword,
       });
-      
+
       setSuccess(true);
     } catch (err) {
-      console.error('Password reset failed:', err);
-      
+      console.error("Password reset failed:", err);
+
       if (err instanceof ApiError) {
         if (err.status === 400) {
-          setError('Invalid or expired reset token. Please request a new password reset link.');
+          setError(t("auth.invalidResetTokenExpired"));
         } else {
-          setError(err.message || 'Password reset failed. Please try again.');
+          setError(err.message || t("auth.passwordResetFailed"));
         }
       } else {
-        setError('Unable to connect to server. Please try again.');
+        setError(t("auth.serverError"));
       }
     } finally {
       setIsLoading(false);
@@ -89,15 +99,15 @@ function ResetPasswordForm() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-4">
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Password Reset!</h1>
-          <p className="text-gray-400 mb-6">
-            Your password has been successfully reset. You can now sign in with your new password.
-          </p>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {t("auth.passwordReset")}
+          </h1>
+          <p className="text-gray-400 mb-6">{t("auth.passwordResetSuccess")}</p>
           <Link
             href="/login"
             className="inline-flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
           >
-            Sign in
+            {t("auth.signIn")}
           </Link>
         </div>
       </div>
@@ -111,15 +121,15 @@ function ResetPasswordForm() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Invalid Link</h1>
-          <p className="text-gray-400 mb-6">
-            This password reset link is invalid or has expired.
-          </p>
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {t("auth.invalidLink")}
+          </h1>
+          <p className="text-gray-400 mb-6">{t("auth.invalidLinkDesc")}</p>
           <Link
             href="/forgot-password"
             className="inline-flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
           >
-            Request new link
+            {t("auth.requestNewLink")}
           </Link>
         </div>
       </div>
@@ -131,13 +141,19 @@ function ResetPasswordForm() {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-violet-500/10 rounded-2xl mb-4">
-            <Wallet className="w-8 h-8 text-violet-500" />
+          <div className="inline-flex items-center justify-center w-18 h-18 rounded-3xl mb-4">
+            <Image
+              src="/logo.png"
+              alt="Savix"
+              width={192}
+              height={192}
+              className="rounded-3xl"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">Set new password</h1>
-          <p className="text-gray-400 mt-2">
-            Your new password must be 12-255 characters
-          </p>
+          <h1 className="text-2xl font-bold text-white">
+            {t("auth.setNewPassword")}
+          </h1>
+          <p className="text-gray-400 mt-2">{t("auth.passwordHint")}</p>
         </div>
 
         {/* Reset Password Form */}
@@ -153,8 +169,11 @@ function ResetPasswordForm() {
 
             {/* New Password Field */}
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-300 mb-2">
-                New Password
+              <label
+                htmlFor="newPassword"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.newPassword")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -174,8 +193,11 @@ function ResetPasswordForm() {
 
             {/* Confirm Password Field */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm New Password
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
+                {t("auth.confirmNewPassword")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -202,10 +224,10 @@ function ResetPasswordForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Resetting password...
+                  {t("auth.resettingPassword")}
                 </>
               ) : (
-                'Reset password'
+                t("auth.resetPasswordBtn")
               )}
             </button>
           </form>
@@ -217,7 +239,7 @@ function ResetPasswordForm() {
               className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to login
+              {t("auth.backToLogin")}
             </Link>
           </div>
         </div>
@@ -228,11 +250,13 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+        </div>
+      }
+    >
       <ResetPasswordForm />
     </Suspense>
   );

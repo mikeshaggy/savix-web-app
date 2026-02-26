@@ -1,6 +1,8 @@
 import React from 'react';
 import { ArrowUpRight, ArrowDownRight, DollarSign, MoreVertical } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { useTranslations } from 'next-intl';
+import { formatCurrency, formatDate } from '@/utils/helpers';
+import { useLanguage } from '@/i18n';
 
 const importanceColors = {
     'ESSENTIAL': 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -10,13 +12,14 @@ const importanceColors = {
 };
 
 export default function RecentActivityCard({ transactions = [] }) {
-    console.log('DEBUG - RecentActivityCard transactions:', transactions);
+    const t = useTranslations();
+    const { lang } = useLanguage();
     
     return (
         <div className="col-span-4">
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Recent Activity</h3>
+                    <h3 className="text-lg font-semibold">{t('cards.recentActivity')}</h3>
                     <button className="text-gray-400 hover:text-white">
                         <MoreVertical className="w-5 h-5" />
                     </button>
@@ -36,17 +39,17 @@ export default function RecentActivityCard({ transactions = [] }) {
                                 </div>
                                 <div>
                                     <p className="font-medium text-sm">{transaction.title || transaction.categoryName}</p>
-                                    <p className="text-xs text-gray-500">{new Date(transaction.transactionDate || transaction.date).toLocaleDateString()}</p>
+                                    <p className="text-xs text-gray-500">{formatDate(transaction.transactionDate || transaction.date, lang)}</p>
                                 </div>
                             </div>
                             <div className="text-right">
                                 <p className={`font-semibold text-sm ${
                                     transaction.type === 'INCOME' ? 'text-green-400' : 'text-red-400'
                                 }`}>
-                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(parseFloat(transaction.amount || 0))}
+                                    {transaction.type === 'INCOME' ? '+' : '-'}{formatCurrency(parseFloat(transaction.amount || 0), lang)}
                                 </p>
                                 <span className={`text-xs px-2 py-0.5 rounded-full border ${importanceColors[transaction.importance]}`}>
-                                    {transaction.importance?.split('_')[0] || 'N/A'}
+                                    {transaction.importance ? t(`importance.${transaction.importance.toLowerCase().replace(/_./g, (m) => m[1].toUpperCase())}`) : 'N/A'}
                                 </span>
                             </div>
                         </div>
@@ -55,7 +58,7 @@ export default function RecentActivityCard({ transactions = [] }) {
                     {transactions.length === 0 && (
                         <div className="text-center py-8">
                             <DollarSign className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                            <p className="text-gray-400 text-sm">No recent transactions</p>
+                            <p className="text-gray-400 text-sm">{t('cards.noRecentTransactions')}</p>
                         </div>
                     )}
                 </div>
