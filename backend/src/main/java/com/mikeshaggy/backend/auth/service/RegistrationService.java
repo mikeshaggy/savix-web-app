@@ -1,8 +1,8 @@
 package com.mikeshaggy.backend.auth.service;
 
+import com.mikeshaggy.backend.auth.domain.password.PasswordPolicyValidator;
 import com.mikeshaggy.backend.auth.dto.request.RegisterRequest;
 import com.mikeshaggy.backend.auth.exception.AuthException;
-import com.mikeshaggy.backend.auth.domain.password.PasswordPolicyValidator;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.repo.UserRepository;
 import lombok.RequiredArgsConstructor;

@@ -2,12 +2,12 @@ package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.password.PasswordPolicyValidator;
 import com.mikeshaggy.backend.auth.domain.reset.ResetToken;
-import com.mikeshaggy.backend.auth.repo.ResetTokenRepository;
 import com.mikeshaggy.backend.auth.dto.request.ChangePasswordRequest;
 import com.mikeshaggy.backend.auth.dto.request.ForgotPasswordRequest;
 import com.mikeshaggy.backend.auth.dto.request.ResetPasswordRequest;
 import com.mikeshaggy.backend.auth.exception.AuthException;
 import com.mikeshaggy.backend.auth.exception.RateLimitException;
+import com.mikeshaggy.backend.auth.repo.ResetTokenRepository;
 import com.mikeshaggy.backend.auth.util.crypto.CryptoUtils;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.repo.UserRepository;

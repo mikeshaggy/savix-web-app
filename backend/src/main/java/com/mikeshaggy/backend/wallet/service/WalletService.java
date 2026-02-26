@@ -1,8 +1,8 @@
 package com.mikeshaggy.backend.wallet.service;
 
+import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
 import com.mikeshaggy.backend.wallet.dto.WalletResponse;
 import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
@@ -101,5 +101,11 @@ public class WalletService {
     private Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
         return walletRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
+    }
+
+    public String getWalletNameOrThrow(Integer walletId) {
+        return walletRepository.findById(walletId)
+                .map(Wallet::getName)
+                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + walletId));
     }
 }

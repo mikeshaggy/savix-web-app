@@ -1,17 +1,18 @@
 package com.mikeshaggy.backend.transaction.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
+import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.category.service.CategoryService;
+import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
-import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
-import com.mikeshaggy.backend.wallet.service.WalletService;
 import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
+import com.mikeshaggy.backend.wallet.domain.Wallet;
+import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
+import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -151,5 +153,17 @@ public class TransactionService {
     private Transaction getTransactionOrThrowForUser(Long id, UUID userId) {
         return transactionRepository.findByIdAndWalletUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
+    }
+
+    public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, PeriodDto period) {
+        return transactionRepository
+                .findByWalletIdAndTransactionDateBetween(walletId, period.startDate(), period.endDate());
+    }
+
+    public List<Transaction> getTransactionsForWalletAndComparePeriod(Integer walletId, PeriodDto comparePeriod) {
+        if (comparePeriod == null) {
+            return Collections.emptyList();
+        }
+        return getTransactionsForWalletAndPeriod(walletId, comparePeriod);
     }
 }

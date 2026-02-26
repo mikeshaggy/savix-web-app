@@ -1,0 +1,30 @@
+package com.mikeshaggy.backend.dashboard.service.period;
+
+import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
+import com.mikeshaggy.backend.dashboard.dto.PeriodType;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+
+@Component
+public class CustomPeriodResolver implements PeriodResolver {
+
+    @Override
+    public PeriodType supports() {
+        return PeriodType.CUSTOM;
+    }
+
+    @Override
+    public PeriodDto resolve(Integer walletId, LocalDate customStart, LocalDate customEnd) {
+        if (customStart == null || customEnd == null) {
+            throw new IllegalArgumentException("Both startDate and endDate are required for CUSTOM period type");
+        }
+
+        if (customStart.isAfter(customEnd)) {
+            throw new IllegalArgumentException(
+                    "startDate (%s) must not be after endDate (%s)".formatted(customStart, customEnd));
+        }
+
+        return new PeriodDto(customStart, customEnd, PeriodType.CUSTOM);
+    }
+}

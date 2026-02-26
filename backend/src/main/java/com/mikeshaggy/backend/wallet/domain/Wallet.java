@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.wallet.domain;
 
-import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
+import com.mikeshaggy.backend.user.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

@@ -2,16 +2,15 @@ package com.mikeshaggy.backend.category.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
 import com.mikeshaggy.backend.category.dto.CategoryResponse;
 import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
 import com.mikeshaggy.backend.category.repo.CategoryRepository;
+import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
