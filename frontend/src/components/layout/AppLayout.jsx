@@ -7,6 +7,7 @@ import { PageLoading } from '@/components/common/Loading';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import TransactionModal from '../modals/TransactionModal';
+import TransferModal from '../modals/TransferModal';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -19,13 +20,22 @@ const isPublicRoute = (pathname) => {
 export default function AppLayout({ children }) {
     const pathname = usePathname();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
+    const [showTransferModal, setShowTransferModal] = useState(false);
 
     const handleNewTransaction = useCallback(() => {
         setShowTransactionModal(true);
     }, []);
 
+    const handleNewTransfer = useCallback(() => {
+        setShowTransferModal(true);
+    }, []);
+
     const handleCloseModal = useCallback(() => {
         setShowTransactionModal(false);
+    }, []);
+
+    const handleCloseTransferModal = useCallback(() => {
+        setShowTransferModal(false);
     }, []);
 
     if (isPublicRoute(pathname)) {
@@ -33,12 +43,15 @@ export default function AppLayout({ children }) {
     }
 
     const globalState = {
-        showTransactionModal
+        showTransactionModal,
+        showTransferModal
     };
 
     const globalActions = {
         onNewTransaction: handleNewTransaction,
-        onCloseModal: handleCloseModal
+        onNewTransfer: handleNewTransfer,
+        onCloseModal: handleCloseModal,
+        onCloseTransferModal: handleCloseTransferModal
     };
 
     return (
@@ -47,8 +60,11 @@ export default function AppLayout({ children }) {
                 <AppLayoutContent 
                     pathname={pathname}
                     showTransactionModal={showTransactionModal}
+                    showTransferModal={showTransferModal}
                     onNewTransaction={handleNewTransaction}
+                    onNewTransfer={handleNewTransfer}
                     onCloseModal={handleCloseModal}
+                    onCloseTransferModal={handleCloseTransferModal}
                 >
                     {children}
                 </AppLayoutContent>
@@ -60,9 +76,12 @@ export default function AppLayout({ children }) {
 function AppLayoutContent({ 
     children, 
     pathname, 
-    showTransactionModal, 
-    onNewTransaction, 
-    onCloseModal 
+    showTransactionModal,
+    showTransferModal,
+    onNewTransaction,
+    onNewTransfer,
+    onCloseModal,
+    onCloseTransferModal
 }) {
     const t = useTranslations();
     const {
@@ -73,6 +92,7 @@ function AppLayoutContent({
         transactionsError,
         categoriesError,
         onCreateTransaction,
+        onCreateTransfer,
         onRefresh
     } = useAppContext();
 
@@ -106,6 +126,7 @@ function AppLayoutContent({
             <Sidebar 
                 currentPath={pathname}
                 onNewTransaction={onNewTransaction}
+                onNewTransfer={onNewTransfer}
             />
 
             {/* Main Content */}
@@ -127,6 +148,13 @@ function AppLayoutContent({
                 onClose={onCloseModal}
                 onSave={onCreateTransaction}
                 categories={categories}
+            />
+
+            {/* Transfer Modal */}
+            <TransferModal
+                isOpen={showTransferModal}
+                onClose={onCloseTransferModal}
+                onSave={onCreateTransfer}
             />
         </div>
     );

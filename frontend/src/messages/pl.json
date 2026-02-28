@@ -397,5 +397,28 @@
     "cancel": "Anuluj",
     "delete": "Usuń",
     "deleting": "Usuwanie..."
+  },
+  "transfer": {
+    "newTransfer": "Nowy przelew",
+    "fromWallet": "Z portfela",
+    "toWallet": "Do portfela",
+    "selectWallet": "Wybierz portfel",
+    "swapWallets": "Zamień portfele",
+    "balancePreview": "Podgląd salda",
+    "negativeBalanceWarning": "Uwaga: Saldo portfela źródłowego będzie ujemne po tym przelewie.",
+    "saveTransfer": "Zapisz przelew",
+    "notesPlaceholder": "np. 'wpłata na oszczędności' / 'czynsz'",
+    "errors": {
+      "fromWalletRequired": "Portfel źródłowy jest wymagany",
+      "toWalletRequired": "Portfel docelowy jest wymagany",
+      "sameWallet": "Portfel źródłowy i docelowy muszą być różne"
+    }
+  },
+  "newAction": {
+    "button": "Nowy",
+    "transaction": "Transakcja",
+    "transactionDesc": "Zapisz przychód lub wydatek",
+    "transfer": "Przelew",
+    "transferDesc": "Przenieś środki między portfelami"
   }
 }

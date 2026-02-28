@@ -282,10 +282,6 @@ export const patch = (endpoint, body, options = {}) =>
 export const del = (endpoint, options = {}) => 
   apiRequest(endpoint, { ...options, method: 'DELETE' });
 
-// =============================================================================
-// Authentication API
-// =============================================================================
-
 export const authApi = {
   register: (data) => post('/auth/register', data),
 
@@ -447,4 +443,18 @@ export const dashboardApi = {
       throw error;
     }
   },
+};
+
+export const transferApi = {
+  getAllTransfers: () => get('/transfers'),
+
+  getTransferById: (id) => get(`/transfers/${id}`),
+
+  getTransfersByWalletId: (walletId) => get(`/transfers/wallet/${walletId}`),
+
+  createTransfer: (transferData) => post('/transfers', transferData),
+
+  updateTransfer: (id, transferData) => put(`/transfers/${id}`, transferData),
+
+  deleteTransfer: (id) => del(`/transfers/${id}`),
 };

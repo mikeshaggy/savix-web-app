@@ -396,5 +396,28 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "deleting": "Deleting..."
+  },
+  "transfer": {
+    "newTransfer": "New Transfer",
+    "fromWallet": "From Wallet",
+    "toWallet": "To Wallet",
+    "selectWallet": "Select a wallet",
+    "swapWallets": "Swap wallets",
+    "balancePreview": "Balance Preview",
+    "negativeBalanceWarning": "Warning: Source wallet balance will go negative after this transfer.",
+    "saveTransfer": "Save transfer",
+    "notesPlaceholder": "e.g. 'savings deposit' / 'rent payment'",
+    "errors": {
+      "fromWalletRequired": "Source wallet is required",
+      "toWalletRequired": "Destination wallet is required",
+      "sameWallet": "Source and destination wallets must be different"
+    }
+  },
+  "newAction": {
+    "button": "New",
+    "transaction": "Transaction",
+    "transactionDesc": "Record income or expense",
+    "transfer": "Transfer",
+    "transferDesc": "Move funds between wallets"
   }
 }

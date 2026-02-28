@@ -24,7 +24,8 @@ export default function TransactionsPage() {
         dashboardError,
         onCreateTransaction,
         onUpdateTransaction,
-        onDeleteTransaction
+        onDeleteTransaction,
+        onNewTransfer
     } = useAppContext();
     const router = useRouter();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -205,6 +206,7 @@ export default function TransactionsPage() {
                 setSortOrder={setSortOrder}
                 filterStats={filterStats}
                 onNewTransaction={handleNewTransaction}
+                onNewTransfer={onNewTransfer}
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={handleDeleteClick}
             />

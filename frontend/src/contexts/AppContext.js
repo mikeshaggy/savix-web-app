@@ -79,6 +79,17 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         }
     }, [refetchDashboard]);
 
+    const handleCreateTransfer = useCallback(async (transferData) => {
+        try {
+            const { transferApi } = await import('../lib/api');
+            await transferApi.createTransfer(transferData);
+            refetchDashboard();
+        } catch (error) {
+            console.error('Failed to create transfer:', error);
+            throw error;
+        }
+    }, [refetchDashboard]);
+
     const handleRefresh = useCallback(() => {
         refetchDashboard();
     }, [refetchDashboard]);
@@ -104,6 +115,7 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         onCreateTransaction: handleCreateTransaction,
         onUpdateTransaction: handleUpdateTransaction,
         onDeleteTransaction: handleDeleteTransaction,
+        onCreateTransfer: handleCreateTransfer,
         onRefresh: handleRefresh,
         
         ...globalState,
@@ -125,6 +137,7 @@ export const AppProvider = ({ children, globalState, globalActions }) => {
         handleCreateTransaction,
         handleUpdateTransaction,
         handleDeleteTransaction,
+        handleCreateTransfer,
         handleRefresh,
         globalState,
         globalActions

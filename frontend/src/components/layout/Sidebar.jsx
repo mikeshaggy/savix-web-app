@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Wallet, Home, PieChart, Repeat, Settings, Plus, List, Tag, BarChart3, Filter } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import NewActionDropdown from '@/components/common/NewActionDropdown';
 
 const getNavItems = (t) => [
     { id: 'dashboard', label: t('nav.dashboard'), icon: Home, href: '/dashboard' },
@@ -25,7 +26,7 @@ const getNavItems = (t) => [
     { id: 'settings', label: t('nav.settings'), icon: Settings, href: '/settings' }
 ];
 
-export default function Sidebar({ currentPath, onNewTransaction }) {
+export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer }) {
     const pathname = usePathname();
     const [expandedMenus, setExpandedMenus] = useState({});
     const t = useTranslations();
@@ -112,14 +113,11 @@ export default function Sidebar({ currentPath, onNewTransaction }) {
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* New Transaction Button */}
-            <button
-                onClick={onNewTransaction}
-                className="w-full bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[13px] py-[13px] flex items-center justify-center gap-2 text-[14px] font-bold text-white cursor-pointer border-none shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)]"
-            >
-                <Plus className="w-4 h-4" strokeWidth={2.5} />
-                {t('transaction.newTransaction')}
-            </button>
+            {/* New Action Dropdown */}
+            <NewActionDropdown
+                onNewTransaction={onNewTransaction}
+                onNewTransfer={onNewTransfer}
+            />
         </aside>
     );
 }
