@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useWallets } from '@/contexts/WalletContext';
-import { Wallet, Plus, Edit3, Trash2, DollarSign, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wallet, Plus, Edit3, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
+import { Loading } from '@/components/common/Loading';
 import { useTranslations } from 'next-intl';
+import { useLanguage } from '@/i18n';
 
 export default function WalletManagementView() {
   const t = useTranslations();
+  const { lang } = useLanguage();
   const { 
     wallets, 
     currentWallet, 
@@ -22,6 +25,7 @@ export default function WalletManagementView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWallet, setEditingWallet] = useState(null);
   const [balanceEditWallet, setBalanceEditWallet] = useState(null);
+  const [deletingWallet, setDeletingWallet] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -55,13 +59,12 @@ export default function WalletManagementView() {
     }
   };
 
-  const handleDeleteWallet = async (id) => {
-    if (window.confirm(t('wallet.deleteConfirm'))) {
-      try {
-        await deleteWallet(id);
-      } catch (error) {
-        console.error('Failed to delete wallet:', error);
-      }
+  const handleDeleteWallet = async (wallet) => {
+    try {
+      await deleteWallet(wallet.id);
+      setDeletingWallet(null);
+    } catch (error) {
+      console.error('Failed to delete wallet:', error);
     }
   };
 
@@ -74,155 +77,226 @@ export default function WalletManagementView() {
     }
   };
 
+  const walletColors = ['teal', 'amber', 'blue', 'rose'];
+  const getWalletColor = (wallet, index) => {
+    if (currentWallet?.id === wallet.id) return 'purple';
+    return walletColors[index % walletColors.length];
+  };
+
+  const colorConfig = {
+    purple: { bg: 'bg-[rgba(124,58,237,0.2)]', stroke: '#a855f7' },
+    teal:   { bg: 'bg-[rgba(20,184,166,0.15)]', stroke: '#14b8a6' },
+    amber:  { bg: 'bg-[rgba(245,158,11,0.15)]', stroke: '#f59e0b' },
+    blue:   { bg: 'bg-[rgba(59,130,246,0.15)]', stroke: '#3b82f6' },
+    rose:   { bg: 'bg-[rgba(244,63,94,0.15)]', stroke: '#f43f5e' },
+  };
+
   if (loading) {
+    return <Loading message={t('wallet.loadingWallets')} />;
+  }
+
+  if (error) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">{t('errors.failedToLoadWallets')}</h2>
+          <p className="text-[#6b6b8a] mb-4">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[8px] text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] mx-auto shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {t('common.tryAgain')}
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col gap-[18px]">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('wallet.switchWallet')}</h1>
-          <p className="text-gray-400">{t('wallet.switchWalletDesc')}</p>
+          <div className="text-[26px] font-bold tracking-[-0.4px]">
+            {t('wallet.wallets')}
+          </div>
+          <div className="text-[14px] text-white/22 mt-[3px]">
+            {t('wallet.switchWalletDesc')}
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+            className="w-[34px] h-[34px] rounded-[8px] border border-white/[0.055] bg-transparent flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:border-white/[0.12] hover:text-[#9898b8] disabled:opacity-50"
             title={t('wallet.refreshWallets')}
           >
-            <RefreshCw className={`w-5 h-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-[14px] h-[14px] ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border-none rounded-[8px] px-4 py-2 text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-[13px] h-[13px]" strokeWidth={2.5} />
             {t('wallet.addWallet')}
           </button>
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={handleRefresh}
-            className="text-red-400 hover:text-red-300 text-sm underline"
-          >
-            {t('common.tryAgain')}
-          </button>
-        </div>
-      )}
-
-      {/* Current Wallet Display */}
+      {/* Active wallet banner */}
       {currentWallet && (
-        <div className="bg-linear-to-r from-violet-600 to-purple-600 rounded-xl p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-violet-100 text-sm">{t('wallet.currentWallet')}</p>
-              <h2 className="text-white text-2xl font-bold">{currentWallet.name}</h2>
+        <div className="relative bg-[#13131f] border border-white/[0.06] rounded-[14px] px-7 py-[22px] flex items-center justify-between overflow-hidden">
+          {/* Top gradient line */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-transparent" />
+          {/* Glow effect */}
+          <div className="absolute top-0 -right-20 w-[200px] h-[200px] bg-[radial-gradient(circle,rgba(124,58,237,0.12)_0%,transparent_70%)] pointer-events-none" />
+
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[12px] flex items-center justify-center shadow-[0_4px_20px_rgba(124,58,237,0.25)]">
+              <Wallet className="w-5 h-5 text-white" />
             </div>
-            <div className="text-right">
-              <p className="text-violet-100 text-sm">{t('wallet.balance')}</p>
-              <p className="text-white text-2xl font-bold">
-                {formatCurrency(currentWallet.balance ?? 0)}
-              </p>
+            <div>
+              <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mb-[3px]">
+                {t('wallet.currentWallet')}
+              </div>
+              <div className="text-[18px] font-semibold text-white">
+                {currentWallet.name}
+              </div>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mb-[3px]">
+              {t('wallet.balance')}
+            </div>
+            <div className="font-mono text-[24px] font-bold text-white tracking-[-0.5px]">
+              {formatCurrency(currentWallet.balance ?? 0, lang)}
             </div>
           </div>
         </div>
       )}
 
-      {/* Wallet Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {wallets.map((wallet) => (
-          <div
-            key={wallet.id}
-            className={`bg-gray-800 rounded-lg p-6 border transition-all cursor-pointer ${
-              currentWallet?.id === wallet.id
-                ? 'border-violet-500 bg-violet-500/10'
-                : 'border-gray-700 hover:border-gray-600'
-            }`}
-            onClick={() => handleWalletSelect(wallet)}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${
-                  currentWallet?.id === wallet.id ? 'bg-violet-500' : 'bg-gray-700'
-                }`}>
-                  <Wallet className="w-5 h-5 text-white" />
+      {/* Section label */}
+      <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mt-1">
+        {t('wallet.allWallets')}
+      </div>
+
+      {/* Wallets grid */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[14px]">
+        {wallets.map((wallet, index) => {
+          const isActive = currentWallet?.id === wallet.id;
+          const color = getWalletColor(wallet, index);
+          const cfg = colorConfig[color];
+
+          return (
+            <div
+              key={wallet.id}
+              className={`group relative bg-[#13131f] border rounded-[14px] p-5 cursor-pointer transition-all overflow-hidden
+                ${isActive
+                  ? 'border-[rgba(124,58,237,0.4)]'
+                  : 'border-white/[0.06] hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[2px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
+                }`}
+              onClick={() => handleWalletSelect(wallet)}
+            >
+              {/* Active card top gradient */}
+              {isActive && (
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] to-[#a855f7]" />
+              )}
+
+              {/* Card top: icon + name + actions */}
+              <div className="flex items-center justify-between mb-[18px]">
+                <div className="flex items-center gap-3">
+                  <div className={`w-[38px] h-[38px] rounded-[10px] flex items-center justify-center ${cfg.bg}`}>
+                    <Wallet className="w-[18px] h-[18px]" style={{ color: cfg.stroke }} />
+                  </div>
+                  <div>
+                    <div className="text-[14px] font-semibold text-white mb-[2px]">
+                      {wallet.name}
+                    </div>
+                    <div className="text-[11.5px] text-[#6b6b8a]">
+                      {t('wallet.created', { date: new Date(wallet.createdAt).toLocaleDateString() })}
+                    </div>
+                  </div>
                 </div>
+
+                {/* Action buttons — visible on hover */}
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingWallet(wallet);
+                    }}
+                    className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-white/[0.08] hover:text-white"
+                    title={t('wallet.editWallet')}
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingWallet(wallet);
+                    }}
+                    className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-[rgba(244,63,94,0.15)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.3)]"
+                    title={t('wallet.deleteWallet')}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.06] mb-4" />
+
+              {/* Card bottom: balance + active badge / edit balance */}
+              <div className="flex items-end justify-between">
                 <div>
-                  <h3 className="text-white font-semibold">{wallet.name}</h3>
-                  <p className="text-gray-400 text-sm">
-                    {t('wallet.created', { date: new Date(wallet.createdAt).toLocaleDateString() })}
-                  </p>
+                  <div className="font-mono text-[11px] uppercase tracking-[1px] text-[#6b6b8a] mb-[2px]">
+                    {t('wallet.balance')}
+                  </div>
+                  <div className="font-mono text-[20px] font-bold text-white tracking-[-0.3px]">
+                    {formatCurrency(wallet.balance ?? 0, lang)}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-[6px]">
+                  {isActive && (
+                    <div className="flex items-center gap-[5px] bg-[rgba(124,58,237,0.18)] border border-[rgba(124,58,237,0.3)] rounded-full px-[10px] py-1 text-[11px] font-medium text-[#a855f7]">
+                      <div className="w-[5px] h-[5px] rounded-full bg-[#a855f7] shadow-[0_0_6px_#a855f7] animate-pulse" />
+                      {t('common.active')}
+                    </div>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBalanceEditWallet(wallet);
+                    }}
+                    className="text-[11.5px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+                  >
+                    {t('wallet.editBalance')}
+                  </button>
                 </div>
               </div>
-              
-              <div className="flex gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingWallet(wallet);
-                  }}
-                  className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteWallet(wallet.id);
-                  }}
-                  className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
             </div>
+          );
+        })}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-500" />
-                <span className="text-white font-bold">
-                  {formatCurrency(wallet.balance ?? 0)}
-                </span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setBalanceEditWallet(wallet);
-                }}
-                className="text-xs text-gray-400 hover:text-violet-400 transition-colors"
-              >
-                {t('wallet.editBalance')}
-              </button>
-            </div>
-            
-            {currentWallet?.id === wallet.id && (
-              <div className="mt-2">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400">
-                  {t('common.active')}
-                </span>
-              </div>
-            )}
+        {/* Add wallet card */}
+        <div
+          onClick={() => setShowCreateModal(true)}
+          className="bg-transparent border border-dashed border-white/10 rounded-[14px] p-5 cursor-pointer transition-all flex items-center justify-center gap-[10px] min-h-[130px] text-[#6b6b8a] text-[13.5px] hover:border-[rgba(124,58,237,0.3)] hover:bg-[rgba(124,58,237,0.05)] hover:text-[#a855f7] group/add"
+        >
+          <div className="w-8 h-8 rounded-[8px] bg-white/[0.05] border border-white/[0.08] flex items-center justify-center transition-all group-hover/add:bg-[rgba(124,58,237,0.2)] group-hover/add:border-[rgba(124,58,237,0.3)]">
+            <Plus className="w-[15px] h-[15px]" strokeWidth={2.5} />
           </div>
-        ))}
+          {t('wallet.addNewWallet')}
+        </div>
 
+        {/* Empty state (no wallets at all) */}
         {wallets.length === 0 && (
           <div className="col-span-full text-center py-12">
-            <Wallet className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">{t('wallet.noWalletsFound')}</p>
+            <Wallet className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">{t('wallet.noWalletsFound')}</h3>
+            <p className="text-[#6b6b8a] mb-4">{t('wallet.switchWalletDesc')}</p>
           </div>
         )}
       </div>
@@ -251,6 +325,42 @@ export default function WalletManagementView() {
           onSave={(newBalance) => handleUpdateBalance(balanceEditWallet.id, newBalance)}
           wallet={balanceEditWallet}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingWallet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-[rgba(244,63,94,0.15)] rounded-[10px] flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-[#f43f5e]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">{t('wallet.deleteWallet')}</h3>
+                <p className="text-[#6b6b8a] text-sm">{t('category.cannotBeUndone')}</p>
+              </div>
+            </div>
+            
+            <p className="text-[#9898b8] mb-6">
+              {t('wallet.deleteConfirmMsg', { name: deletingWallet.name })}
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingWallet(null)}
+                className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => handleDeleteWallet(deletingWallet)}
+                className="flex-1 px-4 py-2 bg-[#f43f5e] hover:bg-[#e11d48] text-white rounded-[8px] transition-colors cursor-pointer"
+              >
+                {t('common.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -301,29 +411,39 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-white mb-4">
-          {wallet ? t('wallet.editWallet') : t('wallet.createNewWallet')}
-        </h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-[rgba(124,58,237,0.2)] rounded-[10px] flex items-center justify-center">
+            <Wallet className="w-6 h-6 text-[#a855f7]" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">
+              {wallet ? t('wallet.editWallet') : t('wallet.createNewWallet')}
+            </h3>
+            <p className="text-[#6b6b8a] text-sm">
+              {wallet ? t('wallet.editWalletDesc') : t('wallet.createWalletDesc')}
+            </p>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[#9898b8] mb-2">
               {t('wallet.walletNameLabel')}
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-violet-500"
+              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
               placeholder={t('wallet.walletNamePlaceholder')}
             />
-            {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-[#f43f5e] text-sm mt-1">{errors.name}</p>}
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[#9898b8] mb-2">
               {t('wallet.initialBalance')}
             </label>
             <input
@@ -332,28 +452,28 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
               min="0"
               value={formData.balance}
               onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-violet-500"
+              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
               placeholder="0.00"
             />
-            {errors.balance && <p className="text-red-400 text-sm mt-1">{errors.balance}</p>}
+            {errors.balance && <p className="text-[#f43f5e] text-sm mt-1">{errors.balance}</p>}
           </div>
 
           {errors.submit && (
-            <div className="mb-4 text-red-400 text-sm">{errors.submit}</div>
+            <div className="mb-4 text-[#f43f5e] text-sm">{errors.submit}</div>
           )}
 
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] disabled:opacity-50 text-white rounded-[8px] transition-all cursor-pointer shadow-[0_4px_16px_rgba(124,58,237,0.25)] hover:opacity-90"
             >
               {submitting ? t('common.saving') : (wallet ? t('common.update') : t('common.create'))}
             </button>
@@ -394,14 +514,21 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
-        <h2 className="text-xl font-bold text-white mb-2">{t('wallet.updateBalance')}</h2>
-        <p className="text-gray-400 text-sm mb-4">{wallet?.name}</p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-[rgba(124,58,237,0.2)] rounded-[10px] flex items-center justify-center">
+            <Wallet className="w-6 h-6 text-[#a855f7]" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">{t('wallet.updateBalance')}</h3>
+            <p className="text-[#6b6b8a] text-sm">{wallet?.name}</p>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-[#9898b8] mb-2">
               {t('wallet.newBalance')}
             </label>
             <input
@@ -413,24 +540,24 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
                 setBalance(e.target.value);
                 setError(null);
               }}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-violet-500 text-white"
+              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
               autoFocus
             />
-            {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+            {error && <p className="text-[#f43f5e] text-sm mt-1">{error}</p>}
           </div>
 
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] disabled:opacity-50 text-white rounded-[8px] transition-all cursor-pointer shadow-[0_4px_16px_rgba(124,58,237,0.25)] hover:opacity-90"
             >
               {submitting ? t('common.updating') : t('common.update')}
             </button>
