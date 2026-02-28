@@ -66,9 +66,10 @@ public class TransactionService {
         transaction.setWallet(wallet);
         transaction.setCategory(category);
 
-        walletBalanceService.applyTransaction(wallet.getId(), transaction.getAmount(), category.getType(), userId);
-
         Transaction savedTransaction = transactionRepository.save(transaction);
+
+        walletBalanceService.applyTransaction(wallet.getId(), savedTransaction.getAmount(), category.getType(),
+                userId, savedTransaction.getId(), savedTransaction.getTransactionDate());
 
         log.info("Created transaction '{}' (id: {}) for wallet: {}, amount: {}, type: {}",
                 savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
@@ -103,24 +104,16 @@ public class TransactionService {
 
         Transaction updatedTransaction = transactionRepository.save(existingTransaction);
 
-        adjustWalletBalancesOnUpdate(
+        walletBalanceService.adjustForTransactionEdit(
                 oldWallet, oldAmount, oldType,
                 newWallet, updatedTransaction.getAmount(), newCategory.getType(),
-                userId
+                updatedTransaction.getId(), updatedTransaction.getTransactionDate()
         );
 
         log.info("Updated transaction id: {} to title: '{}', amount: {}",
                 id, updatedTransaction.getTitle(), updatedTransaction.getAmount());
 
         return TransactionResponse.from(updatedTransaction);
-    }
-
-    private void adjustWalletBalancesOnUpdate(
-            Wallet oldWallet, BigDecimal oldAmount, Type oldType,
-            Wallet newWallet, BigDecimal newAmount, Type newType,
-            UUID userId) {
-        walletBalanceService.reverseTransaction(oldWallet.getId(), oldAmount, oldType, userId);
-        walletBalanceService.applyTransaction(newWallet.getId(), newAmount, newType, userId);
     }
 
     @Transactional
@@ -132,7 +125,9 @@ public class TransactionService {
                 wallet.getId(),
                 transaction.getAmount(),
                 transaction.getCategory().getType(),
-                userId
+                userId,
+                transaction.getId(),
+                transaction.getTransactionDate()
         );
 
         log.info("Deleting transaction '{}' (id: {}) from wallet: {}, rolled back balance",

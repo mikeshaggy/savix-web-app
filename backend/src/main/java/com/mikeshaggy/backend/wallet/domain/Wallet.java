@@ -35,6 +35,9 @@ public class Wallet {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
 
+    @Version
+    private Integer version;
+
     @CreationTimestamp
     private Instant createdAt;
 
