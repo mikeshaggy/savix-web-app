@@ -7,21 +7,30 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
+import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
+import com.mikeshaggy.backend.transaction.repo.TransactionSpecifications;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -35,10 +44,98 @@ public class TransactionService {
     private final WalletBalanceService walletBalanceService;
     private final CategoryService categoryService;
 
-    public List<TransactionResponse> getTransactionsForUser(UUID userId) {
-        return transactionRepository.findAllByWalletUserId(userId).stream()
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("transactionDate", "amount", "title");
+    private static final Set<Integer> ALLOWED_PAGE_SIZES = Set.of(10, 20, 50, 100);
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 100;
+
+
+    public TransactionPageResponse getTransactionsForUser(
+            UUID userId,
+            int page,
+            int size,
+            List<Type> types,
+            List<Integer> categoryIds,
+            List<Importance> importances,
+            LocalDate startDate,
+            LocalDate endDate,
+            String q,
+            String sort) {
+        int effectivePage = Math.max(page, 0);
+        int effectiveSize = normalizeSize(size);
+        Sort effectiveSort = normalizeSort(sort);
+        Pageable pageable = PageRequest.of(effectivePage, effectiveSize, effectiveSort);
+
+        return searchTransactions(
+                userId,
+                types,
+                categoryIds,
+                importances,
+                startDate,
+                endDate,
+                q,
+                pageable
+        );
+    }
+
+    private int normalizeSize(int size) {
+        int s = ALLOWED_PAGE_SIZES.contains(size) ? size : DEFAULT_PAGE_SIZE;
+        return Math.min(s, MAX_PAGE_SIZE);
+    }
+
+    private Sort normalizeSort(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return Sort.by(Sort.Direction.DESC, "transactionDate");
+        }
+
+        String[] parts = sort.split(",");
+        String field = parts[0].trim();
+        Sort.Direction direction = Sort.Direction.DESC;
+
+        if (parts.length > 1) {
+            String dir = parts[1].trim().toLowerCase();
+            if (dir.equals("asc")) {
+                direction = Sort.Direction.ASC;
+            }
+        }
+
+        if (!ALLOWED_SORT_FIELDS.contains(field)) {
+            field = "transactionDate";
+            direction = Sort.Direction.DESC;
+        }
+
+        return Sort.by(direction, field);
+    }
+
+    private TransactionPageResponse searchTransactions(
+            UUID userId,
+            List<Type> types,
+            List<Integer> categoryIds,
+            List<Importance> importances,
+            LocalDate startDate,
+            LocalDate endDate,
+            String q,
+            Pageable pageable
+    ) {
+        Specification<Transaction> spec = TransactionSpecifications.buildSpecification(
+                userId, types, categoryIds, importances, startDate, endDate, q
+        );
+
+        Page<Transaction> page = transactionRepository.findAll(spec, pageable);
+
+        List<TransactionResponse> items = page.getContent().stream()
                 .map(TransactionResponse::from)
                 .toList();
+
+        return new TransactionPageResponse(
+                items,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.hasNext(),
+                page.hasPrevious()
+        );
     }
 
     public List<TransactionResponse> getTransactionsByWalletIdForUser(Integer walletId, UUID userId) {

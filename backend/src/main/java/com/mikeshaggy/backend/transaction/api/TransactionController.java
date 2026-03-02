@@ -1,16 +1,21 @@
 package com.mikeshaggy.backend.transaction.api;
 
+import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
+import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -24,11 +29,29 @@ public class TransactionController {
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
-    public ResponseEntity<List<TransactionResponse>> getTransactions() {
-        List<TransactionResponse> transactions = transactionService.getTransactionsForUser(
-                currentUserProvider.getCurrentUserId()
-        );
-        return ResponseEntity.ok(transactions);
+    public ResponseEntity<TransactionPageResponse> getTransactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "transactionDate,desc") String sort,
+            @RequestParam(required = false) List<Type> types,
+            @RequestParam(required = false) List<Integer> categoryIds,
+            @RequestParam(required = false) List<Importance> importances,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String q
+    ) {
+        return ResponseEntity.ok(transactionService.getTransactionsForUser(
+                currentUserProvider.getCurrentUserId(),
+                page,
+                size,
+                types,
+                categoryIds,
+                importances,
+                startDate,
+                endDate,
+                q,
+                sort
+        ));
     }
 
     @GetMapping("/{id}")
