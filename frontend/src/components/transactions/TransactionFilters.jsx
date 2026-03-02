@@ -1,148 +1,219 @@
 import React from 'react';
-import { DATE_PRESETS } from '@/constants';
+import { Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { getPresetDateRange } from '@/utils/dateFilters';
+import MultiSelectDropdown from '@/components/common/MultiSelectDropdown';
 
 export default function TransactionFilters({
-    categoryFilter,
-    setCategoryFilter,
-    importanceFilter,
-    setImportanceFilter,
-    dateFilter,
-    setDateFilter,
-    datePreset,
-    setDatePreset,
-    customFromDate,
-    setCustomFromDate,
-    customToDate,
-    setCustomToDate,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
+    // Server-driven filter state
+    types = [],
+    updateTypes,
+    categoryIds = [],
+    updateCategoryIds,
+    importances = [],
+    updateImportances,
+    startDate = '',
+    updateStartDate,
+    endDate = '',
+    updateEndDate,
+    sort = 'transactionDate,desc',
+    updateSort,
+    searchInput = '',
+    setSearchInput,
+    clearSearch,
+    activeFilterCount = 0,
+    clearAllFilters,
     categories = [],
-    typeFilter,
-    setTypeFilter
 }) {
     const t = useTranslations();
-    const hasActiveFilters = categoryFilter !== 'ALL' || importanceFilter !== 'ALL' || 
-                            (datePreset && datePreset !== DATE_PRESETS.ALL_TIME) || 
-                            typeFilter !== 'ALL';
+
+    const [customRangeOpen, setCustomRangeOpen] = React.useState(false);
+
+    const datePreset = React.useMemo(() => {
+        if (customRangeOpen) return 'custom';
+        if (!startDate && !endDate) return 'all_time';
+        const now = new Date();
+        const presets = ['this_week', 'this_month', 'last_month'];
+        for (const preset of presets) {
+            const range = getPresetDateRange(preset, now);
+            if (range.from && range.to) {
+                const fromStr = range.from.toISOString().split('T')[0];
+                const toStr = range.to.toISOString().split('T')[0];
+                if (fromStr === startDate && toStr === endDate) return preset;
+            }
+        }
+        if (startDate || endDate) return 'custom';
+        return 'all_time';
+    }, [startDate, endDate, customRangeOpen]);
 
     const filteredCategories = React.useMemo(() => {
-        if (typeFilter === 'ALL') return categories;
-        return categories.filter(category => category.type === typeFilter);
-    }, [categories, typeFilter]);
+        if (types.length === 0) return categories;
+        return categories.filter(cat => types.includes(cat.type));
+    }, [categories, types]);
 
-    const handleTypeFilterChange = (newType) => {
-        setTypeFilter(newType);
-        if (categoryFilter !== 'ALL') {
-            const selectedCategoryId = parseInt(categoryFilter, 10);
-            const currentCategory = categories.find(cat => cat.id === selectedCategoryId);
-            if (!currentCategory || (newType !== 'ALL' && currentCategory.type !== newType)) {
-                setCategoryFilter('ALL');
+    const typeOptions = React.useMemo(() => [
+        { value: 'EXPENSE', label: t('categoryType.expense') },
+        { value: 'INCOME', label: t('categoryType.income') },
+    ], [t]);
+
+    const categoryOptions = React.useMemo(() =>
+        filteredCategories.map(cat => ({
+            value: String(cat.id),
+            label: cat.name,
+            emoji: cat.emoji || undefined,
+        })),
+    [filteredCategories]);
+
+    const importanceOptions = React.useMemo(() => [
+        { value: 'ESSENTIAL', label: t('importance.essential') },
+        { value: 'HAVE_TO_HAVE', label: t('importance.haveToHave') },
+        { value: 'NICE_TO_HAVE', label: t('importance.niceToHave') },
+        { value: 'SHOULDNT_HAVE', label: t('importance.shouldntHave') },
+        { value: 'INVESTMENT', label: t('importance.investment') },
+    ], [t]);
+
+    const handleTypesChange = (newTypes) => {
+        updateTypes(newTypes);
+        if (categoryIds.length > 0 && newTypes.length > 0) {
+            const compatibleIds = categories
+                .filter(cat => newTypes.includes(cat.type))
+                .map(cat => String(cat.id));
+            const filtered = categoryIds.filter(id => compatibleIds.includes(id));
+            if (filtered.length !== categoryIds.length) {
+                updateCategoryIds(filtered);
             }
         }
     };
 
+    const handleCategoryIdsChange = (newIds) => {
+        updateCategoryIds(newIds.map(id => parseInt(id, 10)));
+    };
+
     const handleDatePresetChange = (newPreset) => {
-        setDatePreset(newPreset);
-        if (newPreset !== DATE_PRESETS.CUSTOM) {
-            setCustomFromDate('');
-            setCustomToDate('');
+        if (newPreset === 'all_time') {
+            setCustomRangeOpen(false);
+            updateStartDate('');
+            updateEndDate('');
+        } else if (newPreset === 'custom') {
+            setCustomRangeOpen(true);
+        } else {
+            setCustomRangeOpen(false);
+            const range = getPresetDateRange(newPreset, new Date());
+            if (range.from && range.to) {
+                updateStartDate(range.from.toISOString().split('T')[0]);
+                updateEndDate(range.to.toISOString().split('T')[0]);
+            }
         }
     };
 
     const handleSortChange = (combined) => {
         const [field, order] = combined.split(':');
-        setSortBy(field);
-        setSortOrder(order);
+        const fieldMap = { date: 'transactionDate', amount: 'amount', title: 'title' };
+        const mappedField = fieldMap[field] || field;
+        updateSort(`${mappedField},${order}`);
     };
 
-    const clearAllFilters = () => {
-        setTypeFilter('ALL');
-        setCategoryFilter('ALL');
-        setImportanceFilter('ALL');
-        setDatePreset(DATE_PRESETS.ALL_TIME);
-        setCustomFromDate('');
-        setCustomToDate('');
-        setSortBy('date');
-        setSortOrder('desc');
-    };
+    const currentSortDisplay = React.useMemo(() => {
+        const [field, dir] = sort.split(',');
+        const reverseMap = { transactionDate: 'date', amount: 'amount', title: 'title' };
+        return `${reverseMap[field] || 'date'}:${dir || 'desc'}`;
+    }, [sort]);
+
+    const hasActiveFilters = activeFilterCount > 0;
 
     const chipBase = "appearance-none outline-none rounded-[10px] px-[13px] py-[7px] text-[13px] font-medium cursor-pointer transition-all whitespace-nowrap";
     const chipDefault = "bg-[#0e0e1c] border border-white/[0.055] text-white/50 hover:border-white/[0.12] hover:text-white";
     const chipActive = "bg-[rgba(124,58,237,0.14)] border border-[rgba(124,58,237,0.35)] text-purple-300";
 
+    const categoryIdStrings = React.useMemo(
+        () => categoryIds.map(String),
+        [categoryIds]
+    );
+
     return (
         <div className="flex flex-col gap-3">
+            {/* Search bar */}
+            <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+                <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder={t('search.placeholder')}
+                    className="w-full bg-[#0e0e1c] border border-white/[0.055] rounded-[12px] pl-10 pr-10 py-[10px] text-[14px] text-white placeholder:text-white/22 outline-none transition-all focus:border-violet-500/40 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.08)]"
+                />
+                {searchInput && (
+                    <button
+                        onClick={clearSearch}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                )}
+            </div>
+
+            {/* Filter chips row */}
             <div className="flex items-center gap-2 flex-wrap">
-                {/* Type filter */}
-                <select
-                    value={typeFilter}
-                    onChange={(e) => handleTypeFilterChange(e.target.value)}
-                    className={`${chipBase} ${typeFilter !== 'ALL' ? chipActive : chipDefault}`}
-                >
-                    <option value="ALL">{t('filters.allTypes')}</option>
-                    <option value="EXPENSE">{t('categoryType.expense')}</option>
-                    <option value="INCOME">{t('categoryType.income')}</option>
-                </select>
+                {/* Type multi-select */}
+                <MultiSelectDropdown
+                    options={typeOptions}
+                    selected={types}
+                    onChange={handleTypesChange}
+                    allLabel={t('filters.allTypes')}
+                    nSelectedLabel={(n) => t('filters.nSelected', { count: n })}
+                />
 
-                {/* Category filter */}
-                <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className={`${chipBase} ${categoryFilter !== 'ALL' ? chipActive : chipDefault} max-w-[220px]`}
-                >
-                    <option value="ALL">{t('filters.allCategories')}</option>
-                    {filteredCategories.map(category => (
-                        <option key={category.id} value={category.id}>
-                            {category.emoji ? `${category.emoji} ${category.name}` : category.name}
-                        </option>
-                    ))}
-                </select>
+                {/* Category multi-select */}
+                <MultiSelectDropdown
+                    options={categoryOptions}
+                    selected={categoryIdStrings}
+                    onChange={handleCategoryIdsChange}
+                    allLabel={t('filters.allCategories')}
+                    nSelectedLabel={(n) => t('filters.nSelected', { count: n })}
+                    className="max-w-[260px]"
+                />
 
-                {/* Importance filter */}
-                <select
-                    value={importanceFilter}
-                    onChange={(e) => setImportanceFilter(e.target.value)}
-                    className={`${chipBase} ${importanceFilter !== 'ALL' ? chipActive : chipDefault}`}
-                >
-                    <option value="ALL">{t('filters.allLevels')}</option>
-                    <option value="ESSENTIAL">{t('importance.essential')}</option>
-                    <option value="HAVE_TO_HAVE">{t('importance.haveToHave')}</option>
-                    <option value="NICE_TO_HAVE">{t('importance.niceToHave')}</option>
-                    <option value="SHOULDNT_HAVE">{t('importance.shouldntHave')}</option>
-                </select>
+                {/* Importance multi-select */}
+                <MultiSelectDropdown
+                    options={importanceOptions}
+                    selected={importances}
+                    onChange={updateImportances}
+                    allLabel={t('filters.allLevels')}
+                    nSelectedLabel={(n) => t('filters.nSelected', { count: n })}
+                />
 
                 {/* Separator */}
                 <div className="w-px h-6 bg-white/[0.12] mx-0.5" />
 
                 {/* Date filter */}
                 <select
-                    value={datePreset || DATE_PRESETS.ALL_TIME}
+                    value={datePreset}
                     onChange={(e) => handleDatePresetChange(e.target.value)}
-                    className={`${chipBase} ${datePreset && datePreset !== DATE_PRESETS.ALL_TIME ? chipActive : chipDefault}`}
+                    className={`${chipBase} ${datePreset !== 'all_time' ? chipActive : chipDefault}`}
                 >
-                    <option value={DATE_PRESETS.ALL_TIME}>{t('filters.allTime')}</option>
-                    <option value={DATE_PRESETS.THIS_WEEK}>{t('filters.thisWeek')}</option>
-                    <option value={DATE_PRESETS.THIS_MONTH}>{t('filters.thisMonth')}</option>
-                    <option value={DATE_PRESETS.LAST_MONTH}>{t('filters.lastMonth')}</option>
-                    <option value={DATE_PRESETS.CUSTOM}>{t('filters.customRange')}</option>
+                    <option value="all_time">{t('filters.allTime')}</option>
+                    <option value="this_week">{t('filters.thisWeek')}</option>
+                    <option value="this_month">{t('filters.thisMonth')}</option>
+                    <option value="last_month">{t('filters.lastMonth')}</option>
+                    <option value="custom">{t('filters.customRange')}</option>
                 </select>
 
-                {/* Clear button */}
+                {/* Clear button + filter count badge */}
                 {hasActiveFilters && (
                     <button
-                        onClick={clearAllFilters}
-                        className="text-[12px] font-semibold text-white/22 bg-transparent border-none cursor-pointer px-[10px] py-[7px] transition-colors hover:text-red-400"
+                        onClick={() => { setCustomRangeOpen(false); clearAllFilters(); }}
+                        className="text-[12px] font-semibold text-white/22 bg-transparent border-none cursor-pointer px-[10px] py-[7px] transition-colors hover:text-red-400 flex items-center gap-1.5"
                     >
+                        <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-violet-500/20 text-violet-300 text-[11px] font-bold">
+                            {activeFilterCount}
+                        </span>
                         ✕ {t('filters.clearAll')}
                     </button>
                 )}
 
                 {/* Sort chip - pushed right */}
                 <select
-                    value={`${sortBy}:${sortOrder}`}
+                    value={currentSortDisplay}
                     onChange={(e) => handleSortChange(e.target.value)}
                     className={`${chipBase} ${chipDefault} ml-auto`}
                 >
@@ -156,19 +227,19 @@ export default function TransactionFilters({
             </div>
 
             {/* Custom date range inputs */}
-            {datePreset === DATE_PRESETS.CUSTOM && (
+            {datePreset === 'custom' && (
                 <div className="flex items-center gap-3">
                     <input
                         type="date"
-                        value={customFromDate}
-                        onChange={(e) => setCustomFromDate(e.target.value)}
+                        value={startDate}
+                        onChange={(e) => updateStartDate(e.target.value)}
                         className="bg-[#131325] border border-white/[0.055] rounded-[10px] px-3.5 py-[7px] text-[13px] text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] [color-scheme:dark]"
                     />
                     <span className="text-white/22 text-xs">→</span>
                     <input
                         type="date"
-                        value={customToDate}
-                        onChange={(e) => setCustomToDate(e.target.value)}
+                        value={endDate}
+                        onChange={(e) => updateEndDate(e.target.value)}
                         className="bg-[#131325] border border-white/[0.055] rounded-[10px] px-3.5 py-[7px] text-[13px] text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] [color-scheme:dark]"
                     />
                 </div>

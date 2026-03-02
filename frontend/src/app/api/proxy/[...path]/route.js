@@ -28,7 +28,7 @@ async function forward(req, { params }) {
   const fullPath = path.startsWith("api/") ? path : `api/${path}`;
   const targetUrl = new URL(`${base.replace(/\/$/, "")}/${fullPath}`);
 
-  req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.set(k, v));
+  req.nextUrl.searchParams.forEach((v, k) => targetUrl.searchParams.append(k, v));
 
   const hasBody = !["GET", "HEAD"].includes(req.method);
   const body = hasBody ? await req.arrayBuffer() : undefined;

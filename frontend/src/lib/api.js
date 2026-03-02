@@ -359,6 +359,31 @@ export const categoryApi = {
 export const transactionApi = {
   getAllTransactions: () => get('/transactions'),
 
+  getTransactions: (params = {}) => {
+    const searchParams = new URLSearchParams();
+    
+    if (params.page != null) searchParams.set('page', String(params.page));
+    if (params.size != null) searchParams.set('size', String(params.size));
+    if (params.sort) searchParams.set('sort', params.sort);
+    
+    if (params.type && params.type.length > 0) {
+      params.type.forEach(t => searchParams.append('type', t));
+    }
+    if (params.categoryId && params.categoryId.length > 0) {
+      params.categoryId.forEach(id => searchParams.append('categoryId', String(id)));
+    }
+    if (params.importance && params.importance.length > 0) {
+      params.importance.forEach(imp => searchParams.append('importance', imp));
+    }
+    
+    if (params.startDate) searchParams.set('startDate', params.startDate);
+    if (params.endDate) searchParams.set('endDate', params.endDate);
+    if (params.q) searchParams.set('q', params.q);
+    
+    const qs = searchParams.toString();
+    return get(`/transactions${qs ? `?${qs}` : ''}`);
+  },
+
   getTransactionById: (id) => get(`/transactions/${id}`),
 
   getTransactionsByWalletId: (walletId) => get(`/transactions/wallet/${walletId}`),

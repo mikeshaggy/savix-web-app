@@ -13,9 +13,20 @@ export default function TransactionTable({
     const t = useTranslations();
     const { lang } = useLanguage();
 
-    const getCategoryInfo = (categoryId) => {
-        return categories.find(cat => cat.id === categoryId);
+    const getCategoryInfo = (txn) => {
+        // Server response includes categoryName/categoryEmoji/categoryType directly
+        if (txn.categoryName) {
+            return {
+                name: txn.categoryName,
+                emoji: txn.categoryEmoji,
+                type: txn.categoryType,
+            };
+        }
+        // Fallback: lookup from categories array
+        return categories.find(cat => cat.id === txn.categoryId) || null;
     };
+
+    const getType = (txn) => txn.type || txn.categoryType;
 
     const dateGroups = useMemo(() => {
         const groups = [];
@@ -32,8 +43,6 @@ export default function TransactionTable({
         });
         return groups;
     }, [filteredTransactions, lang]);
-
-    const hasActiveFilters = filteredTransactions.length === 0;
 
     if (filteredTransactions.length === 0) {
         return (
@@ -52,7 +61,8 @@ export default function TransactionTable({
             {dateGroups.map(({ label: dateLabel, transactions: txns }) => {
                 const dayTotal = txns.reduce((sum, txn) => {
                     const amount = parseFloat(txn.amount || 0);
-                    return sum + (txn.type === 'INCOME' ? amount : -amount);
+                    const txnType = getType(txn);
+                    return sum + (txnType === 'INCOME' ? amount : -amount);
                 }, 0);
 
                 return (
@@ -70,8 +80,9 @@ export default function TransactionTable({
 
                         {/* Transaction rows */}
                         {txns.map((txn) => {
-                            const category = getCategoryInfo(txn.categoryId);
-                            const isIncome = txn.type === 'INCOME';
+                            const category = getCategoryInfo(txn);
+                            const txnType = getType(txn);
+                            const isIncome = txnType === 'INCOME';
                             const amount = parseFloat(txn.amount || 0);
 
                             const importanceColors = {
@@ -109,7 +120,7 @@ export default function TransactionTable({
                                                         ? 'bg-green-400/10 border-green-400/25 text-green-400/70'
                                                         : 'bg-red-400/10 border-red-400/25 text-red-400/70'
                                                 }`}>
-                                                    {t(`categoryType.${txn.type?.toLowerCase()}`)}
+                                                    {t(`categoryType.${txnType?.toLowerCase()}`)}
                                                 </span>
                                                 {/* Importance pill */}
                                                 {txn.importance && (

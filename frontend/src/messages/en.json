@@ -370,7 +370,8 @@
     "descending": "Descending",
     "activeFilters": "Active filters:",
     "none": "None",
-    "clearAll": "Clear All"
+    "clearAll": "Clear All",
+    "nSelected": "{count} selected"
   },
   "sort": {
     "date": "Date",
@@ -426,5 +427,19 @@
     "transactionDesc": "Record income or expense",
     "transfer": "Transfer",
     "transferDesc": "Move funds between wallets"
+  },
+  "pagination": {
+    "showing": "Showing",
+    "of": "of",
+    "noResults": "No results",
+    "rowsPerPage": "Rows per page",
+    "page": "Page",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "search": {
+    "placeholder": "Search transactions...",
+    "clear": "Clear search",
+    "filtersApplied": "{count} filter(s) applied"
   }
 }

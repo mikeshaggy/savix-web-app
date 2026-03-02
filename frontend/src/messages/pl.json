@@ -371,7 +371,8 @@
     "descending": "Malejąco",
     "activeFilters": "Aktywne filtry:",
     "none": "Brak",
-    "clearAll": "Wyczyść wszystkie"
+    "clearAll": "Wyczyść wszystkie",
+    "nSelected": "{count} wybrano"
   },
   "sort": {
     "date": "Data",
@@ -427,5 +428,19 @@
     "transactionDesc": "Zapisz przychód lub wydatek",
     "transfer": "Przelew",
     "transferDesc": "Przenieś środki między portfelami"
+  },
+  "pagination": {
+    "showing": "Wyświetlanie",
+    "of": "z",
+    "noResults": "Brak wyników",
+    "rowsPerPage": "Wierszy na stronę",
+    "page": "Strona",
+    "previous": "Poprzednia",
+    "next": "Następna"
+  },
+  "search": {
+    "placeholder": "Szukaj transakcji...",
+    "clear": "Wyczyść wyszukiwanie",
+    "filtersApplied": "{count} filtr(ów) zastosowanych"
   }
 }

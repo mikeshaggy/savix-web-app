@@ -1,27 +1,22 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Plus, Receipt, AlertTriangle } from 'lucide-react';
 import TransactionsView from '@/components/views/TransactionsView';
 import TransactionModal from '@/components/modals/TransactionModal';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { useTransactionFilters } from '@/hooks/useTransactionFilters';
+import { useServerTransactions } from '@/hooks/useServerTransactions';
 import { Loading } from '@/components/common/Loading';
-import { SORT_OPTIONS, SORT_ORDERS, DATE_PRESETS } from '@/constants';
-import { enrichTransactionsWithType } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n/LanguageProvider';
 
-export default function TransactionsPage() {
+function TransactionsPageInner() {
     const t = useTranslations();
     const { lang } = useLanguage();
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
     const { 
-        dashboardData, 
         categories, 
-        dashboardLoading, 
-        dashboardError,
         onCreateTransaction,
         onUpdateTransaction,
         onDeleteTransaction,
@@ -33,32 +28,7 @@ export default function TransactionsPage() {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const [typeFilter, setTypeFilter] = useState('ALL');
-    const [categoryFilter, setCategoryFilter] = useState('ALL');
-    const [importanceFilter, setImportanceFilter] = useState('ALL');
-    const [dateFilter, setDateFilter] = useState('ALL');
-    const [datePreset, setDatePreset] = useState(DATE_PRESETS.ALL_TIME);
-    const [customFromDate, setCustomFromDate] = useState('');
-    const [customToDate, setCustomToDate] = useState('');
-    const [sortBy, setSortBy] = useState(SORT_OPTIONS.DATE);
-    const [sortOrder, setSortOrder] = useState(SORT_ORDERS.DESC);
-
-    const enrichedTransactions = useMemo(
-        () => enrichTransactionsWithType(dashboardData?.transactions || [], categories || []),
-        [dashboardData?.transactions, categories]
-    );
-
-    const { filteredTransactions, filterStats } = useTransactionFilters(enrichedTransactions, {
-        typeFilter,
-        categoryFilter,
-        importanceFilter,
-        dateFilter,
-        datePreset,
-        customFromDate,
-        customToDate,
-        sortBy,
-        sortOrder
-    });
+    const serverTx = useServerTransactions();
 
     const handleNewTransaction = () => {
         setEditingTransaction(null);
@@ -79,6 +49,7 @@ export default function TransactionsPage() {
             }
             setShowTransactionModal(false);
             setEditingTransaction(null);
+            serverTx.refetch();
         } catch (error) {
             console.error('Failed to save transaction:', error);
             throw error;
@@ -96,6 +67,7 @@ export default function TransactionsPage() {
             setDeleteLoading(true);
             await onDeleteTransaction(deleteConfirm.id);
             setDeleteConfirm(null);
+            serverTx.refetch();
         } catch (error) {
             console.error('Failed to delete transaction:', error);
         } finally {
@@ -110,10 +82,6 @@ export default function TransactionsPage() {
 
     if (walletsLoading) {
         return <Loading message={t('transactionsPage.loadingWallets')} />;
-    }
-
-    if (dashboardLoading) {
-        return <Loading message={t('transactionsPage.loadingTransactions')} />;
     }
 
     if (!walletsLoading && wallets.length === 0) {
@@ -162,53 +130,47 @@ export default function TransactionsPage() {
         );
     }
 
-    if (dashboardError) {
-        return (
-            <div className="flex items-center justify-center p-8">
-                <div className="text-center">
-                    <h2 className="text-xl font-semibold text-white mb-2">{t('transactionsPage.errorLoadingTransactions')}</h2>
-                    <p className="text-gray-400 mb-4">{dashboardError}</p>
-                    <button 
-                        onClick={() => window.location.reload()} 
-                        className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
-                    >
-                        {t('transactionsPage.retry')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div>
             {/* Transactions View */}
             <TransactionsView 
-                filteredTransactions={filteredTransactions}
-                allTransactions={enrichedTransactions}
+                items={serverTx.items}
+                totalElements={serverTx.totalElements}
+                totalPages={serverTx.totalPages}
+                hasNext={serverTx.hasNext}
+                hasPrevious={serverTx.hasPrevious}
+                loading={serverTx.loading}
+                error={serverTx.error}
                 categories={categories || []}
-                typeFilter={typeFilter}
-                setTypeFilter={setTypeFilter}
-                categoryFilter={categoryFilter}
-                setCategoryFilter={setCategoryFilter}
-                importanceFilter={importanceFilter}
-                setImportanceFilter={setImportanceFilter}
-                dateFilter={dateFilter}
-                setDateFilter={setDateFilter}
-                datePreset={datePreset}
-                setDatePreset={setDatePreset}
-                customFromDate={customFromDate}
-                setCustomFromDate={setCustomFromDate}
-                customToDate={customToDate}
-                setCustomToDate={setCustomToDate}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-                filterStats={filterStats}
+
+                page={serverTx.page}
+                size={serverTx.size}
+                sort={serverTx.sort}
+                types={serverTx.types}
+                categoryIds={serverTx.categoryIds}
+                importances={serverTx.importances}
+                startDate={serverTx.startDate}
+                endDate={serverTx.endDate}
+                searchInput={serverTx.searchInput}
+                activeFilterCount={serverTx.activeFilterCount}
+
+                setPage={serverTx.setPage}
+                updateSize={serverTx.updateSize}
+                updateSort={serverTx.updateSort}
+                updateTypes={serverTx.updateTypes}
+                updateCategoryIds={serverTx.updateCategoryIds}
+                updateImportances={serverTx.updateImportances}
+                updateStartDate={serverTx.updateStartDate}
+                updateEndDate={serverTx.updateEndDate}
+                setSearchInput={serverTx.setSearchInput}
+                clearSearch={serverTx.clearSearch}
+                clearAllFilters={serverTx.clearAllFilters}
+
                 onNewTransaction={handleNewTransaction}
                 onNewTransfer={onNewTransfer}
                 onEditTransaction={handleEditTransaction}
                 onDeleteTransaction={handleDeleteClick}
+                onRetry={serverTx.refetch}
             />
 
             {/* Transaction Modal */}
@@ -268,5 +230,13 @@ export default function TransactionsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function TransactionsPage() {
+    return (
+        <Suspense fallback={<Loading message="Loading..." />}>
+            <TransactionsPageInner />
+        </Suspense>
     );
 }
