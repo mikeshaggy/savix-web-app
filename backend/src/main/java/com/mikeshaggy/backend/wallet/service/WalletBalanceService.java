@@ -2,8 +2,6 @@ package com.mikeshaggy.backend.wallet.service;
 
 import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.ledger.domain.SourceType;
-import com.mikeshaggy.backend.ledger.domain.WalletEntry;
-import com.mikeshaggy.backend.ledger.repo.WalletEntryRepository;
 import com.mikeshaggy.backend.ledger.service.WalletEntryService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.repo.WalletRepository;
