@@ -5,6 +5,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -50,6 +51,9 @@ public class EmailService {
             helper.setSubject("Reset Your Password - " + fromName);
             helper.setText(buildPasswordResetEmailBody(recipientEmail, resetLink), true);
 
+            ClassPathResource logo = new ClassPathResource("/static/logo.png");
+            helper.addInline("logo", logo, "image/png");
+
             mailSender.send(message);
             log.info("Password reset email sent successfully to: {}", recipientEmail);
 
@@ -67,7 +71,7 @@ public class EmailService {
         context.setVariable("appName", fromName);
         context.setVariable("userEmail", userEmail);
         context.setVariable("resetUrl", resetLink);
-        context.setVariable("expiresIn", resetTokenTtlSeconds / 60);
+        context.setVariable("expiresIn", resetTokenTtlSeconds / 60 + " minutes");
         context.setVariable("dateTime", LocalDateTime.now().format(DTF));
         context.setVariable("year", LocalDateTime.now().getYear());
         context.setVariable("supportEmail", fromEmail);
