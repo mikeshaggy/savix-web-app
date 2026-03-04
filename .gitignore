@@ -1,3 +1,54 @@
-.vscode
+# IDEs and editors
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# Environment files
 .env
-.misc
+.env.*
+!.env.example
+
+# Secrets and keys
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.crt
+*.pfx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups and dumps
+*.bak
+*.backup
+*.sql.gz
+*.dump
+*.tar.gz
+
+# Private folders
+.misc/
+.private/
+secrets/
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+out/
+*.jar
+*.war
+
+# Docker
+docker-compose.override.yml
+docker-compose.local.yml
