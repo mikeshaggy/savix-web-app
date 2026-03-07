@@ -15,15 +15,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class WalletBalanceService {
 
     private final WalletRepository walletRepository;
-//    private final WalletEntryRepository walletEntryRepository;
     private final WalletEntryService walletEntryService;
 
     @Transactional

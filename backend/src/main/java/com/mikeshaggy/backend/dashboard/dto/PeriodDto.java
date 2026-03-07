@@ -5,5 +5,6 @@ import java.time.LocalDate;
 public record PeriodDto(
         LocalDate startDate,
         LocalDate endDate,
+        LocalDate billingEndDate,
         PeriodType periodType
 ) {}

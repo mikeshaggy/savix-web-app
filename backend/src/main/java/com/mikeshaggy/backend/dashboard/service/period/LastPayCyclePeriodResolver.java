@@ -33,12 +33,11 @@ public class LastPayCyclePeriodResolver implements PeriodResolver {
         if (salaries.size() >= 2) {
             LocalDate latestSalaryDate = salaries.get(0).getTransactionDate();
             LocalDate previousSalaryDate = salaries.get(1).getTransactionDate();
-            return new PeriodDto(previousSalaryDate, latestSalaryDate.minusDays(1), PeriodType.LAST_PAY_CYCLE);
+            return new PeriodDto(previousSalaryDate, latestSalaryDate.minusDays(1), previousSalaryDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
         }
 
-        // Fallback: previous calendar month
         LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
         LocalDate lastOfLastMonth = today.withDayOfMonth(1).minusDays(1);
-        return new PeriodDto(firstOfLastMonth, lastOfLastMonth, PeriodType.LAST_PAY_CYCLE);
+        return new PeriodDto(firstOfLastMonth, lastOfLastMonth, firstOfLastMonth.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
     }
 }

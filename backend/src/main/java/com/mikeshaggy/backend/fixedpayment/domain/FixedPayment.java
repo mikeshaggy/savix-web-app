@@ -1,27 +1,26 @@
-package com.mikeshaggy.backend.transaction.domain;
+package com.mikeshaggy.backend.fixedpayment.domain;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "fixed_payments")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Transaction {
+public class FixedPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
@@ -37,22 +36,30 @@ public class Transaction {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private LocalDate transactionDate;
-
-    private String notes;
+    @Column(name = "anchor_date", nullable = false)
+    private LocalDate anchorDate;
 
     @Enumerated(EnumType.STRING)
-    private Importance importance;
+    @Column(nullable = false, length = 20)
+    private Cycle cycle;
 
-    @CreationTimestamp
-    private Instant createdAt;
+    @Column(name = "active_from", nullable = false)
+    private LocalDate activeFrom;
+
+    @Column(name = "active_to")
+    private LocalDate activeTo;
+
+    @Column(columnDefinition = "text")
+    private String notes;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Transaction)) return false;
-        return id != null && id.equals(((Transaction) o).getId());
+        if (!(o instanceof FixedPayment)) return false;
+        return id != null && id.equals(((FixedPayment) o).getId());
     }
 
     @Override

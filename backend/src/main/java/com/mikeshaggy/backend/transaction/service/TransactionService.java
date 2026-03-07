@@ -4,6 +4,9 @@ import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.Type;
 import com.mikeshaggy.backend.category.service.CategoryService;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
+import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
@@ -28,10 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -43,6 +44,7 @@ public class TransactionService {
     private final WalletService walletService;
     private final WalletBalanceService walletBalanceService;
     private final CategoryService categoryService;
+    private final FixedPaymentOccurrenceRepository fixedPaymentOccurrenceRepository;
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("transactionDate", "amount", "title");
     private static final Set<Integer> ALLOWED_PAGE_SIZES = Set.of(10, 20, 50, 100);
@@ -52,6 +54,7 @@ public class TransactionService {
 
     public TransactionPageResponse getTransactionsForUser(
             UUID userId,
+            Integer walletId,
             int page,
             int size,
             List<Type> types,
@@ -68,6 +71,7 @@ public class TransactionService {
 
         return searchTransactions(
                 userId,
+                walletId,
                 types,
                 categoryIds,
                 importances,
@@ -109,6 +113,7 @@ public class TransactionService {
 
     private TransactionPageResponse searchTransactions(
             UUID userId,
+            Integer walletId,
             List<Type> types,
             List<Integer> categoryIds,
             List<Importance> importances,
@@ -118,7 +123,7 @@ public class TransactionService {
             Pageable pageable
     ) {
         Specification<Transaction> spec = TransactionSpecifications.buildSpecification(
-                userId, types, categoryIds, importances, startDate, endDate, q
+                userId, walletId, types, categoryIds, importances, startDate, endDate, q
         );
 
         Page<Transaction> page = transactionRepository.findAll(spec, pageable);
@@ -167,6 +172,24 @@ public class TransactionService {
 
         walletBalanceService.applyTransaction(wallet.getId(), savedTransaction.getAmount(), category.getType(),
                 userId, savedTransaction.getId(), savedTransaction.getTransactionDate());
+
+        if (request.occurrenceId() != null) {
+            FixedPaymentOccurrence occurrence = fixedPaymentOccurrenceRepository.findById(request.occurrenceId())
+                    .orElseThrow(() -> new EntityNotFoundException("Occurrence not found with id: " + request.occurrenceId()));
+
+            if (!occurrence.getFixedPayment().getWallet().getUser().getId().equals(userId)) {
+                throw new IllegalArgumentException("Occurrence does not belong to current user");
+            }
+
+            occurrence.setStatus(OccurrenceStatus.PAID);
+            occurrence.setPaidAmount(savedTransaction.getAmount());
+            occurrence.setPaidAt(LocalDateTime.now());
+            occurrence.setTransaction(savedTransaction);
+            fixedPaymentOccurrenceRepository.save(occurrence);
+
+            log.info("Marked occurrence id: {} as PAID with transaction id: {}",
+                    occurrence.getId(), savedTransaction.getId());
+        }
 
         log.info("Created transaction '{}' (id: {}) for wallet: {}, amount: {}, type: {}",
                 savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
@@ -257,5 +280,14 @@ public class TransactionService {
             return Collections.emptyList();
         }
         return getTransactionsForWalletAndPeriod(walletId, comparePeriod);
+    }
+
+    public BigDecimal calculateTotalIncomeForWalletAndPeriod(Integer walletId, PeriodDto period) {
+        return transactionRepository.sumIncomeByWalletIdAndDateRange(
+                walletId, period.startDate(), period.endDate());
+    }
+
+    public Optional<LocalDate> findMaxTransactionDateForCategory(Integer categoryId) {
+        return transactionRepository.findMaxTransactionDateByCategoryId(categoryId);
     }
 }

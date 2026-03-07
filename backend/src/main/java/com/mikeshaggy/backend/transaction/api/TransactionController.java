@@ -30,6 +30,7 @@ public class TransactionController {
 
     @GetMapping
     public ResponseEntity<TransactionPageResponse> getTransactions(
+            @RequestParam(required = false) Integer walletId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "transactionDate,desc") String sort,
@@ -42,6 +43,7 @@ public class TransactionController {
     ) {
         return ResponseEntity.ok(transactionService.getTransactionsForUser(
                 currentUserProvider.getCurrentUserId(),
+                walletId,
                 page,
                 size,
                 types,

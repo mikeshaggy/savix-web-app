@@ -25,6 +25,13 @@ public final class TransactionSpecifications {
         };
     }
 
+    public static Specification<Transaction> belongsToWallet(Integer walletId) {
+        if (walletId == null) {
+            return null;
+        }
+        return (root, query, cb) -> cb.equal(root.get("wallet").get("id"), walletId);
+    }
+
     public static Specification<Transaction> hasTypes(List<Type> types) {
         if (types == null || types.isEmpty()) {
             return null;
@@ -77,6 +84,7 @@ public final class TransactionSpecifications {
 
     public static Specification<Transaction> buildSpecification(
             UUID userId,
+            Integer walletId,
             List<Type> types,
             List<Integer> categoryIds,
             List<Importance> importances,
@@ -86,6 +94,7 @@ public final class TransactionSpecifications {
     ) {
         return Stream.of(
                         belongsToUser(userId),
+                        belongsToWallet(walletId),
                         hasTypes(types),
                         hasCategoryIds(categoryIds),
                         hasImportances(importances),

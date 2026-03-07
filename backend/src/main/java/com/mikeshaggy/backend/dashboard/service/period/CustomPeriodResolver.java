@@ -25,6 +25,6 @@ public class CustomPeriodResolver implements PeriodResolver {
                     "startDate (%s) must not be after endDate (%s)".formatted(customStart, customEnd));
         }
 
-        return new PeriodDto(customStart, customEnd, PeriodType.CUSTOM);
+        return new PeriodDto(customStart, customEnd, customStart.plusMonths(1), PeriodType.CUSTOM);
     }
 }

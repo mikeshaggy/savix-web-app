@@ -5,6 +5,8 @@ import com.mikeshaggy.backend.dashboard.service.calculator.SummaryCalculator;
 import com.mikeshaggy.backend.dashboard.service.calculator.TopCategoriesCalculator;
 import com.mikeshaggy.backend.dashboard.service.period.ComparePeriodResolver;
 import com.mikeshaggy.backend.dashboard.service.period.PeriodResolver;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
+import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentService;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -27,13 +29,15 @@ public class DashboardService {
     private final SummaryCalculator summaryCalculator;
     private final TopCategoriesCalculator topCategoriesCalculator;
     private final WalletService walletService;
+    private final FixedPaymentService fixedPaymentService;
 
     public DashboardService(List<PeriodResolver> resolvers,
                             ComparePeriodResolver comparePeriodResolver,
                             TransactionService transactionService,
                             SummaryCalculator summaryCalculator,
                             TopCategoriesCalculator topCategoriesCalculator,
-                            WalletService walletService) {
+                            WalletService walletService,
+                            FixedPaymentService fixedPaymentService) {
         this.periodResolvers = resolvers.stream()
                 .collect(Collectors.toMap(PeriodResolver::supports, Function.identity()));
         this.comparePeriodResolver = comparePeriodResolver;
@@ -41,6 +45,7 @@ public class DashboardService {
         this.summaryCalculator = summaryCalculator;
         this.topCategoriesCalculator = topCategoriesCalculator;
         this.walletService = walletService;
+        this.fixedPaymentService = fixedPaymentService;
     }
 
     public DashboardData getDashboardData(Integer walletId, String startDate,
@@ -68,6 +73,8 @@ public class DashboardService {
 
         String walletName = walletService.getWalletNameOrThrow(walletId);
 
-        return new DashboardData(period, summary, topCategories, walletName);
+        FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentService.getFixedPaymentsTileData(period, walletId);
+
+        return new DashboardData(period, summary, topCategories, walletName, fixedPaymentsTile);
     }
 }

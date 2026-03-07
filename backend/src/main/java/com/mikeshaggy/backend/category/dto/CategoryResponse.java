@@ -10,6 +10,7 @@ public record CategoryResponse(
         String name,
         Type type,
         String emoji,
+        boolean isCycleAnchor,
         Instant createdAt
 ) {
     public static CategoryResponse from(Category category) {
@@ -18,6 +19,7 @@ public record CategoryResponse(
                 category.getName(),
                 category.getType(),
                 category.getEmoji(),
+                category.isCycleAnchor(),
                 category.getCreatedAt()
         );
     }

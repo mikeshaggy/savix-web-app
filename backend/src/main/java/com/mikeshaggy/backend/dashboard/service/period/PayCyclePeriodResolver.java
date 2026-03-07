@@ -32,9 +32,9 @@ public class PayCyclePeriodResolver implements PeriodResolver {
                 .orElse(null);
 
         if (latestSalaryDate != null) {
-            return new PeriodDto(latestSalaryDate, today, PeriodType.PAY_CYCLE);
+            return new PeriodDto(latestSalaryDate, today, latestSalaryDate.plusMonths(1), PeriodType.PAY_CYCLE);
         }
 
-        return new PeriodDto(today.withDayOfMonth(1), today, PeriodType.PAY_CYCLE);
+        return new PeriodDto(today.withDayOfMonth(1), today, today.withDayOfMonth(1).plusMonths(1), PeriodType.PAY_CYCLE);
     }
 }

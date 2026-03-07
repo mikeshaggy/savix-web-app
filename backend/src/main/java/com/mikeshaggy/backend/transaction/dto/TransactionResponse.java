@@ -1,7 +1,6 @@
 package com.mikeshaggy.backend.transaction.dto;
 
 import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.transaction.domain.Cycle;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 
@@ -22,7 +21,6 @@ public record TransactionResponse(
         LocalDate transactionDate,
         String notes,
         Importance importance,
-        Cycle cycle,
         Instant createdAt
 ) {
     public static TransactionResponse from(Transaction transaction) {
@@ -39,7 +37,6 @@ public record TransactionResponse(
                 transaction.getTransactionDate(),
                 transaction.getNotes(),
                 transaction.getImportance(),
-                transaction.getCycle(),
                 transaction.getCreatedAt()
         );
     }

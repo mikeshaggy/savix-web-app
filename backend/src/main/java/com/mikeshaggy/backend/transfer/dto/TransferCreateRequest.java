@@ -1,6 +1,6 @@
-package com.mikeshaggy.backend.transfers.dto;
+package com.mikeshaggy.backend.transfer.dto;
 
-import com.mikeshaggy.backend.transfers.domain.Transfer;
+import com.mikeshaggy.backend.transfer.domain.Transfer;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 

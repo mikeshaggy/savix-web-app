@@ -1,6 +1,5 @@
 package com.mikeshaggy.backend.transaction.dto;
 
-import com.mikeshaggy.backend.transaction.domain.Cycle;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,10 +30,7 @@ public record TransactionUpdateRequest(
 
         String notes,
 
-        Importance importance,
-
-        @NotNull(message = "Cycle is required")
-        Cycle cycle
+        Importance importance
 ) {
     public void applyTo(Transaction transaction) {
         transaction.setTitle(title);
@@ -42,6 +38,5 @@ public record TransactionUpdateRequest(
         transaction.setTransactionDate(transactionDate);
         transaction.setNotes(notes);
         transaction.setImportance(importance);
-        transaction.setCycle(cycle);
     }
 }

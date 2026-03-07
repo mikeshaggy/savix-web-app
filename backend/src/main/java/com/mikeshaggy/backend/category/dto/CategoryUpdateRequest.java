@@ -15,11 +15,16 @@ public record CategoryUpdateRequest(
         Type type,
 
         @Size(max = 16, message = "Emoji must not exceed 16 characters")
-        String emoji
+        String emoji,
+
+        Boolean isCycleAnchor
 ) {
         public void applyTo(Category category) {
                 category.setName(name);
                 category.setType(type);
                 category.setEmoji((emoji == null || emoji.isBlank()) ? null : emoji.trim());
+                if (isCycleAnchor != null) {
+                        category.setCycleAnchor(isCycleAnchor);
+                }
         }
 }

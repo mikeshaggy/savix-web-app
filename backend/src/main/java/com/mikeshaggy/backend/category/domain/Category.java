@@ -38,6 +38,9 @@ public class Category {
     @Column(length = 16)
     private String emoji;
 
+    @Column(name = "is_cycle_anchor", nullable = false)
+    private boolean isCycleAnchor = false;
+
     @CreationTimestamp
     private Instant createdAt;
 

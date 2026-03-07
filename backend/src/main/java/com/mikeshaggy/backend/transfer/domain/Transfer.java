@@ -1,4 +1,4 @@
-package com.mikeshaggy.backend.transfers.domain;
+package com.mikeshaggy.backend.transfer.domain;
 
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;

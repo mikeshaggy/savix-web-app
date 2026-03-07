@@ -98,7 +98,7 @@ public class WalletService {
         return WalletResponse.from(updatedWallet);
     }
 
-    private Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
+    public Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
         return walletRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
     }
@@ -107,5 +107,10 @@ public class WalletService {
         return walletRepository.findById(walletId)
                 .map(Wallet::getName)
                 .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + walletId));
+    }
+
+    public Wallet getWalletOrThrow(Integer id) {
+        return walletRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
     }
 }

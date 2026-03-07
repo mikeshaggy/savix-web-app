@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -65,17 +66,28 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryResponse updateCategory(Integer id, CategoryUpdateRequest request, UUID userId) {
-        validateEmojiUniqueness(request.emoji(), userId);
+    public CategoryResponse updateCategory(Integer categoryId, CategoryUpdateRequest request, UUID userId) {
+        validateEmojiUniqueness(request.emoji(), userId, categoryId);
 
-        Category category = getCategoryOrThrowForUser(id, userId);
+        Category category = getCategoryOrThrowForUser(categoryId, userId);
+
+        if (Boolean.TRUE.equals(request.isCycleAnchor())) {
+            categoryRepository.findByUserIdAndIsCycleAnchorTrue(userId)
+                    .filter(existing -> !existing.getId().equals(categoryId))
+                    .ifPresent(existing -> {
+                        existing.setCycleAnchor(false);
+                        categoryRepository.save(existing);
+                        log.info("Cleared cycle anchor from category '{}' (id: {}) for user: {}",
+                                existing.getName(), existing.getId(), userId);
+                    });
+        }
 
         request.applyTo(category);
         
         Category updatedCategory = categoryRepository.save(category);
         
         log.info("Updated category id: {} to name: '{}', type: {}", 
-                id, request.name(), request.type());
+                categoryId, request.name(), request.type());
 
         return CategoryResponse.from(updatedCategory);
     }
@@ -90,17 +102,24 @@ public class CategoryService {
         categoryRepository.delete(category);
     }
 
-    private Category getCategoryOrThrowForUser(Integer id, UUID userId) {
+    public Category getCategoryOrThrowForUser(Integer id, UUID userId) {
         return categoryRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
     }
 
     private void validateEmojiUniqueness(String emoji, UUID userId) {
+        validateEmojiUniqueness(emoji, userId, null);
+    }
+
+    private void validateEmojiUniqueness(String emoji, UUID userId, Integer excludeId) {
         if (emoji != null && !emoji.isBlank()) {
-            boolean exists = categoryRepository.existsByUserIdAndEmoji(userId, emoji.trim());
-            if (exists) {
+            if (categoryRepository.existsByUserIdAndEmojiAndIdNot(userId, emoji.trim(), excludeId)) {
                 throw new IllegalArgumentException("Emoji '" + emoji + "' is already used in another category for this user.");
             }
         }
+    }
+
+    public Optional<Category> findCycleAnchorCategoryForUser(UUID userId) {
+        return categoryRepository.findByUserIdAndIsCycleAnchorTrue(userId);
     }
 }

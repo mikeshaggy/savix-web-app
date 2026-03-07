@@ -4,7 +4,9 @@ import com.mikeshaggy.backend.transaction.domain.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -39,4 +41,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
 
     List<Transaction> findTop3ByWalletIdAndCategoryNameIgnoreCaseOrderByTransactionDateDesc(
             Integer walletId, String categoryName);
+
+    @Query("SELECT MAX(t.transactionDate) FROM Transaction t WHERE t.category.id = :categoryId")
+    Optional<LocalDate> findMaxTransactionDateByCategoryId(@Param("categoryId") Integer categoryId);
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND c.type = 'INCOME'
+        AND t.transactionDate BETWEEN :from AND :to
+    """)
+    BigDecimal sumIncomeByWalletIdAndDateRange(
+        @Param("walletId") Integer walletId,
+        @Param("from") LocalDate from,
+        @Param("to") LocalDate to
+    );
 }

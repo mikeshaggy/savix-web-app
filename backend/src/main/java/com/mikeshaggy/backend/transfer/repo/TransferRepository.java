@@ -1,6 +1,6 @@
-package com.mikeshaggy.backend.transfers.repo;
+package com.mikeshaggy.backend.transfer.repo;
 
-import com.mikeshaggy.backend.transfers.domain.Transfer;
+import com.mikeshaggy.backend.transfer.domain.Transfer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 

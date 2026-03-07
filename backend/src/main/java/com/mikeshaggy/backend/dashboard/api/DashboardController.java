@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.dashboard.api;
 import com.mikeshaggy.backend.dashboard.dto.DashboardData;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.service.DashboardService;
+import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,7 @@ public class DashboardController {
     public static final String BASE_URL = "/api/dashboard";
 
     private final DashboardService dashboardService;
+    private final FixedPaymentService fixedPaymentService;
 
     @GetMapping
     public ResponseEntity<DashboardData> getDashboardData(
@@ -26,6 +28,8 @@ public class DashboardController {
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "PAY_CYCLE") PeriodType periodType
     ) {
+        fixedPaymentService.prepareOccurrencesForDashboard();
+
         DashboardData data = dashboardService.getDashboardData(walletId, startDate, endDate, periodType);
         return ResponseEntity.ok(data);
     }

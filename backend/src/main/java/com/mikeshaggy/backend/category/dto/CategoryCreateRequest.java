@@ -22,6 +22,7 @@ public record CategoryCreateRequest(
                         .name(name)
                         .type(type)
                         .emoji((emoji == null || emoji.isBlank()) ? null : emoji.trim())
+                        .isCycleAnchor(false)
                         .build();
         }
 }

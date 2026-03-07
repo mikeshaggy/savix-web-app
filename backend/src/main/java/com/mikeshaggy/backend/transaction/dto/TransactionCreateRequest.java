@@ -1,6 +1,5 @@
 package com.mikeshaggy.backend.transaction.dto;
 
-import com.mikeshaggy.backend.transaction.domain.Cycle;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.validation.constraints.DecimalMin;
@@ -33,8 +32,7 @@ public record TransactionCreateRequest(
 
         Importance importance,
 
-        @NotNull(message = "Cycle is required")
-        Cycle cycle
+        Long occurrenceId
 ) {
     public Transaction toEntity() {
         return Transaction.builder()
@@ -43,7 +41,6 @@ public record TransactionCreateRequest(
                 .transactionDate(transactionDate)
                 .notes(notes)
                 .importance(importance)
-                .cycle(cycle)
                 .build();
     }
 }

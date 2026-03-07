@@ -29,7 +29,7 @@ public class ComparePeriodResolver {
         if (salaries.size() >= 2) {
             var latestDate = salaries.get(0).getTransactionDate();
             var previousDate = salaries.get(1).getTransactionDate();
-            return new PeriodDto(previousDate, latestDate.minusDays(1), PeriodType.LAST_PAY_CYCLE);
+            return new PeriodDto(previousDate, latestDate.minusDays(1), previousDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
         }
 
         return null;
@@ -42,7 +42,7 @@ public class ComparePeriodResolver {
         if (salaries.size() >= 3) {
             var secondDate = salaries.get(1).getTransactionDate();
             var thirdDate = salaries.get(2).getTransactionDate();
-            return new PeriodDto(thirdDate, secondDate.minusDays(1), PeriodType.LAST_PAY_CYCLE);
+            return new PeriodDto(thirdDate, secondDate.minusDays(1), thirdDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
         }
 
         return null;
@@ -52,6 +52,6 @@ public class ComparePeriodResolver {
         long days = ChronoUnit.DAYS.between(currentPeriod.startDate(), currentPeriod.endDate()) + 1;
         var compareEnd = currentPeriod.startDate().minusDays(1);
         var compareStart = compareEnd.minusDays(days - 1);
-        return new PeriodDto(compareStart, compareEnd, PeriodType.CUSTOM);
+        return new PeriodDto(compareStart, compareEnd, compareStart.plusMonths(1), PeriodType.CUSTOM);
     }
 }
