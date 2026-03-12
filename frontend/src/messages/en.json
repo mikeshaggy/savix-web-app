@@ -12,7 +12,9 @@
     "allTransactions": "All Transactions",
     "categories": "Categories",
     "reports": "Reports",
-    "savedFilters": "Saved Filters"
+    "savedFilters": "Saved Filters",
+    "allWallets": "All Wallets",
+    "fixedPayments": "Fixed Payments"
   },
   "common": {
     "save": "Save",
@@ -46,7 +48,8 @@
     "errorDetails": "Error Details",
     "export": "Export",
     "all": "All",
-    "total": "total"
+    "total": "total",
+    "refresh": "Refresh"
   },
   "transaction": {
     "newTransaction": "New Transaction",
@@ -71,7 +74,6 @@
     "notes": "Notes",
     "notesPlaceholder": "e.g. 'waiting for train' / 'holiday gift'",
     "importance": "Importance",
-    "cycle": "Cycle",
     "type": "Type",
     "saveTransaction": "Save transaction",
     "transactions": "transactions",
@@ -86,13 +88,6 @@
     "shouldntHave": "Shouldn't Have",
     "investment": "Investment"
   },
-  "cycle": {
-    "oneTime": "One Time",
-    "weekly": "Weekly",
-    "monthly": "Monthly",
-    "yearly": "Yearly",
-    "irregular": "Irregular"
-  },
   "categoryType": {
     "income": "Income",
     "expense": "Expense"
@@ -105,7 +100,6 @@
     "walletRequired": "Wallet is required",
     "categoryRequired": "Category is required",
     "dateRequired": "Date is required",
-    "cycleRequired": "Cycle is required",
     "importanceRequired": "Importance level is required for expense categories",
     "typeRequired": "Type is required",
     "generic": "Something went wrong. Please try again.",
@@ -304,7 +298,6 @@
     "type": "Type",
     "amount": "Amount",
     "importance": "Importance",
-    "cycle": "Cycle",
     "actions": "Actions",
     "unknownCategory": "Unknown Category",
     "noTransactionsFound": "No transactions found",
@@ -344,7 +337,11 @@
     "deleteCategory": "Delete Category",
     "cannotBeUndone": "This action cannot be undone",
     "deleteCategoryConfirm": "Are you sure you want to delete the category \"{name}\"?",
-    "loadingCategories": "Loading categories..."
+    "loadingCategories": "Loading categories...",
+    "cycleAnchor": "Cycle Anchor",
+    "isCycleAnchorActive": "★ This is my salary / income anchor",
+    "setCycleAnchor": "Set as cycle anchor (salary category)",
+    "cycleAnchorHint": "Mark your main salary category so Savix knows when your pay cycle starts."
   },
   "filters": {
     "title": "Filters & Sorting",
@@ -441,5 +438,62 @@
     "placeholder": "Search transactions...",
     "clear": "Clear search",
     "filtersApplied": "{count} filter(s) applied"
+  },
+  "fixedPayments": {
+    "tabLabel": "Fixed Payments",
+    "tileTitle": "Fixed Payments",
+    "tileSubtitle": "Fixed costs this cycle + what's ahead",
+    "viewTitle": "Fixed Payments",
+    "viewSubtitle": "Manage recurring bills, subscriptions and fixed costs",
+    "addPayment": "Add Fixed Payment",
+    "editPayment": "Edit Fixed Payment",
+    "titlePlaceholder": "e.g. rent / Netflix / insurance",
+    "notesPlaceholder": "e.g. 'monthly rent for apartment'",
+    "cycle": "Cycle",
+    "cycleRequired": "Cycle is required",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "quarterly": "Quarterly",
+    "yearly": "Yearly",
+    "anchorDate": "First Due Date",
+    "anchorDateHint": "The first date this payment is due. Future occurrences are calculated from this date.",
+    "anchorShort": "anchor",
+    "activeFrom": "Active From",
+    "activeTo": "End Date",
+    "activeToHint": "Leave empty if this payment has no end date.",
+    "planned": "Planned",
+    "paid": "Paid",
+    "remaining": "Remaining",
+    "balanceAfter": "Balance After",
+    "afterAllFixed": "after all fixed",
+    "progressLabel": "Progress",
+    "countItems": "{count} items",
+    "paidLabel": "paid",
+    "noOccurrences": "No occurrences this cycle",
+    "noData": "No fixed payment data",
+    "daysLate": "{days}d late",
+    "dueToday": "Due today",
+    "daysLeft": "{days}d left",
+    "markAsPaid": "Mark as paid",
+    "dueOn": "Due on {date}",
+    "markPaidInfo": "This will open a pre-filled transaction. Review the details and save to mark this occurrence as paid.",
+    "openTransaction": "Open Transaction",
+    "moreThisCycle": "more this cycle",
+    "prefillBanner": "Pre-filled from fixed payment — adjust if needed",
+    "riskWarning": "Balance may go negative — shortfall of {amount}",
+    "templates": "Templates",
+    "showInactive": "Show inactive ({count})",
+    "hideInactive": "Hide inactive",
+    "inactive": "Inactive",
+    "endsOn": "Ends",
+    "deactivate": "Deactivate",
+    "deactivateTitle": "Deactivate Fixed Payment",
+    "deactivateInfo": "This will stop generating future occurrences. Existing paid occurrences will be preserved.",
+    "tab_overview": "Overview",
+    "tab_upcoming": "Upcoming",
+    "tab_overdue": "Overdue",
+    "tab_history": "History",
+    "allCategories": "All Categories",
+    "allWallets": "All Wallets"
   }
 }

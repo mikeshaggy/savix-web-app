@@ -10,6 +10,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     name: '',
     type: 'EXPENSE',
     emoji: '',
+    isCycleAnchor: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -21,12 +22,14 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         name: category.name || '',
         type: category.type || 'EXPENSE',
         emoji: category.emoji || '',
+        isCycleAnchor: category.isCycleAnchor || false,
       });
     } else {
       setFormData({
         name: '',
         type: 'EXPENSE',
         emoji: '',
+        isCycleAnchor: false,
       });
     }
     setErrors({});
@@ -91,6 +94,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         name: formData.name.trim(),
         type: formData.type,
         emoji: trimmedEmoji || null,
+        isCycleAnchor: formData.isCycleAnchor,
       });
       
       if (!category) {
@@ -98,6 +102,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
           name: '',
           type: 'EXPENSE',
           emoji: '',
+          isCycleAnchor: false,
         });
       }
       
@@ -128,6 +133,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         name: '',
         type: 'EXPENSE',
         emoji: '',
+        isCycleAnchor: false,
       });
     }
     onClose();
@@ -136,9 +142,9 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-[60] p-6">
+    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-[60] p-3 sm:p-6">
       <div 
-        className="bg-[#0e0e1c] border border-white/[0.12] rounded-3xl w-full max-w-[480px] overflow-hidden relative"
+        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[480px] overflow-hidden relative"
         style={{ 
           boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.06)',
           animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
@@ -148,8 +154,8 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-5 border-b border-white/[0.055]">
-          <div className="flex items-center gap-2.5 text-xl font-bold tracking-[-0.3px]">
+        <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
+          <div className="flex items-center gap-2.5 text-lg sm:text-xl font-bold tracking-[-0.3px]">
             {isEditing ? t('category.editCategory') : t('category.addCategory')}
           </div>
           <button
@@ -162,7 +168,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
 
         {/* Body */}
         <form onSubmit={handleSubmit}>
-          <div className="px-7 py-6 flex flex-col gap-[22px]">
+          <div className="px-4 sm:px-7 py-5 sm:py-6 flex flex-col gap-[22px]">
               
             {/* Category Type */}
             <div>
@@ -251,10 +257,33 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
               )}
             </div>
 
+            {/* Cycle Anchor */}
+            <div>
+              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px]">
+                {t('category.cycleAnchor')}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleChange('isCycleAnchor', !formData.isCycleAnchor)}
+                className={`w-full py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
+                  formData.isCycleAnchor
+                    ? 'bg-purple-400/10 border-purple-400/35 text-purple-400'
+                    : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
+                }`}
+              >
+                {formData.isCycleAnchor
+                  ? t('category.isCycleAnchorActive')
+                  : t('category.setCycleAnchor')}
+              </button>
+              <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
+                {t('category.cycleAnchorHint')}
+              </p>
+            </div>
+
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}

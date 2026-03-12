@@ -117,12 +117,12 @@ export default function WalletManagementView() {
   return (
     <div className="flex flex-col gap-[18px]">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-[26px] font-bold tracking-[-0.4px]">
+          <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">
             {t('wallet.wallets')}
           </div>
-          <div className="text-[14px] text-white/22 mt-[3px]">
+          <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px]">
             {t('wallet.switchWalletDesc')}
           </div>
         </div>
@@ -147,7 +147,7 @@ export default function WalletManagementView() {
 
       {/* Active wallet banner */}
       {currentWallet && (
-        <div className="relative bg-[#13131f] border border-white/[0.06] rounded-[14px] px-7 py-[22px] flex items-center justify-between overflow-hidden">
+        <div className="relative bg-[#13131f] border border-white/[0.06] rounded-[14px] px-5 md:px-7 py-5 md:py-[22px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden">
           {/* Top gradient line */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-transparent" />
           {/* Glow effect */}
@@ -221,7 +221,7 @@ export default function WalletManagementView() {
                 </div>
 
                 {/* Action buttons — visible on hover */}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

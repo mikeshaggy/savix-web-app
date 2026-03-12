@@ -49,7 +49,7 @@ export default function SummaryCards({ summary }) {
   ];
 
   return (
-    <div className="grid grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.055] bg-[#0e0e1c] relative"
+    <div className="grid grid-cols-2 md:grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.055] bg-[#0e0e1c] relative"
          style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.08s' }}>
       {/* Glow */}
       <div className="absolute inset-0 pointer-events-none"
@@ -61,7 +61,7 @@ export default function SummaryCards({ summary }) {
         
         return (
           <div key={seg.key}
-               className="relative py-[26px] px-7 overflow-hidden transition-colors hover:bg-white/[0.02] cursor-default">
+               className="relative py-[18px] sm:py-[26px] px-4 sm:px-7 overflow-hidden transition-colors hover:bg-white/[0.02] cursor-default">
             {/* Divider */}
             {index > 0 && (
               <div className="absolute left-0 top-[15%] bottom-[15%] w-px bg-white/[0.055]" />

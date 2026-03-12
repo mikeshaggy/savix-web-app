@@ -12,7 +12,9 @@
     "allTransactions": "Wszystkie transakcje",
     "categories": "Kategorie",
     "reports": "Raporty",
-    "savedFilters": "Zapisane filtry"
+    "savedFilters": "Zapisane filtry",
+    "allWallets": "Wszystkie portfele",
+    "fixedPayments": "Stałe płatności"
   },
   "common": {
     "save": "Zapisz",
@@ -46,7 +48,8 @@
     "errorDetails": "Szczegóły błędu",
     "export": "Eksport",
     "all": "Wszystkie",
-    "total": "łącznie"
+    "total": "łącznie",
+    "refresh": "Odśwież"
   },
   "transaction": {
     "newTransaction": "Nowa transakcja",
@@ -72,7 +75,6 @@
     "notes": "Notatki",
     "notesPlaceholder": "np. 'czekałem na pociąg' / 'prezent na święta'",
     "importance": "Priorytet",
-    "cycle": "Cykl",
     "type": "Typ",
     "saveTransaction": "Zapisz transakcję",
     "transactions": "transakcji",
@@ -87,13 +89,6 @@
     "shouldntHave": "Zbędna",
     "investment": "Inwestycja"
   },
-  "cycle": {
-    "oneTime": "Jednorazowo",
-    "weekly": "Tygodniowo",
-    "monthly": "Miesięcznie",
-    "yearly": "Rocznie",
-    "irregular": "Nieregularnie"
-  },
   "categoryType": {
     "income": "Przychód",
     "expense": "Wydatek"
@@ -106,7 +101,6 @@
     "walletRequired": "Portfel jest wymagany",
     "categoryRequired": "Kategoria jest wymagana",
     "dateRequired": "Data jest wymagana",
-    "cycleRequired": "Cykl jest wymagany",
     "importanceRequired": "Priorytet jest wymagany dla wydatków",
     "typeRequired": "Typ jest wymagany",
     "generic": "Coś poszło nie tak. Spróbuj ponownie.",
@@ -305,7 +299,6 @@
     "type": "Typ",
     "amount": "Kwota",
     "importance": "Priorytet",
-    "cycle": "Cykl",
     "actions": "Akcje",
     "unknownCategory": "Nieznana kategoria",
     "noTransactionsFound": "Nie znaleziono transakcji",
@@ -345,7 +338,11 @@
     "deleteCategory": "Usuń kategorię",
     "cannotBeUndone": "Tej operacji nie można cofnąć",
     "deleteCategoryConfirm": "Czy na pewno chcesz usunąć kategorię \"{name}\"?",
-    "loadingCategories": "Ładowanie kategorii..."
+    "loadingCategories": "Ładowanie kategorii...",
+    "cycleAnchor": "Zakotwiczenie cyklu",
+    "isCycleAnchorActive": "★ To jest moja kategoria wypłaty",
+    "setCycleAnchor": "Ustaw jako zakotwiczenie cyklu (kategoria wypłaty)",
+    "cycleAnchorHint": "Oznacz główną kategorię wypłaty, aby Savix wiedział kiedy zaczyna się Twój cykl."
   },
   "filters": {
     "title": "Filtry i sortowanie",
@@ -442,5 +439,62 @@
     "placeholder": "Szukaj transakcji...",
     "clear": "Wyczyść wyszukiwanie",
     "filtersApplied": "{count} filtr(ów) zastosowanych"
+  },
+  "fixedPayments": {
+    "tabLabel": "Stałe płatności",
+    "tileTitle": "Stałe płatności",
+    "tileSubtitle": "Stałe koszty w tym cyklu + co przed Tobą",
+    "viewTitle": "Stałe płatności",
+    "viewSubtitle": "Zarządzaj rachunkami, subskrypcjami i stałymi kosztami",
+    "addPayment": "Dodaj stałą płatność",
+    "editPayment": "Edytuj stałą płatność",
+    "titlePlaceholder": "np. czynsz / Netflix / ubezpieczenie",
+    "notesPlaceholder": "np. 'czynsz za mieszkanie'",
+    "cycle": "Cykl",
+    "cycleRequired": "Cykl jest wymagany",
+    "weekly": "Tygodniowy",
+    "monthly": "Miesięczny",
+    "quarterly": "Kwartalny",
+    "yearly": "Roczny",
+    "anchorDate": "Pierwszy termin",
+    "anchorDateHint": "Pierwszy termin płatności. Kolejne terminy są obliczane od tej daty.",
+    "anchorShort": "zakotwiczenie",
+    "activeFrom": "Aktywne od",
+    "activeTo": "Data końcowa",
+    "activeToHint": "Zostaw puste, jeśli płatność nie ma daty końcowej.",
+    "planned": "Planowane",
+    "paid": "Zapłacone",
+    "remaining": "Pozostałe",
+    "balanceAfter": "Saldo po",
+    "afterAllFixed": "po wszystkich stałych",
+    "progressLabel": "Postęp",
+    "countItems": "{count} pozycji",
+    "paidLabel": "zapłacone",
+    "noOccurrences": "Brak pozycji w tym cyklu",
+    "noData": "Brak danych o stałych płatnościach",
+    "daysLate": "{days} dni po terminie",
+    "dueToday": "Termin dzisiaj",
+    "daysLeft": "za {days} dni",
+    "markAsPaid": "Oznacz jako zapłacone",
+    "dueOn": "Termin: {date}",
+    "markPaidInfo": "To otworzy wstępnie wypełnioną transakcję. Sprawdź szczegóły i zapisz, aby oznaczyć tę pozycję jako zapłaconą.",
+    "openTransaction": "Otwórz transakcję",
+    "moreThisCycle": "więcej w tym cyklu",
+    "prefillBanner": "Wstępnie wypełnione z stałej płatności — dostosuj w razie potrzeby",
+    "riskWarning": "Saldo może być ujemne — niedobór {amount}",
+    "templates": "Szablony",
+    "showInactive": "Pokaż nieaktywne ({count})",
+    "hideInactive": "Ukryj nieaktywne",
+    "inactive": "Nieaktywne",
+    "endsOn": "Koniec",
+    "deactivate": "Dezaktywuj",
+    "deactivateTitle": "Dezaktywuj stałą płatność",
+    "deactivateInfo": "Przyszłe terminy nie będą generowane. Istniejące zapłacone pozycje zostaną zachowane.",
+    "tab_overview": "Przegląd",
+    "tab_upcoming": "Nadchodzące",
+    "tab_overdue": "Zaległe",
+    "tab_history": "Historia",
+    "allCategories": "Wszystkie kategorie",
+    "allWallets": "Wszystkie portfele"
   }
 }

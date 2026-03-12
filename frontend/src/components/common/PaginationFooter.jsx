@@ -21,7 +21,7 @@ export default function PaginationFooter({
   const currentPage = page + 1;
 
   return (
-    <div className="flex items-center justify-between px-5 py-3.5 bg-[#0e0e1c] border border-white/[0.055] rounded-[14px]">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 md:px-5 py-3.5 bg-[#0e0e1c] border border-white/[0.055] rounded-[14px]">
       {/* Left: showing X-Y of Z */}
       <div className="text-[13px] text-white/40 font-medium">
         {totalElements === 0
@@ -29,8 +29,8 @@ export default function PaginationFooter({
           : `${t('pagination.showing')} ${from}–${to} ${t('pagination.of')} ${totalElements}`}
       </div>
 
-      {/* Center: rows per page */}
-      <div className="flex items-center gap-2">
+      {/* Center: rows per page — hide on small screens */}
+      <div className="hidden md:flex items-center gap-2">
         <span className="text-[13px] text-white/30 font-medium">{t('pagination.rowsPerPage')}:</span>
         <div className="flex items-center gap-1">
           {PAGE_SIZES.map((s) => (

@@ -47,6 +47,15 @@ export default function DashboardPage() {
         }
     }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
 
+    const handleRefreshDashboard = useCallback(() => {
+        if (!currentWallet?.id) return;
+        if (periodType === 'CUSTOM' && customStartDate && customEndDate) {
+            fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
+        } else if (periodType !== 'CUSTOM') {
+            fetchDashboard(currentWallet.id, periodType, null, null);
+        }
+    }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
+
     const handlePeriodTypeChange = (newPeriodType) => {
         if (newPeriodType === 'CUSTOM') return;
         setPeriodType(newPeriodType);
@@ -149,19 +158,24 @@ export default function DashboardPage() {
             />
 
             {/* Bento grid */}
-            <div className="grid grid-cols-12 gap-3.5 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
                 {/* Stat banner — full width */}
-                <div className="col-span-12">
+                <div className="lg:col-span-12">
                     <SummaryCards summary={dashboardData.summary} />
                 </div>
 
-                {/* Fixed transactions — 7 cols */}
-                <div className="col-span-7 flex">
-                    <FixedTransactionsTile />
+                {/* Fixed transactions — 7 cols on desktop, full on mobile */}
+                <div className="lg:col-span-7 flex">
+                    <FixedTransactionsTile
+                        tileData={dashboardData.fixedPaymentsTile}
+                        loading={false}
+                        error={null}
+                        onRefresh={handleRefreshDashboard}
+                    />
                 </div>
 
-                {/* Categories — 5 cols */}
-                <div className="col-span-5 flex">
+                {/* Categories — 5 cols on desktop, full on mobile */}
+                <div className="lg:col-span-5 flex">
                     <TopCategories categories={dashboardData.topCategories} />
                 </div>
             </div>

@@ -122,9 +122,9 @@ export default function CategoryManagementView() {
   return (
     <div className="flex flex-col gap-[18px]">
       {/* Page header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-[22px] font-semibold tracking-[-0.3px] mb-1">
+          <div className="text-xl sm:text-[22px] font-semibold tracking-[-0.3px] mb-1">
             {t('category.management')}
           </div>
           <div className="text-[13px] text-[#6b6b8a]">
@@ -155,7 +155,7 @@ export default function CategoryManagementView() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-[6px]">
+      <div className="flex gap-[6px] flex-wrap">
         <button
           onClick={() => setTypeFilter('ALL')}
           className={`flex items-center gap-[7px] px-[14px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
@@ -206,7 +206,7 @@ export default function CategoryManagementView() {
       </div>
 
       {/* Categories Grid */}
-      <div className="grid grid-cols-3 gap-[10px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
         {filteredCategories.map((category) => (
           <div
             key={category.id}
@@ -237,7 +237,7 @@ export default function CategoryManagementView() {
             </div>
 
             {/* Actions — visible on hover */}
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

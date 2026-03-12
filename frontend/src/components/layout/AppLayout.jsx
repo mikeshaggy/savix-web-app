@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppProvider, useAppContext } from '@/contexts/AppContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -84,6 +84,7 @@ function AppLayoutContent({
     onCloseTransferModal
 }) {
     const t = useTranslations();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const {
         categories,
         isLoading,
@@ -95,6 +96,18 @@ function AppLayoutContent({
         onCreateTransfer,
         onRefresh
     } = useAppContext();
+
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setSidebarOpen(false);
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     if (hasError) {
         return (
@@ -127,6 +140,8 @@ function AppLayoutContent({
                 currentPath={pathname}
                 onNewTransaction={onNewTransaction}
                 onNewTransfer={onNewTransfer}
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
             />
 
             {/* Main Content */}
@@ -134,10 +149,11 @@ function AppLayoutContent({
                 {/* Top Bar */}
                 <TopBar 
                     onRefresh={onRefresh}
+                    onMenuToggle={() => setSidebarOpen(true)}
                 />
 
                 {/* Main Content Area */}
-                <div className="flex-1 p-7 overflow-y-auto">
+                <div className="flex-1 p-4 md:p-5 lg:p-7 overflow-y-auto">
                     {children}
                 </div>
             </main>
