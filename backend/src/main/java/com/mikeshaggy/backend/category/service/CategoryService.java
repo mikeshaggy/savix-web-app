@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.category.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
 import com.mikeshaggy.backend.category.dto.CategoryResponse;
 import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
@@ -26,7 +26,7 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final UserService userService;
 
-    public List<CategoryResponse> getCategoriesForUser(UUID userId, Type type) {
+    public List<CategoryResponse> getCategoriesForUser(UUID userId, CategoryType type) {
         if (type != null) {
             return categoryRepository.findByUserIdAndType(userId, type).stream()
                     .map(CategoryResponse::from)
@@ -49,12 +49,16 @@ public class CategoryService {
 
     @Transactional
     public CategoryResponse createCategory(CategoryCreateRequest request, UUID userId) {
-        validateEmojiUniqueness(request.emoji(), userId);
+        validateEmojiUniqueness(request.emoji(), userId, null);
 
         User user = userService.getUserOrThrow(userId);
 
-        Category category = request.toEntity();
-        category.setUser(user);
+        Category category = Category.builder()
+                .name(request.name())
+                .type(request.type())
+                .emoji((request.emoji() == null || request.emoji().isBlank()) ? null : request.emoji().trim())
+                .user(user)
+                .build();
 
         Category savedCategory = categoryRepository.save(category);
         
@@ -65,17 +69,28 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryResponse updateCategory(Integer id, CategoryUpdateRequest request, UUID userId) {
-        validateEmojiUniqueness(request.emoji(), userId);
+    public CategoryResponse updateCategory(Integer categoryId, CategoryUpdateRequest request, UUID userId) {
+        validateEmojiUniqueness(request.emoji(), userId, categoryId);
 
-        Category category = getCategoryOrThrowForUser(id, userId);
+        Category category = getCategoryOrThrowForUser(categoryId, userId);
+
+        if (Boolean.TRUE.equals(request.isCycleAnchor())) {
+            categoryRepository.findByUserIdAndIsCycleAnchorTrue(userId)
+                    .filter(existing -> !existing.getId().equals(categoryId))
+                    .ifPresent(existing -> {
+                        existing.setCycleAnchor(false);
+                        categoryRepository.save(existing);
+                        log.info("Cleared cycle anchor from category '{}' (id: {}) for user: {}",
+                                existing.getName(), existing.getId(), userId);
+                    });
+        }
 
         request.applyTo(category);
         
         Category updatedCategory = categoryRepository.save(category);
         
         log.info("Updated category id: {} to name: '{}', type: {}", 
-                id, request.name(), request.type());
+                categoryId, request.name(), request.type());
 
         return CategoryResponse.from(updatedCategory);
     }
@@ -95,12 +110,19 @@ public class CategoryService {
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));
     }
 
-    private void validateEmojiUniqueness(String emoji, UUID userId) {
-        if (emoji != null && !emoji.isBlank()) {
-            boolean exists = categoryRepository.existsByUserIdAndEmoji(userId, emoji.trim());
-            if (exists) {
-                throw new IllegalArgumentException("Emoji '" + emoji + "' is already used in another category for this user.");
-            }
+    private void validateEmojiUniqueness(String emoji, UUID userId, Integer excludeId) {
+        if (emoji == null && emoji.isBlank()) {
+            return;
+        }
+
+        String trimmedEmoji = emoji.trim();
+
+        boolean exists = excludeId == null
+                ? categoryRepository.existsByUserIdAndEmoji(userId, trimmedEmoji)
+                : categoryRepository.existsByUserIdAndEmojiAndIdNot(userId, trimmedEmoji, excludeId);
+
+        if (exists) {
+            throw new IllegalArgumentException("Emoji '" + trimmedEmoji + "' is already used in another category for this user.");
         }
     }
 }

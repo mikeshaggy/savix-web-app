@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.category.dto;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,14 +12,19 @@ public record CategoryUpdateRequest(
         String name,
 
         @NotNull(message = "Type is required")
-        Type type,
+        CategoryType type,
 
         @Size(max = 16, message = "Emoji must not exceed 16 characters")
-        String emoji
+        String emoji,
+
+        Boolean isCycleAnchor
 ) {
         public void applyTo(Category category) {
                 category.setName(name);
                 category.setType(type);
                 category.setEmoji((emoji == null || emoji.isBlank()) ? null : emoji.trim());
+                if (isCycleAnchor != null) {
+                        category.setCycleAnchor(isCycleAnchor);
+                }
         }
 }

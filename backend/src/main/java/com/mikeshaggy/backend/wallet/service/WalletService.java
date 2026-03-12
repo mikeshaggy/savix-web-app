@@ -49,8 +49,11 @@ public class WalletService {
             throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
-        Wallet wallet = request.toEntity();
-        wallet.setUser(user);
+        Wallet wallet = Wallet.builder()
+                .name(request.name())
+                .balance(request.balance() != null ? request.balance() : BigDecimal.ZERO)
+                .user(user)
+                .build();
 
         Wallet savedWallet = walletRepository.save(wallet);
         
@@ -103,9 +106,7 @@ public class WalletService {
                 .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
     }
 
-    public String getWalletNameOrThrow(Integer walletId) {
-        return walletRepository.findById(walletId)
-                .map(Wallet::getName)
-                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + walletId));
+    Wallet saveWallet(Wallet wallet) {
+        return walletRepository.save(wallet);
     }
 }

@@ -1,6 +1,6 @@
 package com.mikeshaggy.backend.category.api;
 
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
 import com.mikeshaggy.backend.category.dto.CategoryResponse;
 import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
@@ -26,7 +26,7 @@ public class CategoryController {
 
     @GetMapping
     public ResponseEntity<List<CategoryResponse>> getCategories(
-            @RequestParam(required = false) Type type) {
+            @RequestParam(required = false) CategoryType type) {
         List<CategoryResponse> categories = categoryService.getCategoriesForUser(
                 currentUserProvider.getCurrentUserId(),
                 type

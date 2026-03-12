@@ -1,10 +1,10 @@
-package com.mikeshaggy.backend.transfers.service;
+package com.mikeshaggy.backend.transfer.service;
 
-import com.mikeshaggy.backend.transfers.domain.Transfer;
-import com.mikeshaggy.backend.transfers.dto.TransferCreateRequest;
-import com.mikeshaggy.backend.transfers.dto.TransferResponse;
-import com.mikeshaggy.backend.transfers.dto.TransferUpdateRequest;
-import com.mikeshaggy.backend.transfers.repo.TransferRepository;
+import com.mikeshaggy.backend.transfer.domain.Transfer;
+import com.mikeshaggy.backend.transfer.dto.TransferCreateRequest;
+import com.mikeshaggy.backend.transfer.dto.TransferResponse;
+import com.mikeshaggy.backend.transfer.dto.TransferUpdateRequest;
+import com.mikeshaggy.backend.transfer.repo.TransferRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -54,9 +54,13 @@ public class TransferService {
         Wallet fromWallet = walletService.getWalletEntityByIdForUser(request.fromWalletId(), userId);
         Wallet toWallet = walletService.getWalletEntityByIdForUser(request.toWalletId(), userId);
 
-        Transfer transfer = request.toEntity();
-        transfer.setFromWallet(fromWallet);
-        transfer.setToWallet(toWallet);
+        Transfer transfer = Transfer.builder()
+                .fromWallet(fromWallet)
+                .toWallet(toWallet)
+                .amount(request.amount())
+                .transferDate(request.transferDate())
+                .notes(request.notes())
+                .build();
 
         Transfer savedTransfer = transferRepository.save(transfer);
 

@@ -1,10 +1,10 @@
-package com.mikeshaggy.backend.transfers.api;
+package com.mikeshaggy.backend.transfer.api;
 
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
-import com.mikeshaggy.backend.transfers.dto.TransferCreateRequest;
-import com.mikeshaggy.backend.transfers.dto.TransferResponse;
-import com.mikeshaggy.backend.transfers.dto.TransferUpdateRequest;
-import com.mikeshaggy.backend.transfers.service.TransferService;
+import com.mikeshaggy.backend.transfer.dto.TransferCreateRequest;
+import com.mikeshaggy.backend.transfer.dto.TransferResponse;
+import com.mikeshaggy.backend.transfer.dto.TransferUpdateRequest;
+import com.mikeshaggy.backend.transfer.service.TransferService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,24 +1,22 @@
 package com.mikeshaggy.backend.dashboard.service.calculator;
 
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.dashboard.dto.CategorySpendingDto;
 import com.mikeshaggy.backend.dashboard.dto.PercentageChangeDto;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.mikeshaggy.backend.dashboard.service.calculator.CalculationUtils.*;
+
 @Component
 public class TopCategoriesCalculator {
 
-    private static final int SCALE = 2;
-    private static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final int TOP_N = 5;
 
     public List<CategorySpendingDto> calculate(List<Transaction> currentTransactions,
@@ -46,7 +44,9 @@ public class TopCategoriesCalculator {
 
     private Map<String, BigDecimal> groupExpensesByCategory(List<Transaction> transactions) {
         return transactions.stream()
-                .filter(t -> t.getCategory().getType() == Type.EXPENSE)
+                .filter(t -> t.getCategory().getType() == CategoryType.EXPENSE)
+                // TODO: implement proper category exclusion mechanism
+                .filter(t -> !t.getCategory().getName().equalsIgnoreCase("rent")) // temp solution
                 .collect(Collectors.groupingBy(
                         t -> t.getCategory().getName(),
                         Collectors.reducing(BigDecimal.ZERO,
@@ -60,17 +60,5 @@ public class TopCategoriesCalculator {
             return BigDecimal.ZERO.setScale(SCALE, ROUNDING);
         }
         return amount.multiply(HUNDRED).divide(total, SCALE, ROUNDING);
-    }
-
-    private PercentageChangeDto percentageChange(BigDecimal current, BigDecimal previous) {
-        if (previous.compareTo(BigDecimal.ZERO) == 0) {
-            return new PercentageChangeDto(BigDecimal.ZERO.setScale(SCALE, ROUNDING), true);
-        }
-
-        BigDecimal change = current.subtract(previous)
-                .multiply(HUNDRED)
-                .divide(previous.abs(), SCALE, ROUNDING);
-
-        return new PercentageChangeDto(change.abs(), change.compareTo(BigDecimal.ZERO) >= 0);
     }
 }

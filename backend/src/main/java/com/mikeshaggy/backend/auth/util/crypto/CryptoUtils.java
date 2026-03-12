@@ -47,4 +47,12 @@ public class CryptoUtils {
     public long generateJitterMs() {
         return 50 + SECURE_RANDOM.nextInt(101); // 50-150ms
     }
+
+    public void addJitter() {
+        try {
+            Thread.sleep(generateJitterMs());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 }

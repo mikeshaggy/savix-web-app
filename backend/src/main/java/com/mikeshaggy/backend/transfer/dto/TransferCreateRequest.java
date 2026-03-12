@@ -1,13 +1,12 @@
-package com.mikeshaggy.backend.transfers.dto;
+package com.mikeshaggy.backend.transfer.dto;
 
-import com.mikeshaggy.backend.transfers.domain.Transfer;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record TransferUpdateRequest(
+public record TransferCreateRequest(
         @NotNull(message = "Source wallet ID is required")
         Integer fromWalletId,
 
@@ -22,10 +21,4 @@ public record TransferUpdateRequest(
         LocalDate transferDate,
 
         String notes
-) {
-    public void applyTo(Transfer transfer) {
-        transfer.setAmount(amount);
-        transfer.setTransferDate(transferDate);
-        transfer.setNotes(notes);
-    }
-}
+) {}

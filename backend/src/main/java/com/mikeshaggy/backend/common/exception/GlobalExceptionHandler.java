@@ -25,79 +25,37 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFoundException(EntityNotFoundException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Not Found")
-                .message(ex.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        return buildErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Bad Request")
-                .message(ex.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
     @ExceptionHandler(OptimisticLockException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLockException(OptimisticLockException ex) {
         log.warn("Optimistic lock conflict: {}", ex.getMessage());
-
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CONFLICT.value())
-                .error("Conflict")
-                .message("The resource was modified by another request. Please retry.")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return buildErrorResponse(HttpStatus.CONFLICT, "Conflict",
+                "The resource was modified by another request. Please retry.");
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleObjectOptimisticLockingFailureException(
             ObjectOptimisticLockingFailureException ex) {
         log.warn("Optimistic locking failure: {}", ex.getMessage());
-
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.CONFLICT.value())
-                .error("Conflict")
-                .message("The resource was modified by another request. Please retry.")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        return buildErrorResponse(HttpStatus.CONFLICT, "Conflict",
+                "The resource was modified by another request. Please retry.");
     }
 
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .error("Authentication Failed")
-                .message(ex.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Authentication Failed", ex.getMessage());
     }
 
     @ExceptionHandler(RateLimitException.class)
     public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.TOO_MANY_REQUESTS.value())
-                .error("Too Many Requests")
-                .message(ex.getMessage())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
+        return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -109,52 +67,40 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Validation Failed")
-                .message("Invalid request parameters")
-                .details(errors)
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation Failed", "Input validation failed", errors);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .error("Unauthorized")
-                .message("Authentication required")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", "Authentication required");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
-        ErrorResponse response = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.FORBIDDEN.value())
-                .error("Forbidden")
-                .message("Access denied")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        return buildErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", "Access denied");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         log.error("Unexpected error occurred", ex);
-        
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
+                "An unexpected error occurred");
+    }
+
+    private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String error, String message,
+                                                             Map<String, String> details) {
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error("Internal Server Error")
-                .message("An unexpected error occurred")
+                .status(status.value())
+                .error(error)
+                .message(message)
+                .details(details)
                 .build();
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseEntity.status(status).body(response);
+    }
+
+    private ResponseEntity<ErrorResponse> buildErrorResponse(HttpStatus status, String error, String message) {
+        return buildErrorResponse(status, error, message, null);
     }
 }

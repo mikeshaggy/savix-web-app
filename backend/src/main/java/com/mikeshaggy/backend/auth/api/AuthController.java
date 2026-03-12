@@ -3,7 +3,9 @@ package com.mikeshaggy.backend.auth.api;
 import com.mikeshaggy.backend.auth.dto.LoginResult;
 import com.mikeshaggy.backend.auth.dto.request.*;
 import com.mikeshaggy.backend.auth.dto.response.AuthResponse;
-import com.mikeshaggy.backend.auth.service.AuthService;
+import com.mikeshaggy.backend.auth.service.PasswordResetService;
+import com.mikeshaggy.backend.auth.service.RegistrationService;
+import com.mikeshaggy.backend.auth.service.SessionService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,12 +28,15 @@ import java.util.UUID;
 @Slf4j
 public class AuthController {
 
-    private final AuthService authService;
+    private final RegistrationService registrationService;
+    private final SessionService sessionService;
+    private final PasswordResetService passwordResetService;
     private final AuthCookieManager cookieManager;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        authService.register(request);
+        registrationService.register(request);
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(AuthResponse.of("Registration successful"));
     }
@@ -41,7 +46,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        LoginResult result = authService.login(request, httpRequest);
+        LoginResult result = sessionService.login(request, httpRequest);
 
         cookieManager.writeTokens(httpResponse, result.tokens());
 
@@ -58,7 +63,7 @@ public class AuthController {
                     .body(AuthResponse.of("No refresh token provided"));
         }
 
-        LoginResult result = authService.refresh(refreshToken, httpRequest);
+        LoginResult result = sessionService.refresh(refreshToken, httpRequest);
 
         cookieManager.writeTokens(httpResponse, result.tokens());
 
@@ -71,7 +76,7 @@ public class AuthController {
             HttpServletResponse httpResponse) {
         String refreshToken = cookieManager.extractRefreshToken(httpRequest);
         if (refreshToken != null) {
-            authService.logout(refreshToken);
+            sessionService.logout(refreshToken);
         }
 
         cookieManager.clearTokens(httpResponse);
@@ -83,7 +88,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
-        authService.forgotPassword(request, httpRequest);
+        passwordResetService.forgotPassword(request, httpRequest);
 
         return ResponseEntity.accepted()
                 .body(AuthResponse.of("If the email exists, a password reset link has been sent"));
@@ -91,7 +96,8 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request);
+        passwordResetService.resetPassword(request);
+
         return ResponseEntity.ok(AuthResponse.of("Password reset successful"));
     }
 
@@ -101,7 +107,7 @@ public class AuthController {
             Authentication authentication,
             HttpServletResponse httpResponse) {
         UUID userId = UUID.fromString(authentication.getName());
-        authService.changePassword(userId, request);
+        passwordResetService.changePassword(userId, request);
 
         cookieManager.clearTokens(httpResponse);
 

@@ -45,10 +45,6 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     private Importance importance;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Cycle cycle;
-
     @CreationTimestamp
     private Instant createdAt;
 

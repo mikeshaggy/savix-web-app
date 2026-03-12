@@ -5,11 +5,13 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -24,21 +26,22 @@ public class LastPayCyclePeriodResolver implements PeriodResolver {
     }
 
     @Override
-    public PeriodDto resolve(Integer walletId, LocalDate customStart, LocalDate customEnd) {
+    public PeriodDto resolve(Integer walletId, UUID userId, LocalDate customStart, LocalDate customEnd, Integer anchorCategoryId) {
         LocalDate today = LocalDate.now(clock);
 
-        List<Transaction> salaries = transactionRepository
-                .findTop2ByWalletIdAndCategoryNameIgnoreCaseOrderByTransactionDateDesc(walletId, "salary");
+        if (anchorCategoryId != null) {
+            List<Transaction> anchorTransactions = transactionRepository
+                    .findByWalletIdAndCategoryIdOrderByTransactionDateDesc(walletId, anchorCategoryId, PageRequest.of(0, 2));
 
-        if (salaries.size() >= 2) {
-            LocalDate latestSalaryDate = salaries.get(0).getTransactionDate();
-            LocalDate previousSalaryDate = salaries.get(1).getTransactionDate();
-            return new PeriodDto(previousSalaryDate, latestSalaryDate.minusDays(1), PeriodType.LAST_PAY_CYCLE);
+            if (anchorTransactions.size() >= 2) {
+                LocalDate latestDate = anchorTransactions.get(0).getTransactionDate();
+                LocalDate previousDate = anchorTransactions.get(1).getTransactionDate();
+                return new PeriodDto(previousDate, latestDate.minusDays(1), previousDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
+            }
         }
 
-        // Fallback: previous calendar month
         LocalDate firstOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
         LocalDate lastOfLastMonth = today.withDayOfMonth(1).minusDays(1);
-        return new PeriodDto(firstOfLastMonth, lastOfLastMonth, PeriodType.LAST_PAY_CYCLE);
+        return new PeriodDto(firstOfLastMonth, lastOfLastMonth, firstOfLastMonth.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
     }
 }

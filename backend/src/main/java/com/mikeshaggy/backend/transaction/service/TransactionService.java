@@ -1,15 +1,12 @@
 package com.mikeshaggy.backend.transaction.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
-import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
-import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
+import com.mikeshaggy.backend.transaction.dto.*;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
 import com.mikeshaggy.backend.transaction.repo.TransactionSpecifications;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -28,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -50,30 +46,21 @@ public class TransactionService {
     private static final int MAX_PAGE_SIZE = 100;
 
 
-    public TransactionPageResponse getTransactionsForUser(
-            UUID userId,
-            int page,
-            int size,
-            List<Type> types,
-            List<Integer> categoryIds,
-            List<Importance> importances,
-            LocalDate startDate,
-            LocalDate endDate,
-            String q,
-            String sort) {
-        int effectivePage = Math.max(page, 0);
-        int effectiveSize = normalizeSize(size);
-        Sort effectiveSort = normalizeSort(sort);
+    public TransactionPageResponse getTransactionsForUser(TransactionFilterParams filter) {
+        int effectivePage = Math.max(filter.page(), 0);
+        int effectiveSize = normalizeSize(filter.size());
+        Sort effectiveSort = normalizeSort(filter.sort());
         Pageable pageable = PageRequest.of(effectivePage, effectiveSize, effectiveSort);
 
         return searchTransactions(
-                userId,
-                types,
-                categoryIds,
-                importances,
-                startDate,
-                endDate,
-                q,
+                filter.userId(),
+                filter.walletId(),
+                filter.types(),
+                filter.categoryIds(),
+                filter.importances(),
+                filter.startDate(),
+                filter.endDate(),
+                filter.q(),
                 pageable
         );
     }
@@ -109,7 +96,8 @@ public class TransactionService {
 
     private TransactionPageResponse searchTransactions(
             UUID userId,
-            List<Type> types,
+            Integer walletId,
+            List<CategoryType> types,
             List<Integer> categoryIds,
             List<Importance> importances,
             LocalDate startDate,
@@ -118,7 +106,7 @@ public class TransactionService {
             Pageable pageable
     ) {
         Specification<Transaction> spec = TransactionSpecifications.buildSpecification(
-                userId, types, categoryIds, importances, startDate, endDate, q
+                userId, walletId, types, categoryIds, importances, startDate, endDate, q
         );
 
         Page<Transaction> page = transactionRepository.findAll(spec, pageable);
@@ -153,15 +141,26 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse createTransaction(TransactionCreateRequest request, UUID userId) {
+        return TransactionResponse.from(createTransactionEntity(request, userId));
+    }
+
+    @Transactional
+    Transaction createTransactionEntity(TransactionCreateRequest request, UUID userId) {
         Wallet wallet = walletService.getWalletEntityByIdForUser(request.walletId(), userId);
-        
+
         Category category = categoryService.getCategoryEntityByIdForUser(request.categoryId(), userId);
 
         validateImportance(request.importance(), category.getType());
 
-        Transaction transaction = request.toEntity();
-        transaction.setWallet(wallet);
-        transaction.setCategory(category);
+        Transaction transaction = Transaction.builder()
+                .wallet(wallet)
+                .category(category)
+                .title(request.title())
+                .amount(request.amount())
+                .transactionDate(request.transactionDate())
+                .notes(request.notes())
+                .importance(request.importance())
+                .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
@@ -172,7 +171,7 @@ public class TransactionService {
                 savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
                 savedTransaction.getAmount(), category.getType());
 
-        return TransactionResponse.from(savedTransaction);
+        return savedTransaction;
     }
 
     @Transactional
@@ -180,7 +179,7 @@ public class TransactionService {
         Transaction existingTransaction = getTransactionOrThrowForUser(id, userId);
 
         BigDecimal oldAmount = existingTransaction.getAmount();
-        Type oldType = existingTransaction.getCategory().getType();
+        CategoryType oldType = existingTransaction.getCategory().getType();
         Wallet oldWallet = existingTransaction.getWallet();
 
         Wallet newWallet = oldWallet;
@@ -233,11 +232,11 @@ public class TransactionService {
         transactionRepository.delete(transaction);
     }
 
-    private void validateImportance(Importance importance, Type categoryType) {
-        if (categoryType == Type.INCOME && importance != null) {
+    private void validateImportance(Importance importance, CategoryType categoryType) {
+        if (categoryType == CategoryType.INCOME && importance != null) {
             throw new IllegalArgumentException("Importance must be null for INCOME transactions");
         }
-        if (categoryType == Type.EXPENSE && importance == null) {
+        if (categoryType == CategoryType.EXPENSE && importance == null) {
             throw new IllegalArgumentException("Importance is required for EXPENSE transactions");
         }
     }
@@ -252,10 +251,7 @@ public class TransactionService {
                 .findByWalletIdAndTransactionDateBetween(walletId, period.startDate(), period.endDate());
     }
 
-    public List<Transaction> getTransactionsForWalletAndComparePeriod(Integer walletId, PeriodDto comparePeriod) {
-        if (comparePeriod == null) {
-            return Collections.emptyList();
-        }
-        return getTransactionsForWalletAndPeriod(walletId, comparePeriod);
+    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, LocalDate from, LocalDate to) {
+        return transactionRepository.sumIncomeByWalletIdAndDateRange(walletId, from, to);
     }
 }

@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.wallet.api;
 
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.wallet.dto.WalletBalanceUpdateRequest;
 import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
 import com.mikeshaggy.backend.wallet.dto.WalletResponse;
 import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
@@ -11,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -65,10 +65,10 @@ public class WalletController {
     @PatchMapping("/{id}/balance")
     public ResponseEntity<WalletResponse> updateWalletBalance(
             @PathVariable Integer id, 
-            @RequestBody BigDecimal newBalance) {
+            @Valid @RequestBody WalletBalanceUpdateRequest request) {
         WalletResponse updatedWallet = walletService.updateWalletBalance(
                 id, 
-                newBalance, 
+                request.newBalance(), 
                 currentUserProvider.getCurrentUserId()
         );
         return ResponseEntity.ok(updatedWallet);

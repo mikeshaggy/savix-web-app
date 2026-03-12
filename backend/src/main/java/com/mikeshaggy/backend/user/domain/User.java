@@ -1,15 +1,11 @@
 package com.mikeshaggy.backend.user.domain;
 
-import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -41,30 +37,6 @@ public class User {
     @UpdateTimestamp
     @Column(nullable = false)
     private Instant updatedAt;
-
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private Set<Category> categories = new HashSet<>();
-
-    @OneToMany(
-            mappedBy = "user",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private Set<Wallet> wallets = new HashSet<>();
-
-    public void addWallet(Wallet wallet) {
-        wallets.add(wallet);
-        wallet.setUser(this);
-    }
-
-    public void removeWallet(Wallet wallet) {
-        wallets.remove(wallet);
-        wallet.setUser(null);
-    }
 
     @PrePersist
     @PreUpdate
