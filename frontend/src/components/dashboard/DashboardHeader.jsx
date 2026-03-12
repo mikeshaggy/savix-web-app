@@ -50,7 +50,7 @@ export default function DashboardHeader({
   ];
 
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-5 items-end mb-6"
+    <div className="flex flex-col gap-4 md:grid md:grid-cols-[1fr_auto] md:gap-5 md:items-end mb-6"
          style={{ animation: 'fadeUp 0.4s ease both' }}>
       {/* Left: Balance */}
       <div>
@@ -67,7 +67,7 @@ export default function DashboardHeader({
       </div>
 
       {/* Right: Period picker + Cycle tabs */}
-      <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-col items-start md:items-end gap-2">
         {/* Period date picker */}
         {!isEditingDates ? (
           <div 

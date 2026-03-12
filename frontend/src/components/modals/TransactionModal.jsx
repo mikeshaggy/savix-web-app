@@ -32,15 +32,6 @@ const IMPORTANCE_OPTIONS = [
   { value: "INVESTMENT", labelKey: "importance.investment", colorClass: "inv" },
 ];
 
-// Cycle options matching backend Cycle enum
-const CYCLE_OPTIONS = [
-  { value: "ONE_TIME", labelKey: "cycle.oneTime" },
-  { value: "WEEKLY", labelKey: "cycle.weekly" },
-  { value: "MONTHLY", labelKey: "cycle.monthly" },
-  { value: "YEARLY", labelKey: "cycle.yearly" },
-  { value: "IRREGULAR", labelKey: "cycle.irregular" },
-];
-
 // Quick amount chips
 const QUICK_AMOUNTS = [10, 20, 50, 100];
 
@@ -51,6 +42,8 @@ export default function TransactionModal({
   categories,
   loading = false,
   transaction = null,
+  prefill = null,
+  onPrefillSaved = null,
 }) {
   const { currentWallet, wallets } = useWallets();
   const { user } = useUser();
@@ -69,7 +62,6 @@ export default function TransactionModal({
     categoryId: "",
     notes: "",
     importance: "ESSENTIAL",
-    cycle: "ONE_TIME",
   });
 
   const [errors, setErrors] = useState({});
@@ -107,10 +99,24 @@ export default function TransactionModal({
         categoryId: transaction.categoryId?.toString() || "",
         notes: transaction.notes || "",
         importance: transaction.importance || "ESSENTIAL",
-        cycle: transaction.cycle || "ONE_TIME",
       });
       // Set category search to show selected category name
       const cat = categories?.find((c) => c.id === transaction.categoryId);
+      setCategorySearch(cat?.name || "");
+    } else if (prefill) {
+      setFormData({
+        title: prefill.title || "",
+        amount: prefill.amount?.toString() || "",
+        transactionDate: new Date().toISOString().split("T")[0],
+        walletId:
+          prefill.walletId?.toString() ||
+          currentWallet?.id?.toString() ||
+          "",
+        categoryId: prefill.categoryId?.toString() || "",
+        notes: prefill.notes || "",
+        importance: "ESSENTIAL",
+      });
+      const cat = categories?.find((c) => c.id === prefill.categoryId);
       setCategorySearch(cat?.name || "");
     } else {
       setFormData({
@@ -121,13 +127,12 @@ export default function TransactionModal({
         categoryId: "",
         notes: "",
         importance: "ESSENTIAL",
-        cycle: "ONE_TIME",
       });
       setCategorySearch("");
     }
     setErrors({});
     setShowCategoryDropdown(false);
-  }, [transaction, currentWallet?.id, isOpen, categories]);
+  }, [transaction, prefill, currentWallet?.id, isOpen, categories]);
 
   useEffect(() => {
     setLocalCategories(categories || []);
@@ -295,10 +300,6 @@ export default function TransactionModal({
       newErrors.transactionDate = "errors.dateRequired";
     }
 
-    if (!formData.cycle) {
-      newErrors.cycle = "errors.cycleRequired";
-    }
-
     if (selectedCategory?.type === "EXPENSE" && !formData.importance) {
       newErrors.importance = "errors.importanceRequired";
     }
@@ -326,10 +327,14 @@ export default function TransactionModal({
         notes: formData.notes?.trim() || undefined,
         importance:
           selectedCategory?.type === "INCOME" ? undefined : formData.importance,
-        cycle: formData.cycle,
+        ...(prefill?.occurrenceId ? { occurrenceId: prefill.occurrenceId } : {}),
       };
 
       await onSave(transactionData, isEditing ? transaction.id : null);
+
+      if (prefill && onPrefillSaved) {
+        onPrefillSaved(prefill.occurrenceId);
+      }
 
       if (!isEditing) {
         setFormData({
@@ -340,7 +345,6 @@ export default function TransactionModal({
           categoryId: "",
           notes: "",
           importance: "ESSENTIAL",
-          cycle: "ONE_TIME",
         });
         setCategorySearch("");
       }
@@ -359,9 +363,9 @@ export default function TransactionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-3 sm:p-6">
       <div
-        className="bg-[#0e0e1c] border border-white/[0.12] rounded-3xl w-full max-w-[980px] max-h-[90vh] overflow-hidden relative"
+        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[980px] max-h-[90vh] overflow-hidden relative"
         style={{
           boxShadow:
             "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.06)",
@@ -372,8 +376,8 @@ export default function TransactionModal({
         <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-5 border-b border-white/[0.055]">
-          <div className="flex items-center gap-2.5 text-xl font-bold tracking-[-0.3px]">
+        <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
+          <div className="flex items-center gap-2.5 text-lg sm:text-xl font-bold tracking-[-0.3px]">
             {isEditing
               ? t("transaction.editTransaction")
               : t("transaction.addTransaction")}
@@ -386,11 +390,19 @@ export default function TransactionModal({
           </button>
         </div>
 
+        {/* Prefill banner */}
+        {prefill && !isEditing && (
+          <div className="mx-4 sm:mx-7 mt-4 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[13px] text-purple-300 flex items-center gap-2">
+            <span>📌</span>
+            <span>{t('fixedPayments.prefillBanner')}</span>
+          </div>
+        )}
+
         {/* Body - Two Column Layout */}
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-2 max-h-[calc(90vh-150px)] overflow-y-auto">
             {/* LEFT COLUMN */}
-            <div className="px-7 py-6">
+            <div className="px-4 sm:px-7 py-5 sm:py-6">
               {/* Title */}
               <div className="mb-5">
                 <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2 flex items-center gap-1.5">
@@ -510,58 +522,34 @@ export default function TransactionModal({
                 )}
               </div>
 
-              {/* Wallet + Cycle row */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <div>
-                  <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2 flex items-center gap-1.5">
-                    {t("transaction.wallet")}{" "}
-                    <span className="text-purple-300">*</span>
-                  </div>
-                  <select
-                    value={formData.walletId}
-                    onChange={(e) => handleChange("walletId", e.target.value)}
-                    className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
-                      errors.walletId
-                        ? "border-red-500"
-                        : "border-white/[0.055]"
-                    }`}
-                  >
-                    <option value="">{t("transaction.selectWallet")}</option>
-                    {wallets.map((wallet) => (
-                      <option key={wallet.id} value={wallet.id}>
-                        {wallet.name} (
-                        {formatCurrency(wallet.balance || 0, lang)})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.walletId && (
-                    <p className="text-red-400 text-xs mt-1.5">
-                      {t(errors.walletId)}
-                    </p>
-                  )}
+              {/* Wallet */}
+              <div className="mb-5">
+                <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2 flex items-center gap-1.5">
+                  {t("transaction.wallet")}{" "}
+                  <span className="text-purple-300">*</span>
                 </div>
-                <div>
-                  <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2 flex items-center gap-1.5">
-                    {t("transaction.cycle")}{" "}
-                    <span className="text-purple-300">*</span>
-                  </div>
-                  <select
-                    value={formData.cycle}
-                    onChange={(e) => handleChange("cycle", e.target.value)}
-                    className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
-                  >
-                    {CYCLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {t(option.labelKey)}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.cycle && (
-                    <p className="text-red-400 text-xs mt-1.5">
-                      {t(errors.cycle)}
-                    </p>
-                  )}
-                </div>
+                <select
+                  value={formData.walletId}
+                  onChange={(e) => handleChange("walletId", e.target.value)}
+                  className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                    errors.walletId
+                      ? "border-red-500"
+                      : "border-white/[0.055]"
+                  }`}
+                >
+                  <option value="">{t("transaction.selectWallet")}</option>
+                  {wallets.map((wallet) => (
+                    <option key={wallet.id} value={wallet.id}>
+                      {wallet.name} (
+                      {formatCurrency(wallet.balance || 0, lang)})
+                    </option>
+                  ))}
+                </select>
+                {errors.walletId && (
+                  <p className="text-red-400 text-xs mt-1.5">
+                    {t(errors.walletId)}
+                  </p>
+                )}
               </div>
 
               {/* Category */}
@@ -753,7 +741,7 @@ export default function TransactionModal({
             </div>
 
             {/* RIGHT COLUMN */}
-            <div className="px-7 py-6 border-l border-white/[0.055]">
+            <div className="px-4 sm:px-7 py-5 sm:py-6 border-t lg:border-t-0 lg:border-l border-white/[0.055]">
               {/* Importance - Only for expense categories */}
               {(!selectedCategory || selectedCategory?.type === "EXPENSE") && (
                 <div className="mb-5">
@@ -822,7 +810,7 @@ export default function TransactionModal({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}

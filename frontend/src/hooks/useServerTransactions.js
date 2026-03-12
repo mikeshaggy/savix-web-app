@@ -33,7 +33,7 @@ function parseArrayParam(val) {
   return val.split(',').filter(Boolean);
 }
 
-export function useServerTransactions() {
+export function useServerTransactions(walletId) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -72,6 +72,15 @@ export function useServerTransactions() {
   const abortRef = useRef(null);
   const debounceTimerRef = useRef(null);
   const isFirstRender = useRef(true);
+  const prevWalletIdRef = useRef(walletId);
+
+  // Reset page when wallet changes
+  useEffect(() => {
+    if (prevWalletIdRef.current !== walletId) {
+      prevWalletIdRef.current = walletId;
+      setPage(0);
+    }
+  }, [walletId]);
 
   useEffect(() => {
     if (debounceTimerRef.current) {
@@ -97,9 +106,9 @@ export function useServerTransactions() {
     if (page > 0) params.set('page', String(page));
     if (size !== DEFAULT_SIZE) params.set('size', String(size));
     if (sort !== DEFAULT_SORT) params.set('sort', sort);
-    types.forEach(t => params.append('type', t));
-    categoryIds.forEach(id => params.append('categoryId', String(id)));
-    importances.forEach(imp => params.append('importance', imp));
+    types.forEach(t => params.append('types', t));
+    categoryIds.forEach(id => params.append('categoryIds', String(id)));
+    importances.forEach(imp => params.append('importances', imp));
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     if (q) params.set('q', q);
@@ -128,6 +137,7 @@ export function useServerTransactions() {
       if (controller.signal.aborted) return;
 
       const response = await transactionApi.getTransactions({
+        walletId: walletId || undefined,
         page,
         size,
         sort,
@@ -152,7 +162,7 @@ export function useServerTransactions() {
         setLoading(false);
       }
     }
-  }, [page, size, sort, types, categoryIds, importances, startDate, endDate, q]);
+  }, [walletId, page, size, sort, types, categoryIds, importances, startDate, endDate, q]);
 
   useEffect(() => {
     fetchData();

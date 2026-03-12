@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Bell, Wallet, Check, LogOut, Settings } from 'lucide-react';
+import { RefreshCw, Bell, Wallet, Check, LogOut, Settings, Menu } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
 import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'next/navigation';
@@ -8,7 +8,8 @@ import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { formatCurrency } from '@/utils/helpers';
 
 export default function TopBar({ 
-    onRefresh 
+    onRefresh,
+    onMenuToggle
 }) {
     const { currentWallet, wallets, setCurrentWallet } = useWallets();
     const { user, logout } = useUser();
@@ -59,7 +60,16 @@ export default function TopBar({
     }, []);
 
     return (
-        <header className="h-[58px] flex items-center px-7 gap-3 border-b border-white/[0.055] bg-[rgba(6,6,15,0.8)] backdrop-blur-[24px] sticky top-0 z-40">
+        <header className="h-[58px] flex items-center px-4 md:px-5 lg:px-7 gap-2 md:gap-3 border-b border-white/[0.055] bg-[rgba(6,6,15,0.8)] backdrop-blur-[24px] sticky top-0 z-40">
+            {/* Hamburger — visible below lg */}
+            <button
+                onClick={onMenuToggle}
+                className="lg:hidden w-[34px] h-[34px] flex items-center justify-center rounded-[10px] text-white/50 hover:text-white hover:bg-white/[0.06] transition-all"
+                aria-label="Open navigation menu"
+            >
+                <Menu className="w-5 h-5" />
+            </button>
+
             {/* Wallet Pill */}
             <div className="relative" ref={dropdownRef}>
                 <button
@@ -67,7 +77,7 @@ export default function TopBar({
                     className="flex items-center gap-2 bg-[#131325] border border-white/[0.12] rounded-full py-1.5 pl-2 pr-3.5 cursor-pointer transition-all hover:border-[#7c3aed] hover:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                 >
                     <div className="w-[22px] h-[22px] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-full shadow-[0_0_10px_rgba(124,58,237,0.3)]" />
-                    <span className="text-[13px] font-medium">
+                    <span className="text-[13px] font-medium hidden sm:inline">
                         {currentWallet ? currentWallet.name : t('topbar.noWalletSelected')}
                     </span>
                     <span className="text-white/25 text-[10px]">▾</span>
@@ -124,7 +134,7 @@ export default function TopBar({
             </div>
 
             {/* Divider */}
-            <div className="w-px h-[18px] bg-white/[0.12]" />
+            <div className="w-px h-[18px] bg-white/[0.12] hidden sm:block" />
 
             {/* Right side */}
             <div className="ml-auto flex items-center gap-2">
@@ -152,15 +162,15 @@ export default function TopBar({
                 <div className="relative" ref={userMenuRef}>
                     <button
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                        className="flex items-center gap-2 bg-[#131325] border border-white/[0.055] rounded-[10px] py-[5px] pr-3 pl-[5px] cursor-pointer transition-all hover:border-white/[0.12]"
+                        className="flex items-center gap-2 bg-[#131325] border border-white/[0.055] rounded-[10px] py-[5px] pr-2 sm:pr-3 pl-[5px] cursor-pointer transition-all hover:border-white/[0.12]"
                     >
                         <div className="w-[26px] h-[26px] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-lg flex items-center justify-center text-[11px] font-bold shadow-[0_0_10px_rgba(124,58,237,0.3)]">
                             {user?.username?.[0]?.toUpperCase() || 'U'}
                         </div>
-                        <div>
+                        <div className="hidden sm:block">
                             <div className="text-[12px] font-semibold leading-tight">{user?.username || 'User'}</div>
                         </div>
-                        <span className="text-white/25 text-[10px] ml-0.5">▾</span>
+                        <span className="text-white/25 text-[10px] ml-0.5 hidden sm:inline">▾</span>
                     </button>
 
                     {/* User Dropdown */}

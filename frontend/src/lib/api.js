@@ -336,7 +336,7 @@ export const walletApi = {
 
   updateWallet: (id, walletData) => put(`/wallets/${id}`, walletData),
 
-  updateWalletBalance: (id, newBalance) => patch(`/wallets/${id}/balance`, newBalance),
+  updateWalletBalance: (id, newBalance) => patch(`/wallets/${id}/balance`, { newBalance }),
 
   deleteWallet: (id) => del(`/wallets/${id}`),
 };
@@ -362,18 +362,19 @@ export const transactionApi = {
   getTransactions: (params = {}) => {
     const searchParams = new URLSearchParams();
     
+    if (params.walletId != null) searchParams.set('walletId', String(params.walletId));
     if (params.page != null) searchParams.set('page', String(params.page));
     if (params.size != null) searchParams.set('size', String(params.size));
     if (params.sort) searchParams.set('sort', params.sort);
     
     if (params.type && params.type.length > 0) {
-      params.type.forEach(t => searchParams.append('type', t));
+      params.type.forEach(t => searchParams.append('types', t));
     }
     if (params.categoryId && params.categoryId.length > 0) {
-      params.categoryId.forEach(id => searchParams.append('categoryId', String(id)));
+      params.categoryId.forEach(id => searchParams.append('categoryIds', String(id)));
     }
     if (params.importance && params.importance.length > 0) {
-      params.importance.forEach(imp => searchParams.append('importance', imp));
+      params.importance.forEach(imp => searchParams.append('importances', imp));
     }
     
     if (params.startDate) searchParams.set('startDate', params.startDate);
@@ -468,6 +469,14 @@ export const dashboardApi = {
       throw error;
     }
   },
+};
+
+export const fixedPaymentApi = {
+  getTileData: (walletId) => get(`/fixed-payments/tile?walletId=${walletId}`),
+  getAll: (walletId) => get(`/fixed-payments?walletId=${walletId}`),
+  create: (data) => post('/fixed-payments', data),
+  update: (id, data) => put(`/fixed-payments/${id}`, data),
+  deactivate: (id) => del(`/fixed-payments/${id}`),
 };
 
 export const transferApi = {

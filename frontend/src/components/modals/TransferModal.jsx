@@ -175,9 +175,9 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-6">
+    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-3 sm:p-6">
       <div
-        className="bg-[#0e0e1c] border border-white/[0.12] rounded-3xl w-full max-w-[640px] max-h-[90vh] overflow-hidden relative"
+        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[640px] max-h-[90vh] overflow-hidden relative"
         style={{
           boxShadow:
             "0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.06)",
@@ -188,8 +188,8 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
         <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-5 border-b border-white/[0.055]">
-          <div className="flex items-center gap-2.5 text-xl font-bold tracking-[-0.3px]">
+        <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
+          <div className="flex items-center gap-2.5 text-lg sm:text-xl font-bold tracking-[-0.3px]">
             {t("transfer.newTransfer")}
           </div>
           <button
@@ -202,7 +202,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
 
         {/* Body */}
         <form onSubmit={handleSubmit}>
-          <div className="px-7 py-6 max-h-[calc(90vh-150px)] overflow-y-auto">
+            <div className="px-4 sm:px-7 py-5 sm:py-6 max-h-[calc(90vh-150px)] overflow-y-auto">
             {/* Wallet Selection Row */}
             <div className="mb-6">
               <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
@@ -457,7 +457,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}

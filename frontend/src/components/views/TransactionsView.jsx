@@ -72,12 +72,12 @@ export default function TransactionsView({
   return (
     <div className="flex flex-col gap-[18px]">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-[26px] font-bold tracking-[-0.4px]">
+          <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">
             {t("nav.allTransactions")}
           </div>
-          <div className="text-[14px] text-white/22 mt-[3px] flex items-center gap-0 flex-wrap">
+          <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px] flex items-center gap-0 flex-wrap">
             <span>
               {totalElements} {t("transaction.transactions")}
             </span>

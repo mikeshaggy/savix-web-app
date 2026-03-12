@@ -12,9 +12,9 @@ export default function DashboardView({
     filteredTransactions = [] 
 }) {
     return (
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Summary Cards */}
-            <div className="col-span-8 grid grid-cols-2 gap-4">
+            <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <IncomeCard income={summary.income || 0} />
                 <ExpenseCard expenses={summary.expenses || 0} />
                 <CurrentBalanceCard balance={summary.balance || 0} savingsRate={summary.savingsRate || 0} />

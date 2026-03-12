@@ -45,20 +45,8 @@ export const getImportanceKey = (importance) => {
   return keyMap[importance] || importance?.toLowerCase() || 'essential';
 };
 
-export const getCycleKey = (cycle) => {
-  const keyMap = {
-    'ONE_TIME': 'oneTime',
-    'WEEKLY': 'weekly',
-    'MONTHLY': 'monthly',
-    'YEARLY': 'yearly',
-    'IRREGULAR': 'irregular'
-  };
-  return keyMap[cycle] || cycle?.toLowerCase() || 'oneTime';
-};
-
 export default {
   formatCurrency,
   formatDate,
   getImportanceKey,
-  getCycleKey,
 };

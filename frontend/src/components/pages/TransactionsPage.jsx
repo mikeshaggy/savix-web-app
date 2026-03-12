@@ -28,7 +28,7 @@ function TransactionsPageInner() {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    const serverTx = useServerTransactions();
+    const serverTx = useServerTransactions(currentWallet?.id);
 
     const handleNewTransaction = () => {
         setEditingTransaction(null);

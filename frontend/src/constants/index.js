@@ -11,14 +11,6 @@ export const IMPORTANCE_LEVELS = {
     SHOULDNT_HAVE: 'SHOULDNT_HAVE'
 };
 
-export const CYCLE_TYPES = {
-    ONE_TIME: 'ONE_TIME',
-    WEEKLY: 'WEEKLY',
-    MONTHLY: 'MONTHLY',
-    YEARLY: 'YEARLY',
-    IRREGULAR: 'IRREGULAR'
-};
-
 export const FILTER_OPTIONS = {
     ALL: 'ALL',
     TODAY: 'TODAY',

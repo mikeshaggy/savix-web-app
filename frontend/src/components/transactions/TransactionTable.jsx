@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pencil, Trash2, Receipt } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency, formatDate, getImportanceKey, getCycleKey } from '@/utils/helpers';
+import { formatCurrency, formatDate, getImportanceKey } from '@/utils/helpers';
 import { useLanguage } from '@/i18n';
 
 export default function TransactionTable({ 
@@ -58,6 +58,7 @@ export default function TransactionTable({
 
     return (
         <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden">
+          <div className="overflow-x-auto">
             {dateGroups.map(({ label: dateLabel, transactions: txns }) => {
                 const dayTotal = txns.reduce((sum, txn) => {
                     const amount = parseFloat(txn.amount || 0);
@@ -68,10 +69,10 @@ export default function TransactionTable({
                 return (
                     <React.Fragment key={dateLabel}>
                         {/* Date group header */}
-                        <div className="flex items-center gap-3 px-[22px] py-[11px] bg-[rgba(6,6,15,0.35)] border-b border-white/[0.055]">
-                            <span className="text-[14px] font-bold tracking-[0.1em] uppercase text-white/22 whitespace-nowrap">{dateLabel}</span>
+                        <div className="flex items-center gap-3 px-4 md:px-[22px] py-[11px] bg-[rgba(6,6,15,0.35)] border-b border-white/[0.055]">
+                            <span className="text-[13px] md:text-[14px] font-bold tracking-[0.1em] uppercase text-white/22 whitespace-nowrap">{dateLabel}</span>
                             <div className="flex-1 h-px bg-white/[0.055]" />
-                            <span className={`font-mono text-[15px] font-medium whitespace-nowrap ${
+                            <span className={`font-mono text-[14px] md:text-[15px] font-medium whitespace-nowrap ${
                                 dayTotal < 0 ? 'text-red-400/70' : dayTotal > 0 ? 'text-green-400/70' : 'text-white/22'
                             }`}>
                                 {dayTotal >= 0 ? '+' : ''}{formatCurrency(dayTotal, lang)}
@@ -96,64 +97,60 @@ export default function TransactionTable({
                             return (
                                 <div
                                     key={txn.id}
-                                    className="flex items-center px-[22px] border-b border-white/[0.055] cursor-pointer transition-[background] duration-150 min-h-[64px] py-[10px] group hover:bg-white/[0.022] last:border-b-0"
+                                    onClick={() => onEdit?.(txn)}
+                                    className="flex items-center px-4 md:px-[22px] border-b border-white/[0.055] cursor-pointer transition-[background] duration-150 min-h-[56px] md:min-h-[64px] py-[10px] group hover:bg-white/[0.022] last:border-b-0"
                                 >
                                     {/* Left: emoji icon + info */}
-                                    <div className="flex items-center gap-[14px] flex-1 min-w-0">
-                                        <div className={`w-10 h-10 shrink-0 rounded-[11px] flex items-center justify-center text-lg ${
+                                    <div className="flex items-center gap-3 md:gap-[14px] flex-1 min-w-0">
+                                        <div className={`w-9 h-9 md:w-10 md:h-10 shrink-0 rounded-[11px] flex items-center justify-center text-base md:text-lg ${
                                             isIncome ? 'bg-green-400/[0.08]' : 'bg-red-400/10'
                                         }`}>
                                             {category?.emoji || '🏷️'}
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-base font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">{txn.title}</span>
+                                                <span className="text-sm md:text-base font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">{txn.title}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                                 {/* Category pill */}
-                                                <span className="text-[13px] font-medium text-white bg-white/[0.04] border border-white/[0.06] rounded-full px-2.5 py-[2px] whitespace-nowrap">
+                                                <span className="text-[12px] md:text-[13px] font-medium text-white bg-white/[0.04] border border-white/[0.06] rounded-full px-2 md:px-2.5 py-[2px] whitespace-nowrap">
                                                     {category?.name || t('table.unknownCategory')}
                                                 </span>
                                                 {/* Type pill */}
-                                                <span className={`text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
+                                                <span className={`text-[12px] md:text-[13px] font-medium rounded-full px-2 md:px-2.5 py-[2px] border whitespace-nowrap ${
                                                     isIncome
                                                         ? 'bg-green-400/10 border-green-400/25 text-green-400/70'
                                                         : 'bg-red-400/10 border-red-400/25 text-red-400/70'
                                                 }`}>
                                                     {t(`categoryType.${txnType?.toLowerCase()}`)}
                                                 </span>
-                                                {/* Importance pill */}
+                                                {/* Importance pill — hide on small screens */}
                                                 {txn.importance && (
-                                                    <span className={`text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
+                                                    <span className={`hidden sm:inline-flex text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
                                                         importanceColors[txn.importance] || 'bg-white/[0.04] border-white/[0.06] text-white/40'
                                                     }`}>
                                                         {t(`importance.${getImportanceKey(txn.importance)}`)}
                                                     </span>
                                                 )}
-                                                {/* Notes / description - inline with pills */}
+                                                {/* Notes — hide on small screens */}
                                                 {txn.notes && (
                                                     <>
-                                                        <div className="w-[3px] h-[3px] rounded-full bg-white/15 mx-0.5" />
-                                                        <span className="text-[13px] text-white truncate max-w-[280px]">{txn.notes}</span>
+                                                        <div className="hidden md:block w-[3px] h-[3px] rounded-full bg-white/15 mx-0.5" />
+                                                        <span className="hidden md:inline text-[13px] text-white truncate max-w-[280px]">{txn.notes}</span>
                                                     </>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Right: cycle + amount + actions */}
-                                    <div className="flex items-center gap-5 shrink-0">
-                                        {txn.cycle && (
-                                            <span className="text-[13px] text-white font-medium bg-[#131325] border border-white/[0.055] rounded-[6px] px-[9px] py-[3px] whitespace-nowrap">
-                                                {t(`cycle.${getCycleKey(txn.cycle)}`)}
-                                            </span>
-                                        )}
-                                        <span className={`font-mono text-[17px] font-medium min-w-[120px] text-right ${
+                                    {/* Right: amount + actions */}
+                                    <div className="flex items-center gap-3 md:gap-5 shrink-0">
+                                        <span className={`font-mono text-[15px] md:text-[17px] font-medium min-w-[90px] md:min-w-[120px] text-right ${
                                             isIncome ? 'text-green-400' : 'text-red-400'
                                         }`}>
                                             {isIncome ? '+ ' : '− '}{formatCurrency(amount, lang)}
                                         </span>
-                                        <div className="flex items-center gap-[5px] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                        <div className="hidden md:flex items-center gap-[5px] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onEdit?.(txn); }}
                                                 className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#131325] border border-white/[0.055] cursor-pointer text-white/22 transition-all hover:text-white hover:border-white/[0.12]"
@@ -176,6 +173,7 @@ export default function TransactionTable({
                     </React.Fragment>
                 );
             })}
+          </div>
         </div>
     );
 }
