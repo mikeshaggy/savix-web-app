@@ -1,6 +1,6 @@
 package com.mikeshaggy.backend.transaction.repo;
 
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.persistence.criteria.Predicate;
@@ -32,7 +32,7 @@ public final class TransactionSpecifications {
         return (root, query, cb) -> cb.equal(root.get("wallet").get("id"), walletId);
     }
 
-    public static Specification<Transaction> hasTypes(List<Type> types) {
+    public static Specification<Transaction> hasTypes(List<CategoryType> types) {
         if (types == null || types.isEmpty()) {
             return null;
         }
@@ -85,7 +85,7 @@ public final class TransactionSpecifications {
     public static Specification<Transaction> buildSpecification(
             UUID userId,
             Integer walletId,
-            List<Type> types,
+            List<CategoryType> types,
             List<Integer> categoryIds,
             List<Importance> importances,
             LocalDate startDate,

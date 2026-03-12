@@ -1,6 +1,5 @@
 package com.mikeshaggy.backend.transfer.dto;
 
-import com.mikeshaggy.backend.transfer.domain.Transfer;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
@@ -22,12 +21,4 @@ public record TransferCreateRequest(
         LocalDate transferDate,
 
         String notes
-) {
-    public Transfer toEntity() {
-        return Transfer.builder()
-                .amount(amount)
-                .transferDate(transferDate)
-                .notes(notes)
-                .build();
-    }
-}
+) {}

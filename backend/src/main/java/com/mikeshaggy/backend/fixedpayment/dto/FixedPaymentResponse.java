@@ -1,13 +1,13 @@
 package com.mikeshaggy.backend.fixedpayment.dto;
 
-import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
+import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-public record FixedPaymentDto(
+public record FixedPaymentResponse(
         Integer id,
         Integer walletId,
         String walletName,
@@ -23,8 +23,8 @@ public record FixedPaymentDto(
         String notes,
         LocalDateTime createdAt
 ) {
-    public static FixedPaymentDto from(FixedPayment fp) {
-        return new FixedPaymentDto(
+    public static FixedPaymentResponse from(FixedPayment fp) {
+        return new FixedPaymentResponse(
                 fp.getId(),
                 fp.getWallet().getId(),
                 fp.getWallet().getName(),

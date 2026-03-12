@@ -12,21 +12,14 @@ import java.util.UUID;
 
 public interface WalletEntryRepository extends JpaRepository<WalletEntry, Long> {
 
-    @Query("SELECT e FROM WalletEntry e WHERE e.wallet.user.id = :userId " +
+    @Query("SELECT e FROM WalletEntry e JOIN FETCH e.wallet WHERE e.wallet.user.id = :userId " +
             "ORDER BY e.entryDate DESC, e.createdAt DESC")
     List<WalletEntry> findAllByUserId(UUID userId);
 
-    @Query("SELECT e FROM WalletEntry e WHERE e.id = :id AND e.wallet.user.id = :userId")
+    @Query("SELECT e FROM WalletEntry e JOIN FETCH e.wallet WHERE e.id = :id AND e.wallet.user.id = :userId")
     Optional<WalletEntry> findByIdAndUserId(Long id, UUID userId);
 
-    @Query("SELECT e FROM WalletEntry e WHERE e.wallet.id = :walletId AND e.wallet.user.id = :userId " +
+    @Query("SELECT e FROM WalletEntry e JOIN FETCH e.wallet WHERE e.wallet.id = :walletId AND e.wallet.user.id = :userId " +
             "ORDER BY e.entryDate DESC, e.createdAt DESC")
     List<WalletEntry> findByWalletIdAndUserId(Integer walletId, UUID userId);
-
-    @Query("SELECT e FROM WalletEntry e WHERE e.wallet.id = :walletId " +
-            "AND e.entryDate >= :startDate AND e.entryDate <= :endDate " +
-            "ORDER BY e.entryDate DESC, e.createdAt DESC")
-    List<WalletEntry> findByWalletIdAndEntryDateBetween(Integer walletId, LocalDate startDate, LocalDate endDate);
-
-    Optional<WalletEntry> findByWalletIdAndSourceTypeAndSourceId(Integer walletId, SourceType sourceType, Long sourceId);
 }

@@ -3,10 +3,8 @@ package com.mikeshaggy.backend.dashboard.service;
 import com.mikeshaggy.backend.dashboard.dto.*;
 import com.mikeshaggy.backend.dashboard.service.calculator.SummaryCalculator;
 import com.mikeshaggy.backend.dashboard.service.calculator.TopCategoriesCalculator;
-import com.mikeshaggy.backend.dashboard.service.period.ComparePeriodResolver;
-import com.mikeshaggy.backend.dashboard.service.period.PeriodResolver;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
-import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentService;
+import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -14,67 +12,55 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
 public class DashboardService {
 
-    private final Map<PeriodType, PeriodResolver> periodResolvers;
-    private final ComparePeriodResolver comparePeriodResolver;
+    private final PeriodService periodService;
     private final TransactionService transactionService;
     private final SummaryCalculator summaryCalculator;
     private final TopCategoriesCalculator topCategoriesCalculator;
     private final WalletService walletService;
-    private final FixedPaymentService fixedPaymentService;
+    private final FixedPaymentDashboardService fixedPaymentDashboardService;
 
-    public DashboardService(List<PeriodResolver> resolvers,
-                            ComparePeriodResolver comparePeriodResolver,
+    public DashboardService(PeriodService periodService,
                             TransactionService transactionService,
                             SummaryCalculator summaryCalculator,
                             TopCategoriesCalculator topCategoriesCalculator,
                             WalletService walletService,
-                            FixedPaymentService fixedPaymentService) {
-        this.periodResolvers = resolvers.stream()
-                .collect(Collectors.toMap(PeriodResolver::supports, Function.identity()));
-        this.comparePeriodResolver = comparePeriodResolver;
+                            FixedPaymentDashboardService fixedPaymentDashboardService) {
+        this.periodService = periodService;
         this.transactionService = transactionService;
         this.summaryCalculator = summaryCalculator;
         this.topCategoriesCalculator = topCategoriesCalculator;
         this.walletService = walletService;
-        this.fixedPaymentService = fixedPaymentService;
+        this.fixedPaymentDashboardService = fixedPaymentDashboardService;
     }
 
-    public DashboardData getDashboardData(Integer walletId, String startDate,
-                                          String endDate, PeriodType periodType) {
+    public DashboardData getDashboardData(UUID userId, Integer walletId, LocalDate startDate,
+                                          LocalDate endDate, PeriodType periodType) {
 
-        LocalDate customStart = startDate != null ? LocalDate.parse(startDate) : null;
-        LocalDate customEnd = endDate != null ? LocalDate.parse(endDate) : null;
-
-        PeriodResolver resolver = periodResolvers.get(periodType);
-        if (resolver == null) {
-            throw new IllegalArgumentException("Unsupported period type: " + periodType);
-        }
-        PeriodDto period = resolver.resolve(walletId, customStart, customEnd);
-
-        PeriodDto comparePeriod = comparePeriodResolver.resolve(period, walletId);
+        ResolvedPeriods periods = periodService.resolvePeriods(periodType, walletId, userId, startDate, endDate);
 
         List<Transaction> currentTransactions = transactionService
-                .getTransactionsForWalletAndPeriod(walletId, period);
-        List<Transaction> compareTransactions = transactionService
-                .getTransactionsForWalletAndComparePeriod(walletId, comparePeriod);
+                .getTransactionsForWalletAndPeriod(walletId, periods.primary());
+        List<Transaction> compareTransactions = periods.compare() != null
+                ? transactionService.getTransactionsForWalletAndPeriod(walletId, periods.compare())
+                : Collections.emptyList();
 
         SummaryDto summary = summaryCalculator.calculate(currentTransactions, compareTransactions);
         List<CategorySpendingDto> topCategories = topCategoriesCalculator
                 .calculate(currentTransactions, compareTransactions);
 
-        String walletName = walletService.getWalletNameOrThrow(walletId);
+        String walletName = walletService.getWalletEntityByIdForUser(walletId, userId).getName();
 
-        FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentService.getFixedPaymentsTileData(period, walletId);
+        FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentDashboardService
+                .getFixedPaymentsTileData(periods.primary(), walletId, userId);
 
-        return new DashboardData(period, summary, topCategories, walletName, fixedPaymentsTile);
+        return new DashboardData(periods.primary(), summary, topCategories, walletName, fixedPaymentsTile);
     }
 }

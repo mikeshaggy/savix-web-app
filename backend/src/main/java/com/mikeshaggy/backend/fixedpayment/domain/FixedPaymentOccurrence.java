@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.fixedpayment.domain;
 
+import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.persistence.*;
 import lombok.*;

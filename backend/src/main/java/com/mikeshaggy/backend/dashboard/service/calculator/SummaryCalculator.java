@@ -1,21 +1,17 @@
 package com.mikeshaggy.backend.dashboard.service.calculator;
 
-import com.mikeshaggy.backend.category.domain.Type;
-import com.mikeshaggy.backend.dashboard.dto.PercentageChangeDto;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.dashboard.dto.SummaryDto;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
+
+import static com.mikeshaggy.backend.dashboard.service.calculator.CalculationUtils.*;
 
 @Component
 public class SummaryCalculator {
-
-    private static final int SCALE = 2;
-    private static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     public SummaryDto calculate(List<Transaction> currentTransactions,
                                 List<Transaction> compareTransactions) {
@@ -41,7 +37,7 @@ public class SummaryCalculator {
 
     private BigDecimal sumIncome(List<Transaction> transactions) {
         return transactions.stream()
-                .filter(t -> t.getCategory().getType() == Type.INCOME)
+                .filter(t -> t.getCategory().getType() == CategoryType.INCOME)
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(SCALE, ROUNDING);
@@ -49,7 +45,7 @@ public class SummaryCalculator {
 
     private BigDecimal sumExpenses(List<Transaction> transactions) {
         return transactions.stream()
-                .filter(t -> t.getCategory().getType() == Type.EXPENSE)
+                .filter(t -> t.getCategory().getType() == CategoryType.EXPENSE)
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
                 .setScale(SCALE, ROUNDING);
@@ -60,17 +56,5 @@ public class SummaryCalculator {
             return BigDecimal.ZERO.setScale(SCALE, ROUNDING);
         }
         return saved.multiply(HUNDRED).divide(income, SCALE, ROUNDING);
-    }
-
-    private PercentageChangeDto percentageChange(BigDecimal current, BigDecimal previous) {
-        if (previous.compareTo(BigDecimal.ZERO) == 0) {
-            return new PercentageChangeDto(BigDecimal.ZERO.setScale(SCALE, ROUNDING), true);
-        }
-
-        BigDecimal change = current.subtract(previous)
-                .multiply(HUNDRED)
-                .divide(previous.abs(), SCALE, ROUNDING);
-
-        return new PercentageChangeDto(change.abs(), change.compareTo(BigDecimal.ZERO) >= 0);
     }
 }

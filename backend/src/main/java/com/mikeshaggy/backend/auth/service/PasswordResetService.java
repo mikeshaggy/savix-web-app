@@ -9,6 +9,7 @@ import com.mikeshaggy.backend.auth.exception.AuthException;
 import com.mikeshaggy.backend.auth.exception.RateLimitException;
 import com.mikeshaggy.backend.auth.repo.ResetTokenRepository;
 import com.mikeshaggy.backend.auth.util.crypto.CryptoUtils;
+import com.mikeshaggy.backend.common.util.HttpRequestUtils;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.repo.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,7 +44,7 @@ public class PasswordResetService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request, HttpServletRequest httpRequest) {
         String email = request.email().toLowerCase().trim();
-        String clientIp = sessionService.getClientIp(httpRequest);
+        String clientIp = HttpRequestUtils.getClientIp(httpRequest);
 
         if (!rateLimitService.isAllowed("reset:ip", clientIp)) {
             throw new RateLimitException("Too many password reset attempts. Please try again later.");
@@ -51,7 +52,7 @@ public class PasswordResetService {
 
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            addJitter();
+            cryptoUtils.addJitter();
             return;
         }
 
@@ -87,13 +88,13 @@ public class PasswordResetService {
         ResetToken resetToken = findValidResetToken(tokenHash);
 
         if (resetToken == null) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new AuthException("Invalid or expired reset token");
         }
 
         if (Instant.now().isAfter(resetToken.getExpiresAt())) {
             resetTokenRepository.delete(resetToken);
-            addJitter();
+            cryptoUtils.addJitter();
             throw new AuthException("Invalid or expired reset token");
         }
 
@@ -114,7 +115,7 @@ public class PasswordResetService {
                 .orElseThrow(() -> new AuthException("User not found"));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new AuthException("Current password is incorrect");
         }
 
@@ -129,14 +130,9 @@ public class PasswordResetService {
     }
 
     private ResetToken findValidResetToken(String tokenHash) {
-        Iterable<ResetToken> allTokens = resetTokenRepository.findAll();
-        
-        for (ResetToken token : allTokens) {
-            if (tokenHash.equals(token.getTokenHash()) && !token.isUsed()) {
-                return token;
-            }
-        }
-        return null;
+        return resetTokenRepository.findByTokenHash(tokenHash)
+                .filter(token -> !token.isUsed())
+                .orElse(null);
     }
 
     private void validateAndUpdatePassword(User user, String newPassword) {
@@ -147,13 +143,5 @@ public class PasswordResetService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
-    }
-
-    private void addJitter() {
-        try {
-            Thread.sleep(cryptoUtils.generateJitterMs());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

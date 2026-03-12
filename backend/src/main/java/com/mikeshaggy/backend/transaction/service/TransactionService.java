@@ -1,18 +1,12 @@
 package com.mikeshaggy.backend.transaction.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
-import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
-import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
+import com.mikeshaggy.backend.transaction.dto.*;
 import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
 import com.mikeshaggy.backend.transaction.repo.TransactionSpecifications;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -31,8 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -44,7 +39,6 @@ public class TransactionService {
     private final WalletService walletService;
     private final WalletBalanceService walletBalanceService;
     private final CategoryService categoryService;
-    private final FixedPaymentOccurrenceRepository fixedPaymentOccurrenceRepository;
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("transactionDate", "amount", "title");
     private static final Set<Integer> ALLOWED_PAGE_SIZES = Set.of(10, 20, 50, 100);
@@ -52,32 +46,21 @@ public class TransactionService {
     private static final int MAX_PAGE_SIZE = 100;
 
 
-    public TransactionPageResponse getTransactionsForUser(
-            UUID userId,
-            Integer walletId,
-            int page,
-            int size,
-            List<Type> types,
-            List<Integer> categoryIds,
-            List<Importance> importances,
-            LocalDate startDate,
-            LocalDate endDate,
-            String q,
-            String sort) {
-        int effectivePage = Math.max(page, 0);
-        int effectiveSize = normalizeSize(size);
-        Sort effectiveSort = normalizeSort(sort);
+    public TransactionPageResponse getTransactionsForUser(TransactionFilterParams filter) {
+        int effectivePage = Math.max(filter.page(), 0);
+        int effectiveSize = normalizeSize(filter.size());
+        Sort effectiveSort = normalizeSort(filter.sort());
         Pageable pageable = PageRequest.of(effectivePage, effectiveSize, effectiveSort);
 
         return searchTransactions(
-                userId,
-                walletId,
-                types,
-                categoryIds,
-                importances,
-                startDate,
-                endDate,
-                q,
+                filter.userId(),
+                filter.walletId(),
+                filter.types(),
+                filter.categoryIds(),
+                filter.importances(),
+                filter.startDate(),
+                filter.endDate(),
+                filter.q(),
                 pageable
         );
     }
@@ -114,7 +97,7 @@ public class TransactionService {
     private TransactionPageResponse searchTransactions(
             UUID userId,
             Integer walletId,
-            List<Type> types,
+            List<CategoryType> types,
             List<Integer> categoryIds,
             List<Importance> importances,
             LocalDate startDate,
@@ -158,44 +141,37 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse createTransaction(TransactionCreateRequest request, UUID userId) {
+        return TransactionResponse.from(createTransactionEntity(request, userId));
+    }
+
+    @Transactional
+    Transaction createTransactionEntity(TransactionCreateRequest request, UUID userId) {
         Wallet wallet = walletService.getWalletEntityByIdForUser(request.walletId(), userId);
-        
+
         Category category = categoryService.getCategoryEntityByIdForUser(request.categoryId(), userId);
 
         validateImportance(request.importance(), category.getType());
 
-        Transaction transaction = request.toEntity();
-        transaction.setWallet(wallet);
-        transaction.setCategory(category);
+        Transaction transaction = Transaction.builder()
+                .wallet(wallet)
+                .category(category)
+                .title(request.title())
+                .amount(request.amount())
+                .transactionDate(request.transactionDate())
+                .notes(request.notes())
+                .importance(request.importance())
+                .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         walletBalanceService.applyTransaction(wallet.getId(), savedTransaction.getAmount(), category.getType(),
                 userId, savedTransaction.getId(), savedTransaction.getTransactionDate());
 
-        if (request.occurrenceId() != null) {
-            FixedPaymentOccurrence occurrence = fixedPaymentOccurrenceRepository.findById(request.occurrenceId())
-                    .orElseThrow(() -> new EntityNotFoundException("Occurrence not found with id: " + request.occurrenceId()));
-
-            if (!occurrence.getFixedPayment().getWallet().getUser().getId().equals(userId)) {
-                throw new IllegalArgumentException("Occurrence does not belong to current user");
-            }
-
-            occurrence.setStatus(OccurrenceStatus.PAID);
-            occurrence.setPaidAmount(savedTransaction.getAmount());
-            occurrence.setPaidAt(LocalDateTime.now());
-            occurrence.setTransaction(savedTransaction);
-            fixedPaymentOccurrenceRepository.save(occurrence);
-
-            log.info("Marked occurrence id: {} as PAID with transaction id: {}",
-                    occurrence.getId(), savedTransaction.getId());
-        }
-
         log.info("Created transaction '{}' (id: {}) for wallet: {}, amount: {}, type: {}",
                 savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
                 savedTransaction.getAmount(), category.getType());
 
-        return TransactionResponse.from(savedTransaction);
+        return savedTransaction;
     }
 
     @Transactional
@@ -203,7 +179,7 @@ public class TransactionService {
         Transaction existingTransaction = getTransactionOrThrowForUser(id, userId);
 
         BigDecimal oldAmount = existingTransaction.getAmount();
-        Type oldType = existingTransaction.getCategory().getType();
+        CategoryType oldType = existingTransaction.getCategory().getType();
         Wallet oldWallet = existingTransaction.getWallet();
 
         Wallet newWallet = oldWallet;
@@ -256,11 +232,11 @@ public class TransactionService {
         transactionRepository.delete(transaction);
     }
 
-    private void validateImportance(Importance importance, Type categoryType) {
-        if (categoryType == Type.INCOME && importance != null) {
+    private void validateImportance(Importance importance, CategoryType categoryType) {
+        if (categoryType == CategoryType.INCOME && importance != null) {
             throw new IllegalArgumentException("Importance must be null for INCOME transactions");
         }
-        if (categoryType == Type.EXPENSE && importance == null) {
+        if (categoryType == CategoryType.EXPENSE && importance == null) {
             throw new IllegalArgumentException("Importance is required for EXPENSE transactions");
         }
     }
@@ -275,19 +251,7 @@ public class TransactionService {
                 .findByWalletIdAndTransactionDateBetween(walletId, period.startDate(), period.endDate());
     }
 
-    public List<Transaction> getTransactionsForWalletAndComparePeriod(Integer walletId, PeriodDto comparePeriod) {
-        if (comparePeriod == null) {
-            return Collections.emptyList();
-        }
-        return getTransactionsForWalletAndPeriod(walletId, comparePeriod);
-    }
-
-    public BigDecimal calculateTotalIncomeForWalletAndPeriod(Integer walletId, PeriodDto period) {
-        return transactionRepository.sumIncomeByWalletIdAndDateRange(
-                walletId, period.startDate(), period.endDate());
-    }
-
-    public Optional<LocalDate> findMaxTransactionDateForCategory(Integer categoryId) {
-        return transactionRepository.findMaxTransactionDateByCategoryId(categoryId);
+    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, LocalDate from, LocalDate to) {
+        return transactionRepository.sumIncomeByWalletIdAndDateRange(walletId, from, to);
     }
 }

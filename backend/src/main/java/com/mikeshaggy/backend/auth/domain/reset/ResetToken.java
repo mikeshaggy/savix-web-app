@@ -23,6 +23,7 @@ public class ResetToken {
     @Indexed
     private UUID userId;
 
+    @Indexed
     private String tokenHash;
 
     private Instant createdAt;

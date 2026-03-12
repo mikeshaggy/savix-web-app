@@ -1,4 +1,4 @@
-package com.mikeshaggy.backend.fixedpayment.domain;
+package com.mikeshaggy.backend.fixedpayment.enums;
 
 public enum Cycle {
     WEEKLY,

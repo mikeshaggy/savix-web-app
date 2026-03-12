@@ -1,14 +1,13 @@
 package com.mikeshaggy.backend.wallet.service;
 
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.ledger.domain.SourceType;
 import com.mikeshaggy.backend.ledger.service.WalletEntryService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.wallet.repo.WalletRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -18,15 +17,15 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(propagation = Propagation.MANDATORY)
 public class WalletBalanceService {
 
-    private final WalletRepository walletRepository;
     private final WalletEntryService walletEntryService;
+    private final WalletService walletService;
 
-    @Transactional
-    public void applyTransaction(Integer walletId, BigDecimal amount, Type type, UUID userId,
+    public void applyTransaction(Integer walletId, BigDecimal amount, CategoryType type, UUID userId,
                                  Long transactionId, LocalDate transactionDate) {
-        Wallet wallet = getWalletOrThrowForUser(walletId, userId);
+        Wallet wallet = walletService.getWalletEntityByIdForUser(walletId, userId);
         BigDecimal amountSigned = resolveSignedAmount(amount, type);
 
         walletEntryService.createEntry(wallet, amountSigned, transactionDate, SourceType.TRANSACTION, transactionId);
@@ -36,9 +35,8 @@ public class WalletBalanceService {
                 type, transactionId, amount, walletId, wallet.getBalance());
     }
 
-    @Transactional
-    public void adjustForTransactionEdit(Wallet oldWallet, BigDecimal oldAmount, Type oldType,
-                                         Wallet newWallet, BigDecimal newAmount, Type newType,
+    public void adjustForTransactionEdit(Wallet oldWallet, BigDecimal oldAmount, CategoryType oldType,
+                                         Wallet newWallet, BigDecimal newAmount, CategoryType newType,
                                          Long transactionId, LocalDate newTransactionDate) {
         BigDecimal oldSigned = resolveSignedAmount(oldAmount, oldType);
         BigDecimal newSigned = resolveSignedAmount(newAmount, newType);
@@ -72,10 +70,9 @@ public class WalletBalanceService {
         }
     }
 
-    @Transactional
-    public void reverseTransaction(Integer walletId, BigDecimal amount, Type type, UUID userId,
+    public void reverseTransaction(Integer walletId, BigDecimal amount, CategoryType type, UUID userId,
                                    Long transactionId, LocalDate transactionDate) {
-        Wallet wallet = getWalletOrThrowForUser(walletId, userId);
+        Wallet wallet = walletService.getWalletEntityByIdForUser(walletId, userId);
         BigDecimal amountSigned = resolveSignedAmount(amount, type);
 
         walletEntryService.createEntry(wallet, amountSigned.negate(), transactionDate,
@@ -86,11 +83,10 @@ public class WalletBalanceService {
                 type, transactionId, amount, walletId, wallet.getBalance());
     }
 
-    @Transactional
     public void applyTransfer(Integer fromWalletId, Integer toWalletId, BigDecimal amount, UUID userId,
                               Long transferId, LocalDate transferDate) {
-        Wallet fromWallet = getWalletOrThrowForUser(fromWalletId, userId);
-        Wallet toWallet = getWalletOrThrowForUser(toWalletId, userId);
+        Wallet fromWallet = walletService.getWalletEntityByIdForUser(fromWalletId, userId);
+        Wallet toWallet = walletService.getWalletEntityByIdForUser(toWalletId, userId);
 
         walletEntryService.createEntry(fromWallet, amount.negate(), transferDate, SourceType.TRANSFER, transferId);
         walletEntryService.createEntry(toWallet, amount, transferDate, SourceType.TRANSFER, transferId);
@@ -102,7 +98,6 @@ public class WalletBalanceService {
                 fromWalletId, toWalletId);
     }
 
-    @Transactional
     public void adjustForTransferEdit(Wallet oldFromWallet, Wallet oldToWallet, BigDecimal oldAmount,
                                       Wallet newFromWallet, Wallet newToWallet, BigDecimal newAmount,
                                       Long transferId, LocalDate newTransferDate) {
@@ -140,11 +135,10 @@ public class WalletBalanceService {
                 newFromWallet.getId(), newToWallet.getId(), newAmount);
     }
 
-    @Transactional
     public void reverseTransfer(Integer fromWalletId, Integer toWalletId, BigDecimal amount, UUID userId,
                                 Long transferId, LocalDate transferDate) {
-        Wallet fromWallet = getWalletOrThrowForUser(fromWalletId, userId);
-        Wallet toWallet = getWalletOrThrowForUser(toWalletId, userId);
+        Wallet fromWallet = walletService.getWalletEntityByIdForUser(fromWalletId, userId);
+        Wallet toWallet = walletService.getWalletEntityByIdForUser(toWalletId, userId);
 
         walletEntryService.createEntry(fromWallet, amount, transferDate, SourceType.ADJUSTMENT, transferId);
         walletEntryService.createEntry(toWallet, amount.negate(), transferDate, SourceType.ADJUSTMENT, transferId);
@@ -162,15 +156,10 @@ public class WalletBalanceService {
 
     void adjustBalance(Wallet wallet, BigDecimal delta) {
         wallet.setBalance(wallet.getBalance().add(delta));
-        walletRepository.save(wallet);
+        walletService.saveWallet(wallet);
     }
 
-    BigDecimal resolveSignedAmount(BigDecimal amount, Type type) {
-        return type.equals(Type.EXPENSE) ? amount.negate() : amount;
-    }
-
-    private Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
-        return walletRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
+    BigDecimal resolveSignedAmount(BigDecimal amount, CategoryType type) {
+        return type.equals(CategoryType.EXPENSE) ? amount.negate() : amount;
     }
 }

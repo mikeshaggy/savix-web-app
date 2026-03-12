@@ -1,14 +1,14 @@
 package com.mikeshaggy.backend.category.dto;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 
 import java.time.Instant;
 
 public record CategoryResponse(
         Integer id,
         String name,
-        Type type,
+        CategoryType type,
         String emoji,
         boolean isCycleAnchor,
         Instant createdAt

@@ -54,9 +54,13 @@ public class TransferService {
         Wallet fromWallet = walletService.getWalletEntityByIdForUser(request.fromWalletId(), userId);
         Wallet toWallet = walletService.getWalletEntityByIdForUser(request.toWalletId(), userId);
 
-        Transfer transfer = request.toEntity();
-        transfer.setFromWallet(fromWallet);
-        transfer.setToWallet(toWallet);
+        Transfer transfer = Transfer.builder()
+                .fromWallet(fromWallet)
+                .toWallet(toWallet)
+                .amount(request.amount())
+                .transferDate(request.transferDate())
+                .notes(request.notes())
+                .build();
 
         Transfer savedTransfer = transferRepository.save(transfer);
 

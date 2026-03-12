@@ -1,6 +1,5 @@
 package com.mikeshaggy.backend.wallet.dto;
 
-import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -12,11 +11,4 @@ public record WalletCreateRequest(
         String name,
 
         BigDecimal balance
-) {
-        public Wallet toEntity() {
-                return Wallet.builder()
-                        .name(name)
-                        .balance(balance != null ? balance : BigDecimal.ZERO)
-                        .build();
-        }
-}
+) {}

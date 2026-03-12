@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.dto;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,7 +24,7 @@ public record FixedOccurrenceRowDto(
         LocalDateTime paidAt,
         Long transactionId
 ) {
-    public static FixedOccurrenceRowDto from(FixedPaymentOccurrence o) {
+    public static FixedOccurrenceRowDto from(FixedPaymentOccurrence o, LocalDate today) {
         var fp = o.getFixedPayment();
         return new FixedOccurrenceRowDto(
                 o.getId(),
@@ -38,7 +38,7 @@ public record FixedOccurrenceRowDto(
                 o.getPaidAmount(),
                 o.getDueDate(),
                 o.getStatus(),
-                ChronoUnit.DAYS.between(LocalDate.now(), o.getDueDate()),
+                ChronoUnit.DAYS.between(today, o.getDueDate()),
                 o.getPaidAt(),
                 o.getTransaction() != null ? o.getTransaction().getId() : null
         );

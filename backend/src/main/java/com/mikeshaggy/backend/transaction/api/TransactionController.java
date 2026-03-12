@@ -1,12 +1,10 @@
 package com.mikeshaggy.backend.transaction.api;
 
-import com.mikeshaggy.backend.category.domain.Type;
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.transaction.domain.Importance;
-import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
-import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
-import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
+import com.mikeshaggy.backend.transaction.dto.*;
+import com.mikeshaggy.backend.transaction.service.TransactionOrchestrator;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +24,7 @@ public class TransactionController {
     public static final String BASE_URL = "/api/transactions";
 
     private final TransactionService transactionService;
+    private final TransactionOrchestrator transactionOrchestrator;
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
@@ -34,26 +33,19 @@ public class TransactionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "transactionDate,desc") String sort,
-            @RequestParam(required = false) List<Type> types,
+            @RequestParam(required = false) List<CategoryType> types,
             @RequestParam(required = false) List<Integer> categoryIds,
             @RequestParam(required = false) List<Importance> importances,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String q
     ) {
-        return ResponseEntity.ok(transactionService.getTransactionsForUser(
+        TransactionFilterParams filter = new TransactionFilterParams(
                 currentUserProvider.getCurrentUserId(),
-                walletId,
-                page,
-                size,
-                types,
-                categoryIds,
-                importances,
-                startDate,
-                endDate,
-                q,
-                sort
-        ));
+                walletId, page, size, types, categoryIds,
+                importances, startDate, endDate, q, sort
+        );
+        return ResponseEntity.ok(transactionService.getTransactionsForUser(filter));
     }
 
     @GetMapping("/{id}")
@@ -76,7 +68,7 @@ public class TransactionController {
 
     @PostMapping
     public ResponseEntity<TransactionResponse> createTransaction(@Valid @RequestBody TransactionCreateRequest request) {
-        TransactionResponse createdTransaction = transactionService.createTransaction(
+        TransactionResponse createdTransaction = transactionOrchestrator.createTransaction(
                 request, 
                 currentUserProvider.getCurrentUserId()
         );

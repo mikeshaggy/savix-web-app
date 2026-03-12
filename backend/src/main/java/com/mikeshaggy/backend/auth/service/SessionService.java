@@ -8,6 +8,7 @@ import com.mikeshaggy.backend.auth.exception.AuthException;
 import com.mikeshaggy.backend.auth.exception.RateLimitException;
 import com.mikeshaggy.backend.auth.repo.RefreshSessionRepository;
 import com.mikeshaggy.backend.auth.util.crypto.CryptoUtils;
+import com.mikeshaggy.backend.common.util.HttpRequestUtils;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.repo.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,29 +47,29 @@ public class SessionService {
     @Transactional
     public LoginResult login(LoginRequest request, HttpServletRequest httpRequest) {
         String email = request.email().toLowerCase().trim();
-        String clientIp = getClientIp(httpRequest);
+        String clientIp = HttpRequestUtils.getClientIp(httpRequest);
         String userAgent = httpRequest.getHeader("User-Agent");
 
         if (!rateLimitService.isAllowed("login:ip", clientIp)) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new RateLimitException("Too many login attempts. Please try again later.");
         }
 
         if (!rateLimitService.isAllowed("login:email", email)) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new RateLimitException("Too many login attempts. Please try again later.");
         }
 
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new AuthException("Invalid credentials");
         }
 
         User user = userOpt.get();
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            addJitter();
+            cryptoUtils.addJitter();
             throw new AuthException("Invalid credentials");
         }
 
@@ -80,7 +81,7 @@ public class SessionService {
 
     @Transactional
     public LoginResult refresh(String refreshToken, HttpServletRequest httpRequest) {
-        String clientIp = getClientIp(httpRequest);
+        String clientIp = HttpRequestUtils.getClientIp(httpRequest);
 
         if (!rateLimitService.isAllowed("refresh:ip", clientIp, refreshMaxAttempts, refreshWindowSeconds, refreshWindowSeconds)) {
             throw new RateLimitException("Too many refresh attempts. Please try again later.");
@@ -153,33 +154,10 @@ public class SessionService {
 
         refreshSessionRepository.save(session);
 
-        return new LoginResult(tokens, user);
+        return new LoginResult(tokens);
     }
 
     private String buildSessionKey(UUID userId, String jti) {
         return userId + ":" + jti;
-    }
-
-    String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isBlank()) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (ip == null || ip.isBlank()) {
-            ip = request.getRemoteAddr();
-        }
-
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip != null ? ip : "unknown";
-    }
-
-    private void addJitter() {
-        try {
-            Thread.sleep(cryptoUtils.generateJitterMs());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

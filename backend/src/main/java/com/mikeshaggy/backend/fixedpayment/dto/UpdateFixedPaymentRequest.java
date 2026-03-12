@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.dto;
 
-import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
+import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -27,4 +28,13 @@ public record UpdateFixedPaymentRequest(
         String notes,
 
         LocalDate activeTo
-) {}
+) {
+    public void applyTo(FixedPayment fixedPayment) {
+        fixedPayment.setTitle(title);
+        fixedPayment.setAmount(amount);
+        fixedPayment.setAnchorDate(anchorDate);
+        fixedPayment.setCycle(cycle);
+        fixedPayment.setNotes(notes);
+        fixedPayment.setActiveTo(activeTo);
+    }
+}

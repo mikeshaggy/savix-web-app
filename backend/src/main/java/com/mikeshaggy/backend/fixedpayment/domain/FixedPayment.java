@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.domain;
 
 import com.mikeshaggy.backend.category.domain.Category;
+import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;
 import lombok.*;

@@ -7,9 +7,22 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface FixedPaymentRepository extends JpaRepository<FixedPayment, Integer> {
+
+    @Query("""
+        SELECT fp FROM FixedPayment fp
+        JOIN FETCH fp.wallet
+        JOIN FETCH fp.category
+        WHERE fp.id = :id
+        AND fp.wallet.user.id = :userId
+    """)
+    Optional<FixedPayment> findByIdAndWalletUserId(
+            @Param("id") Integer id,
+            @Param("userId") UUID userId
+    );
 
     @Query("""
         SELECT fp FROM FixedPayment fp
@@ -36,6 +49,8 @@ public interface FixedPaymentRepository extends JpaRepository<FixedPayment, Inte
 
     @Query("""
         SELECT fp FROM FixedPayment fp
+        JOIN FETCH fp.wallet
+        JOIN FETCH fp.category
         WHERE fp.wallet.id = :walletId
         AND fp.wallet.user.id = :userId
     """)

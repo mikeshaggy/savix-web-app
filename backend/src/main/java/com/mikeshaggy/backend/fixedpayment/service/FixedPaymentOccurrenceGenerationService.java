@@ -1,21 +1,20 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
-import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
+import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
 import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -29,16 +28,17 @@ public class FixedPaymentOccurrenceGenerationService {
             Cycle.YEARLY, Period.ofMonths(13)
     );
 
+    private final FixedPaymentRepository fixedPaymentRepository;
     private final FixedPaymentOccurrenceRepository occurrenceRepository;
-    private final FixedPaymentService fixedPaymentService;
+    private final Clock clock;
 
     @Transactional
     public void ensureOccurrencesGenerated(UUID userId) {
-        List<FixedPayment> activePayments = fixedPaymentService
-                .getActiveFixedPaymentsForUserForDate(userId, LocalDate.now());
+        List<FixedPayment> activePayments = fixedPaymentRepository
+                .findAllActiveByUserId(userId, LocalDate.now(clock));
 
         for (FixedPayment fp : activePayments) {
-            LocalDate horizon = LocalDate.now().plus(HORIZONS.get(fp.getCycle()));
+            LocalDate horizon = LocalDate.now(clock).plus(HORIZONS.get(fp.getCycle()));
             LocalDate lastGenerated = occurrenceRepository
                     .findMaxDueDateByFixedPaymentId(fp.getId())
                     .orElse(fp.getAnchorDate().minusDays(1));
@@ -51,9 +51,10 @@ public class FixedPaymentOccurrenceGenerationService {
 
     @Transactional
     public void markOverdueOccurrences(UUID userId) {
-        List<Integer> fixedPaymentIds = fixedPaymentService
-                .getActiveFixedPaymentsForUserForDate(userId, LocalDate.now())
-                .stream()
+        List<FixedPayment> activePayments = fixedPaymentRepository
+                .findAllActiveByUserId(userId, LocalDate.now(clock));
+
+        List<Integer> fixedPaymentIds = activePayments.stream()
                 .map(FixedPayment::getId)
                 .toList();
 
@@ -62,21 +63,27 @@ public class FixedPaymentOccurrenceGenerationService {
         }
 
         List<FixedPaymentOccurrence> overdueOccurrences = occurrenceRepository
-                .findPendingOverdueOccurrences(fixedPaymentIds, LocalDate.now());
+                .findPendingOverdueOccurrences(fixedPaymentIds, LocalDate.now(clock));
 
-        overdueOccurrences.forEach(occurrence -> {
+        for (FixedPaymentOccurrence occurrence : overdueOccurrences) {
             occurrence.setStatus(OccurrenceStatus.OVERDUE);
-        });
+        }
 
         occurrenceRepository.saveAll(overdueOccurrences);
     }
 
     private void generateOccurrences(FixedPayment fp, LocalDate from, LocalDate to) {
         List<LocalDate> dueDates = computeDueDates(fp.getAnchorDate(), fp.getCycle(), from, to);
+        if (dueDates.isEmpty()) {
+            return;
+        }
+
+        Set<LocalDate> existingDueDates = new HashSet<>(
+                occurrenceRepository.findDueDatesByFixedPaymentIdAndDueDateBetween(fp.getId(), from, to));
 
         List<FixedPaymentOccurrence> toSave = new ArrayList<>();
         for (LocalDate dueDate : dueDates) {
-            if (!occurrenceRepository.existsByFixedPaymentIdAndDueDate(fp.getId(), dueDate)) {
+            if (!existingDueDates.contains(dueDate)) {
                 FixedPaymentOccurrence occurrence = FixedPaymentOccurrence.builder()
                         .fixedPayment(fp)
                         .dueDate(dueDate)
@@ -92,7 +99,7 @@ public class FixedPaymentOccurrenceGenerationService {
         }
     }
 
-    private List<LocalDate> computeDueDates(LocalDate anchor, Cycle cycle, LocalDate from, LocalDate to) {
+    List<LocalDate> computeDueDates(LocalDate anchor, Cycle cycle, LocalDate from, LocalDate to) {
         List<LocalDate> dates = new ArrayList<>();
 
         LocalDate current = anchor;
@@ -109,7 +116,7 @@ public class FixedPaymentOccurrenceGenerationService {
         return dates;
     }
 
-    private LocalDate advance(LocalDate date, Cycle cycle) {
+    LocalDate advance(LocalDate date, Cycle cycle) {
         return switch (cycle) {
             case WEEKLY -> date.plusWeeks(1);
             case MONTHLY -> date.plusMonths(1);

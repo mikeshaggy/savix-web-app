@@ -5,6 +5,7 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Component
 public class CustomPeriodResolver implements PeriodResolver {
@@ -15,7 +16,7 @@ public class CustomPeriodResolver implements PeriodResolver {
     }
 
     @Override
-    public PeriodDto resolve(Integer walletId, LocalDate customStart, LocalDate customEnd) {
+    public PeriodDto resolve(Integer walletId, UUID userId, LocalDate customStart, LocalDate customEnd, Integer anchorCategoryId) {
         if (customStart == null || customEnd == null) {
             throw new IllegalArgumentException("Both startDate and endDate are required for CUSTOM period type");
         }

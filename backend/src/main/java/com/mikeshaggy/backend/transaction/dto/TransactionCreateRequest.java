@@ -1,7 +1,6 @@
 package com.mikeshaggy.backend.transaction.dto;
 
 import com.mikeshaggy.backend.transaction.domain.Importance;
-import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -33,14 +32,4 @@ public record TransactionCreateRequest(
         Importance importance,
 
         Long occurrenceId
-) {
-    public Transaction toEntity() {
-        return Transaction.builder()
-                .title(title)
-                .amount(amount)
-                .transactionDate(transactionDate)
-                .notes(notes)
-                .importance(importance)
-                .build();
-    }
-}
+) {}
