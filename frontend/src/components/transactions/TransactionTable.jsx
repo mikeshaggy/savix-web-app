@@ -5,7 +5,7 @@ import { formatCurrency, formatDate, getImportanceKey } from '@/utils/helpers';
 import { useLanguage } from '@/i18n';
 
 export default function TransactionTable({ 
-    filteredTransactions = [], 
+    groups = [],
     categories = [],
     onEdit,
     onDelete
@@ -28,23 +28,14 @@ export default function TransactionTable({
 
     const getType = (txn) => txn.type || txn.categoryType;
 
-    const dateGroups = useMemo(() => {
-        const groups = [];
-        const seen = {};
-        filteredTransactions.forEach(txn => {
-            const dateStr = txn.transactionDate || txn.date;
-            if (!dateStr) return;
-            const key = typeof dateStr === 'string' ? dateStr.split('T')[0] : new Date(dateStr).toISOString().split('T')[0];
-            if (!seen[key]) {
-                seen[key] = { label: formatDate(dateStr, lang), transactions: [] };
-                groups.push(seen[key]);
-            }
-            seen[key].transactions.push(txn);
-        });
-        return groups;
-    }, [filteredTransactions, lang]);
+    const formattedGroups = useMemo(() => {
+        return groups.map((group) => ({
+            label: formatDate(group.date, lang),
+            transactions: group.transactions,
+        }));
+    }, [groups, lang]);
 
-    if (filteredTransactions.length === 0) {
+    if (!groups.length) {
         return (
             <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden">
                 <div className="text-center py-16">
@@ -59,7 +50,7 @@ export default function TransactionTable({
     return (
         <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden">
           <div className="overflow-x-auto">
-            {dateGroups.map(({ label: dateLabel, transactions: txns }) => {
+            {formattedGroups.map(({ label: dateLabel, transactions: txns }) => {
                 const dayTotal = txns.reduce((sum, txn) => {
                     const amount = parseFloat(txn.amount || 0);
                     const txnType = getType(txn);
@@ -116,14 +107,6 @@ export default function TransactionTable({
                                                 <span className="text-[12px] md:text-[13px] font-medium text-white bg-white/[0.04] border border-white/[0.06] rounded-full px-2 md:px-2.5 py-[2px] whitespace-nowrap">
                                                     {category?.name || t('table.unknownCategory')}
                                                 </span>
-                                                {/* Type pill */}
-                                                <span className={`text-[12px] md:text-[13px] font-medium rounded-full px-2 md:px-2.5 py-[2px] border whitespace-nowrap ${
-                                                    isIncome
-                                                        ? 'bg-green-400/10 border-green-400/25 text-green-400/70'
-                                                        : 'bg-red-400/10 border-red-400/25 text-red-400/70'
-                                                }`}>
-                                                    {t(`categoryType.${txnType?.toLowerCase()}`)}
-                                                </span>
                                                 {/* Importance pill — hide on small screens */}
                                                 {txn.importance && (
                                                     <span className={`hidden sm:inline-flex text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
@@ -148,7 +131,7 @@ export default function TransactionTable({
                                         <span className={`font-mono text-[15px] md:text-[17px] font-medium min-w-[90px] md:min-w-[120px] text-right ${
                                             isIncome ? 'text-green-400' : 'text-red-400'
                                         }`}>
-                                            {isIncome ? '+ ' : '− '}{formatCurrency(amount, lang)}
+                                            {isIncome ? '+ ' : '- '}{formatCurrency(amount, lang)}
                                         </span>
                                         <div className="hidden md:flex items-center gap-[5px] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                             <button

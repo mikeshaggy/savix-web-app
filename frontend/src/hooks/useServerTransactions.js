@@ -4,7 +4,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { transactionApi, checkBackendHealth } from '@/lib/api';
 
 const ALLOWED_SIZES = [10, 20, 50, 100];
-const DEFAULT_SIZE = 10;
+const DEFAULT_SIZE = 20;
 const ALLOWED_SORT_FIELDS = ['transactionDate', 'amount', 'title'];
 const DEFAULT_SORT = 'transactionDate,desc';
 const DEBOUNCE_MS = 400;
@@ -240,7 +240,7 @@ export function useServerTransactions(walletId) {
   return {
     // Data
     data,
-    items: data?.items || [],
+    groups: data?.groups || [],
     totalElements: data?.totalElements || 0,
     totalPages: data?.totalPages || 0,
     hasNext: data?.hasNext || false,

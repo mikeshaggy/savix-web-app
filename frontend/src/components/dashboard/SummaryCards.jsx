@@ -33,7 +33,7 @@ export default function SummaryCards({ summary }) {
       valueField: 'saved',
       changeField: 'savedChange',
       dotColor: '#c084fc',
-      valueClass: '', // uses gradient
+      valueClass: '',
       floorColor: 'rgba(192,132,252,0.5)',
       gradient: true
     },
@@ -51,10 +51,6 @@ export default function SummaryCards({ summary }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.055] bg-[#0e0e1c] relative"
          style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.08s' }}>
-      {/* Glow */}
-      <div className="absolute inset-0 pointer-events-none"
-           style={{ background: 'radial-gradient(ellipse at 15% 50%, rgba(124,58,237,0.1) 0%, transparent 55%)' }} />
-      
       {segments.map((seg, index) => {
         const value = summary[seg.valueField];
         const change = seg.changeField ? summary[seg.changeField] : null;
@@ -105,7 +101,7 @@ export default function SummaryCards({ summary }) {
             
             {/* Floor line */}
             <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-50"
-                 style={{ background: `linear-gradient(90deg, ${seg.floorColor}, transparent)` }} />
+                 style={{ backgroundColor: seg.floorColor }} />
           </div>
         );
       })}

@@ -10,7 +10,7 @@ import NewActionDropdown from "@/components/common/NewActionDropdown";
 
 export default function TransactionsView({
   // Server-driven data
-  items = [],
+  groups = [],
   totalElements = 0,
   totalPages = 0,
   hasNext = false,
@@ -55,18 +55,20 @@ export default function TransactionsView({
   const { lang } = useLanguage();
 
   const totalIncome = useMemo(
-    () =>
-      items
-        .filter((tx) => tx.categoryType === "INCOME")
-        .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
-    [items],
+      () =>
+        groups
+          .flatMap((g) => g.transactions)
+          .filter((tx) => tx.categoryType === "INCOME")
+          .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
+      [groups],
   );
   const totalExpense = useMemo(
     () =>
-      items
+      groups
+        .flatMap((g) => g.transactions)
         .filter((tx) => tx.categoryType === "EXPENSE")
         .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0),
-    [items],
+    [groups],
   );
 
   return (
@@ -142,7 +144,7 @@ export default function TransactionsView({
       )}
 
       {/* Loading skeleton */}
-      {loading && !items.length && (
+      {loading && !groups.length && (
         <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -161,13 +163,13 @@ export default function TransactionsView({
       )}
 
       {/* Loading overlay on page changes */}
-      {loading && items.length > 0 && (
+      {loading && groups.length > 0 && (
         <div className="relative">
           <div className="absolute inset-0 bg-[#06060f]/50 rounded-[18px] z-10 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
           </div>
           <TransactionTable
-            filteredTransactions={items}
+            groups={groups}
             categories={categories}
             onEdit={onEditTransaction}
             onDelete={onDeleteTransaction}
@@ -178,7 +180,7 @@ export default function TransactionsView({
       {/* Transaction list */}
       {!loading && (
         <TransactionTable
-          filteredTransactions={items}
+            groups={groups}
           categories={categories}
           onEdit={onEditTransaction}
           onDelete={onDeleteTransaction}

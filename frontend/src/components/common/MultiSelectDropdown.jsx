@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Search } from 'lucide-react';
 
 export default function MultiSelectDropdown({
     options = [],
@@ -8,8 +8,12 @@ export default function MultiSelectDropdown({
     allLabel = 'All',
     nSelectedLabel,
     className = '',
+    searchable = false,
+    searchPlaceholder = 'Search...',
+    noResultsLabel = 'No results',
 }) {
     const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
     const ref = useRef(null);
 
     useEffect(() => {
@@ -24,6 +28,12 @@ export default function MultiSelectDropdown({
 
     const isActive = selected.length > 0;
 
+    useEffect(() => {
+        if (!open) {
+            setQuery('');
+        }
+    }, [open]);
+
     const toggle = (value) => {
         const next = selected.includes(value)
             ? selected.filter((v) => v !== value)
@@ -34,6 +44,17 @@ export default function MultiSelectDropdown({
     const clearAll = () => {
         onChange([]);
     };
+
+    const visibleOptions = React.useMemo(() => {
+        if (!searchable) return options;
+        const normalizedQuery = query.trim().toLowerCase();
+        if (!normalizedQuery) return options;
+        return options.filter((opt) => {
+            const label = String(opt.label || '').toLowerCase();
+            const emoji = String(opt.emoji || '').toLowerCase();
+            return label.includes(normalizedQuery) || emoji.includes(normalizedQuery);
+        });
+    }, [options, query, searchable]);
 
     let displayLabel;
     if (selected.length === 0) {
@@ -73,6 +94,21 @@ export default function MultiSelectDropdown({
                     style={{ animation: 'fadeUp 0.12s cubic-bezier(0.4,0,0.2,1) both' }}
                 >
                     <div className="p-1">
+                        {searchable && (
+                            <div className="px-2 pt-2 pb-1">
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+                                    <input
+                                        type="text"
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        placeholder={searchPlaceholder}
+                                        className="w-full bg-[#0e0e1c] border border-white/[0.07] rounded-lg pl-8 pr-2.5 py-1.5 text-[12px] text-white placeholder:text-white/28 outline-none focus:border-violet-500/40"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {/* "All" row – clears selection */}
                         <button
                             type="button"
@@ -96,7 +132,7 @@ export default function MultiSelectDropdown({
                         <div className="h-px bg-white/[0.06] mx-2 my-1" />
 
                         {/* Options */}
-                        {options.map((opt) => {
+                        {visibleOptions.map((opt) => {
                             const isSelected = selected.includes(opt.value);
                             return (
                                 <button
@@ -124,6 +160,10 @@ export default function MultiSelectDropdown({
                                 </button>
                             );
                         })}
+
+                        {visibleOptions.length === 0 && (
+                            <div className="px-3 py-2 text-[12px] text-white/35">{noResultsLabel}</div>
+                        )}
                     </div>
                 </div>
             )}

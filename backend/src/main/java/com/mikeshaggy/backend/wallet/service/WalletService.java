@@ -1,5 +1,8 @@
 package com.mikeshaggy.backend.wallet.service;
 
+import com.mikeshaggy.backend.ledger.domain.SourceType;
+import com.mikeshaggy.backend.ledger.service.WalletEntryBalanceHistoryService;
+import com.mikeshaggy.backend.ledger.service.WalletEntryService;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +29,8 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final UserService userService;
+    private final WalletEntryService walletEntryService;
+    private final WalletEntryBalanceHistoryService walletEntryBalanceHistoryService;
 
     public List<WalletResponse> getWalletsForUser(UUID userId) {
         return walletRepository.findByUserId(userId).stream()
@@ -51,16 +57,28 @@ public class WalletService {
 
         Wallet wallet = Wallet.builder()
                 .name(request.name())
-                .balance(request.balance() != null ? request.balance() : BigDecimal.ZERO)
+            .balance(BigDecimal.ZERO)
                 .user(user)
                 .build();
 
         Wallet savedWallet = walletRepository.save(wallet);
+
+        BigDecimal initialBalance = request.balance() != null ? request.balance() : BigDecimal.ZERO;
+        if (initialBalance.compareTo(BigDecimal.ZERO) != 0) {
+            walletEntryService.createEntry(
+                savedWallet,
+                initialBalance,
+                LocalDate.now(),
+                SourceType.ADJUSTMENT,
+                savedWallet.getId().longValue()
+            );
+            walletEntryBalanceHistoryService.recalculateWalletLedger(savedWallet.getId().longValue());
+        }
         
         log.info("Created wallet '{}' with id: {} for user: {}",
                 savedWallet.getName(), savedWallet.getId(), userId);
         
-        return WalletResponse.from(savedWallet);
+            return WalletResponse.from(savedWallet);
     }
 
     @Transactional
@@ -72,7 +90,11 @@ public class WalletService {
             throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
-        request.applyTo(wallet);
+        wallet.setName(request.name());
+
+        if (request.balance() != null) {
+            return updateWalletBalance(id, request.balance(), null, userId);
+        }
 
         Wallet updatedWallet = walletRepository.save(wallet);
         
@@ -93,20 +115,25 @@ public class WalletService {
     }
 
     @Transactional
-    public WalletResponse updateWalletBalance(Integer id, BigDecimal newBalance, UUID userId) {
+    public WalletResponse updateWalletBalance(Integer id, BigDecimal newBalance, LocalDate effectiveDate, UUID userId) {
         Wallet wallet = getWalletOrThrowForUser(id, userId);
-        
-        wallet.setBalance(newBalance);
-        Wallet updatedWallet = walletRepository.save(wallet);
-        return WalletResponse.from(updatedWallet);
+
+        BigDecimal delta = newBalance.subtract(wallet.getBalance());
+        LocalDate entryDate = effectiveDate != null ? effectiveDate : LocalDate.now();
+
+        walletEntryService.createEntry(
+                wallet,
+                delta,
+                entryDate,
+                SourceType.ADJUSTMENT,
+                wallet.getId().longValue()
+        );
+        walletEntryBalanceHistoryService.recalculateWalletLedger(wallet.getId().longValue());
+        return WalletResponse.from(wallet);
     }
 
     private Wallet getWalletOrThrowForUser(Integer id, UUID userId) {
         return walletRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
-    }
-
-    Wallet saveWallet(Wallet wallet) {
-        return walletRepository.save(wallet);
     }
 }

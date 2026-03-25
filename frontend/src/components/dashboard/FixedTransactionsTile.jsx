@@ -5,13 +5,14 @@ import { formatCurrency } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n';
 import { useCategories } from '@/hooks/useApi';
-import { transactionApi } from '@/lib/api';
+import { useAppContext } from '@/contexts/AppContext';
 import TransactionModal from '@/components/modals/TransactionModal';
 
-export default function FixedTransactionsTile({ tileData, loading, error, onRefresh }) {
+export default function FixedTransactionsTile({ tileData, loading, error }) {
   const t = useTranslations();
   const { lang } = useLanguage();
   const { categories } = useCategories();
+  const { onCreateTransaction } = useAppContext();
 
   const [markPaidOccurrence, setMarkPaidOccurrence] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -41,8 +42,7 @@ export default function FixedTransactionsTile({ tileData, loading, error, onRefr
   };
 
   const handleTransactionSave = async (transactionData, _id) => {
-    await transactionApi.createTransaction(transactionData);
-    if (onRefresh) onRefresh();
+    await onCreateTransaction(transactionData);
   };
 
   const handleCloseAll = () => {
@@ -101,7 +101,7 @@ export default function FixedTransactionsTile({ tileData, loading, error, onRefr
               {t('fixedPayments.tileSubtitle')}
             </div>
           </div>
-          <a href="/wallets/fixed-payments" className="text-[12px] text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity">
+          <a href="/transactions/fixed-payments" className="text-[12px] text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity">
             {t('dashboard.viewAll')}
           </a>
         </div>
@@ -182,10 +182,10 @@ export default function FixedTransactionsTile({ tileData, loading, error, onRefr
               className="h-full rounded-[3px] relative"
               style={{
                 width: `${progress?.paidPct ?? 0}%`,
-                background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
+                background: '#8b5cf6',
               }}
             >
-              <div className="absolute right-0 top-0 bottom-0 w-[14px] bg-gradient-to-r from-transparent to-white/30 animate-pulse" />
+              <div className="absolute right-0 top-0 bottom-0 w-[8px] bg-white/25 animate-pulse" />
             </div>
           </div>
           <span className="text-[9px] text-purple-400 font-medium whitespace-nowrap shrink-0">
@@ -281,7 +281,7 @@ export default function FixedTransactionsTile({ tileData, loading, error, onRefr
         {/* Footer */}
         {(progress?.totalCount ?? 0) > 5 && (
           <a
-            href="/wallets/fixed-payments"
+            href="/transactions/fixed-payments"
             className="block px-5 py-2 text-[9px] text-white/25 text-center border-t border-white/[0.055] cursor-pointer tracking-[0.06em] hover:text-purple-400 transition-colors"
           >
             + {(progress.totalCount - 5)} {t('fixedPayments.moreThisCycle')}
@@ -300,7 +300,7 @@ export default function FixedTransactionsTile({ tileData, loading, error, onRefr
             }}
           >
             {/* Top glow */}
-            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">

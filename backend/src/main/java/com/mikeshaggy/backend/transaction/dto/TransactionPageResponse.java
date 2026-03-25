@@ -3,7 +3,7 @@ package com.mikeshaggy.backend.transaction.dto;
 import java.util.List;
 
 public record TransactionPageResponse(
-        List<TransactionResponse> items,
+        List<TransactionDateGroupResponse> groups,
         int page,
         int size,
         long totalElements,
@@ -11,3 +11,4 @@ public record TransactionPageResponse(
         boolean hasNext,
         boolean hasPrevious
 ) {}
+

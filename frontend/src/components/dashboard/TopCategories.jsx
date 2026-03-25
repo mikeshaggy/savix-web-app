@@ -4,11 +4,11 @@ import { formatCurrency } from '../../utils/helpers';
 import { useTranslations } from 'next-intl';
 
 const barColors = [
-    'linear-gradient(90deg, #f43f5e, #fb923c)',
-    'linear-gradient(90deg, #818cf8, #a78bfa)',
-    'linear-gradient(90deg, #f59e0b, #fbbf24)',
-    'linear-gradient(90deg, #10b981, #4ade80)',
-    'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+    '#f43f5e',
+    '#8b5cf6',
+    '#f59e0b',
+    '#10b981',
+    '#0ea5e9',
 ];
 
 const formatChange = (change) => {

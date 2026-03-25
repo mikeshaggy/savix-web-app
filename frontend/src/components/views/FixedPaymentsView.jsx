@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, RefreshCw, Loader2, AlertCircle, Check, X, ArrowRight,
   Edit3, Trash2, Calendar, Clock, Eye, EyeOff,
@@ -10,7 +11,7 @@ import { useLanguage } from '@/i18n';
 import { useFixedPaymentsTile, useFixedPayments } from '@/hooks/useFixedPayments';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
-import { transactionApi } from '@/lib/api';
+import { useAppContext } from '@/contexts/AppContext';
 import FixedPaymentModal from '@/components/modals/FixedPaymentModal';
 import TransactionModal from '@/components/modals/TransactionModal';
 
@@ -19,8 +20,12 @@ const TABS = ['overview', 'upcoming', 'overdue', 'history'];
 export default function FixedPaymentsView() {
   const t = useTranslations();
   const { lang } = useLanguage();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const { currentWallet } = useWallets();
+  const { onCreateTransaction, walletMutationVersion } = useAppContext();
   const walletId = currentWallet?.id;
 
   const { tileData, loading: tileLoading, refetch: refetchTile } = useFixedPaymentsTile(walletId);
@@ -35,14 +40,42 @@ export default function FixedPaymentsView() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [deactivatingPayment, setDeactivatingPayment] = useState(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState('');
+  const [actionFeedback, setActionFeedback] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
   const [markPaidOccurrence, setMarkPaidOccurrence] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionPrefill, setTransactionPrefill] = useState(null);
+  const hasHandledMutationRef = useRef(false);
 
   const [filterCategory, setFilterCategory] = useState('all');
+
+  useEffect(() => {
+    if (searchParams.get('open') !== 'create') return;
+    setEditingPayment(null);
+    setShowPaymentModal(true);
+    router.replace(pathname);
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (!hasHandledMutationRef.current) {
+      hasHandledMutationRef.current = true;
+      return;
+    }
+    if (!walletId) return;
+
+    refetchTile();
+    refetchList();
+  }, [walletMutationVersion, walletId, refetchTile, refetchList]);
+
+  useEffect(() => {
+    if (!actionFeedback) return;
+    const timeoutId = window.setTimeout(() => setActionFeedback(null), 3600);
+    return () => window.clearTimeout(timeoutId);
+  }, [actionFeedback]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -64,14 +97,36 @@ export default function FixedPaymentsView() {
     refetchTile();
   };
 
+  const openDeactivateConfirmation = (payment) => {
+    setDeactivateError('');
+    setDeactivatingPayment(payment);
+  };
+
+  const closeDeactivateConfirmation = () => {
+    if (isDeactivating) return;
+    setDeactivateError('');
+    setDeactivatingPayment(null);
+  };
+
   const handleDeactivate = async () => {
     if (!deactivatingPayment) return;
     try {
+      setIsDeactivating(true);
+      setDeactivateError('');
       await deactivateFixedPayment(deactivatingPayment.id);
       setDeactivatingPayment(null);
-      refetchTile();
+      setShowPaymentModal(false);
+      setEditingPayment(null);
+      await Promise.all([refetchTile(), refetchList()]);
+      setActionFeedback({
+        type: 'success',
+        message: t('fixedPayments.deactivateSuccess'),
+      });
     } catch (err) {
       console.error('Failed to deactivate:', err);
+      setDeactivateError(err?.message || t('errors.generic'));
+    } finally {
+      setIsDeactivating(false);
     }
   };
 
@@ -92,7 +147,7 @@ export default function FixedPaymentsView() {
   };
 
   const handleTransactionSave = async (transactionData) => {
-    await transactionApi.createTransaction(transactionData);
+    await onCreateTransaction(transactionData);
     refetchTile();
     refetchList();
   };
@@ -203,6 +258,13 @@ export default function FixedPaymentsView() {
         </div>
       </div>
 
+      {actionFeedback && (
+        <div className="flex items-center gap-2.5 px-4 py-3 bg-green-500/[0.08] border border-green-500/[0.2] rounded-[12px] text-[13px] text-green-300">
+          <Check className="w-4 h-4 shrink-0" />
+          <span>{actionFeedback.message}</span>
+        </div>
+      )}
+
       {/* Summary strip — 5 cards */}
       {tileData && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-white/[0.06] rounded-[14px] overflow-hidden border border-white/[0.06]">
@@ -250,7 +312,7 @@ export default function FixedPaymentsView() {
           </div>
           {/* Progress */}
           <div className="bg-[#13131f] p-4 relative col-span-2 md:col-span-1">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] to-[#a855f7] opacity-80" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-purple-400 opacity-80" />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.progressLabel')}</div>
             <div className="font-bold text-[18px] tracking-[-0.01em] leading-none text-purple-400">
               {Math.round(progress?.paidPct ?? 0)}%
@@ -259,7 +321,7 @@ export default function FixedPaymentsView() {
               <div className="flex-1 h-[3px] bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full"
-                  style={{ width: `${progress?.paidPct ?? 0}%`, background: 'linear-gradient(90deg, #7c3aed, #a855f7)' }}
+                  style={{ width: `${progress?.paidPct ?? 0}%`, background: '#8b5cf6' }}
                 />
               </div>
               <span className="text-[9px] text-white/25">{progress?.paidCount ?? 0}/{progress?.totalCount ?? 0}</span>
@@ -310,7 +372,7 @@ export default function FixedPaymentsView() {
               >
                 {/* Top line */}
                 <div className={`absolute top-0 left-0 right-0 h-[2px] ${
-                  isInactive ? 'bg-white/10' : 'bg-gradient-to-r from-[#7c3aed] to-[#a855f7]'
+                  isInactive ? 'bg-white/10' : 'bg-purple-400'
                 }`} />
 
                 {/* Card top */}
@@ -343,7 +405,7 @@ export default function FixedPaymentsView() {
                         <Edit3 className="w-3 h-3" />
                       </button>
                       <button
-                        onClick={() => setDeactivatingPayment(fp)}
+                        onClick={() => openDeactivateConfirmation(fp)}
                         className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-[rgba(244,63,94,0.15)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.3)]"
                         title={t('fixedPayments.deactivate')}
                       >
@@ -538,6 +600,7 @@ export default function FixedPaymentsView() {
           }}
           onSave={editingPayment ? handleUpdatePayment : handleCreatePayment}
           fixedPayment={editingPayment}
+          onDeactivateRequest={editingPayment ? openDeactivateConfirmation : null}
         />
       )}
 
@@ -551,12 +614,13 @@ export default function FixedPaymentsView() {
               animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both',
             }}
           >
-            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
             <div className="flex items-center justify-between px-7 pt-6 pb-5 border-b border-white/[0.055]">
-              <div className="text-lg font-bold tracking-[-0.3px]">{t('fixedPayments.deactivateTitle')}</div>
+              <div className="text-lg font-bold tracking-[-0.3px]">{t('fixedPayments.deactivateConfirmTitle')}</div>
               <button
-                onClick={() => setDeactivatingPayment(null)}
-                className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] transition-all"
+                onClick={closeDeactivateConfirmation}
+                disabled={isDeactivating}
+                className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -574,20 +638,29 @@ export default function FixedPaymentsView() {
                 </div>
               </div>
               <p className="text-[12px] text-white/25 leading-relaxed">
-                {t('fixedPayments.deactivateInfo')}
+                {t('fixedPayments.deactivateConfirmDescription')}
               </p>
+              {deactivateError && (
+                <div className="mt-4 flex items-start gap-2 rounded-[10px] border border-red-500/30 bg-red-500/[0.08] px-3 py-2.5 text-[12px] text-red-300">
+                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>{deactivateError}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
               <button
-                onClick={() => setDeactivatingPayment(null)}
-                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
+                onClick={closeDeactivateConfirmation}
+                disabled={isDeactivating}
+                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleDeactivate}
-                className="px-5 py-3 bg-[#f43f5e] hover:bg-[#e11d48] rounded-xl text-base font-bold text-white cursor-pointer transition-all"
+                disabled={isDeactivating}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-[#f43f5e] hover:bg-[#e11d48] rounded-xl text-base font-bold text-white cursor-pointer transition-all disabled:opacity-70 disabled:cursor-not-allowed"
               >
+                {isDeactivating && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('fixedPayments.deactivate')}
               </button>
             </div>
@@ -605,7 +678,7 @@ export default function FixedPaymentsView() {
               animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both',
             }}
           >
-            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
             <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
               <div className="text-lg font-bold tracking-[-0.3px]">{t('fixedPayments.markAsPaid')}</div>
               <button

@@ -51,6 +51,7 @@ export default function TopBar({
             if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
                 setIsUserMenuOpen(false);
             }
+        
         };
 
         document.addEventListener('mousedown', handleClickOutside);
@@ -60,7 +61,7 @@ export default function TopBar({
     }, []);
 
     return (
-        <header className="h-[58px] flex items-center px-4 md:px-5 lg:px-7 gap-2 md:gap-3 border-b border-white/[0.055] bg-[rgba(6,6,15,0.8)] backdrop-blur-[24px] sticky top-0 z-40">
+        <header className="h-[58px] shrink-0 flex items-center px-4 md:px-5 lg:px-7 gap-2 md:gap-3 border-b border-white/[0.055] bg-[rgba(6,6,15,0.8)] backdrop-blur-[24px] z-40">
             {/* Hamburger — visible below lg */}
             <button
                 onClick={onMenuToggle}
@@ -76,7 +77,7 @@ export default function TopBar({
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="flex items-center gap-2 bg-[#131325] border border-white/[0.12] rounded-full py-1.5 pl-2 pr-3.5 cursor-pointer transition-all hover:border-[#7c3aed] hover:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
                 >
-                    <div className="w-[22px] h-[22px] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-full shadow-[0_0_10px_rgba(124,58,237,0.3)]" />
+                    <div className="w-[22px] h-[22px] bg-[#7c3aed] rounded-full shadow-[0_0_10px_rgba(124,58,237,0.3)]" />
                     <span className="text-[13px] font-medium hidden sm:inline">
                         {currentWallet ? currentWallet.name : t('topbar.noWalletSelected')}
                     </span>
@@ -101,7 +102,7 @@ export default function TopBar({
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-[22px] h-[22px] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-full shadow-[0_0_8px_rgba(124,58,237,0.25)]" />
+                                        <div className="w-[22px] h-[22px] bg-[#7c3aed] rounded-full shadow-[0_0_8px_rgba(124,58,237,0.25)]" />
                                         <div>
                                             <div className="text-[13px] font-medium">{wallet.name}</div>
                                             <div className="text-[11px] text-white/25 font-mono">
@@ -164,7 +165,7 @@ export default function TopBar({
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                         className="flex items-center gap-2 bg-[#131325] border border-white/[0.055] rounded-[10px] py-[5px] pr-2 sm:pr-3 pl-[5px] cursor-pointer transition-all hover:border-white/[0.12]"
                     >
-                        <div className="w-[26px] h-[26px] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-lg flex items-center justify-center text-[11px] font-bold shadow-[0_0_10px_rgba(124,58,237,0.3)]">
+                        <div className="w-[26px] h-[26px] bg-[#7c3aed] rounded-lg flex items-center justify-center text-[11px] font-bold shadow-[0_0_10px_rgba(124,58,237,0.3)]">
                             {user?.username?.[0]?.toUpperCase() || 'U'}
                         </div>
                         <div className="hidden sm:block">

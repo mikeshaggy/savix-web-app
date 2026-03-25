@@ -29,6 +29,9 @@ public class WalletEntry {
     @Column(name = "amount_signed", nullable = false, precision = 12, scale = 2)
     private BigDecimal amountSigned;
 
+    @Column(name = "balance_after", precision = 12, scale = 2)
+    private BigDecimal balanceAfter;
+
     @Column(nullable = false)
     private LocalDate entryDate;
 

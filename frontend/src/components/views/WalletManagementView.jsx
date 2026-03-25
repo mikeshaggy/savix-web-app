@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useWallets } from '@/contexts/WalletContext';
 import { Wallet, Plus, Edit3, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
@@ -9,6 +10,9 @@ import { useLanguage } from '@/i18n';
 export default function WalletManagementView() {
   const t = useTranslations();
   const { lang } = useLanguage();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { 
     wallets, 
     currentWallet, 
@@ -27,6 +31,12 @@ export default function WalletManagementView() {
   const [balanceEditWallet, setBalanceEditWallet] = useState(null);
   const [deletingWallet, setDeletingWallet] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('open') !== 'create') return;
+    setShowCreateModal(true);
+    router.replace(pathname);
+  }, [pathname, router, searchParams]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -75,6 +85,11 @@ export default function WalletManagementView() {
     } catch (error) {
       console.error('Failed to update balance:', error);
     }
+  };
+
+  const handleViewHistory = (wallet) => {
+    setCurrentWallet(wallet);
+    router.push('/wallets/balance-history');
   };
 
   const walletColors = ['teal', 'amber', 'blue', 'rose'];
@@ -148,13 +163,11 @@ export default function WalletManagementView() {
       {/* Active wallet banner */}
       {currentWallet && (
         <div className="relative bg-[#13131f] border border-white/[0.06] rounded-[14px] px-5 md:px-7 py-5 md:py-[22px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden">
-          {/* Top gradient line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-transparent" />
-          {/* Glow effect */}
-          <div className="absolute top-0 -right-20 w-[200px] h-[200px] bg-[radial-gradient(circle,rgba(124,58,237,0.12)_0%,transparent_70%)] pointer-events-none" />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-purple-400/70" />
+          <div className="absolute top-0 -right-20 w-[200px] h-[200px] bg-[#7c3aed]/10 blur-3xl pointer-events-none" />
 
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[12px] flex items-center justify-center shadow-[0_4px_20px_rgba(124,58,237,0.25)]">
+            <div className="w-11 h-11 bg-[#7c3aed] rounded-[12px] flex items-center justify-center shadow-[0_4px_20px_rgba(124,58,237,0.25)]">
               <Wallet className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -166,13 +179,19 @@ export default function WalletManagementView() {
               </div>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right flex flex-col items-end gap-2">
             <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mb-[3px]">
               {t('wallet.balance')}
             </div>
             <div className="font-mono text-[24px] font-bold text-white tracking-[-0.5px]">
               {formatCurrency(currentWallet.balance ?? 0, lang)}
             </div>
+            <button
+              onClick={() => handleViewHistory(currentWallet)}
+              className="text-[12px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+            >
+              {t('wallet.viewHistory')}
+            </button>
           </div>
         </div>
       )}
@@ -201,7 +220,7 @@ export default function WalletManagementView() {
             >
               {/* Active card top gradient */}
               {isActive && (
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#7c3aed] to-[#a855f7]" />
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-purple-400" />
               )}
 
               {/* Card top: icon + name + actions */}
@@ -273,6 +292,15 @@ export default function WalletManagementView() {
                     className="text-[11.5px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
                   >
                     {t('wallet.editBalance')}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewHistory(wallet);
+                    }}
+                    className="text-[11.5px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+                  >
+                    {t('wallet.viewHistory')}
                   </button>
                 </div>
               </div>
