@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Plus } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Loading } from '../common/Loading';
 import { dashboardApi } from '@/lib/api';
 import DashboardHeader from '../dashboard/DashboardHeader';
@@ -14,6 +15,7 @@ import TopCategories from "@/components/dashboard/TopCategories";
 export default function DashboardPage() {
     const t = useTranslations();
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
+    const { walletMutationVersion } = useAppContext();
     const router = useRouter();
     
     const [dashboardData, setDashboardData] = useState(null);
@@ -47,14 +49,16 @@ export default function DashboardPage() {
         }
     }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
 
-    const handleRefreshDashboard = useCallback(() => {
+    useEffect(() => {
         if (!currentWallet?.id) return;
-        if (periodType === 'CUSTOM' && customStartDate && customEndDate) {
+        if (periodType === 'CUSTOM' && (!customStartDate || !customEndDate)) return;
+
+        if (periodType === 'CUSTOM') {
             fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
-        } else if (periodType !== 'CUSTOM') {
+        } else {
             fetchDashboard(currentWallet.id, periodType, null, null);
         }
-    }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
+    }, [walletMutationVersion, currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
 
     const handlePeriodTypeChange = (newPeriodType) => {
         if (newPeriodType === 'CUSTOM') return;
@@ -170,7 +174,6 @@ export default function DashboardPage() {
                         tileData={dashboardData.fixedPaymentsTile}
                         loading={false}
                         error={null}
-                        onRefresh={handleRefreshDashboard}
                     />
                 </div>
 

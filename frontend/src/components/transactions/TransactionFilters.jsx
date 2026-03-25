@@ -170,6 +170,9 @@ export default function TransactionFilters({
                     onChange={handleCategoryIdsChange}
                     allLabel={t('filters.allCategories')}
                     nSelectedLabel={(n) => t('filters.nSelected', { count: n })}
+                    searchable
+                    searchPlaceholder={t('search.placeholder')}
+                    noResultsLabel={t('filters.noResults')}
                     className="max-w-[260px]"
                 />
 

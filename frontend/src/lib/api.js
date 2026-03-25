@@ -332,6 +332,21 @@ export const walletApi = {
 
   getWalletById: (id) => get(`/wallets/${id}`),
 
+  getWalletBalanceHistory: (walletId, params = {}) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+
+    const searchParams = new URLSearchParams();
+    if (params.from) searchParams.set('from', params.from);
+    if (params.to) searchParams.set('to', params.to);
+    if (params.page != null) searchParams.set('page', String(params.page));
+    if (params.size != null) searchParams.set('size', String(params.size));
+
+    const qs = searchParams.toString();
+    return get(`/wallets/${walletId}/balance-history${qs ? `?${qs}` : ''}`);
+  },
+
   createWallet: (walletData) => post('/wallets', walletData),
 
   updateWallet: (id, walletData) => put(`/wallets/${id}`, walletData),
@@ -491,4 +506,8 @@ export const transferApi = {
   updateTransfer: (id, transferData) => put(`/transfers/${id}`, transferData),
 
   deleteTransfer: (id) => del(`/transfers/${id}`),
+};
+
+export const walletEntryApi = {
+  getWalletBalanceHistory: (walletId) => get(`/wallet-entries/wallet/${walletId}`),
 };

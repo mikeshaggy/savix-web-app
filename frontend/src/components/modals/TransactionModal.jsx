@@ -76,6 +76,7 @@ export default function TransactionModal({
   const categoryInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const dropdownPortalRef = useRef(null);
+  const categoryOptionRefs = useRef([]);
   const [dropdownPosition, setDropdownPosition] = useState({
     top: 0,
     left: 0,
@@ -168,6 +169,14 @@ export default function TransactionModal({
       .map((x) => x.cat);
   }, [localCategories, categorySearch]);
 
+  const keyboardNavigableCategories = useMemo(() => {
+    const expenseCategories = filteredCategories.filter(
+      (c) => c.type === "EXPENSE",
+    );
+    const incomeCategories = filteredCategories.filter((c) => c.type === "INCOME");
+    return [...expenseCategories, ...incomeCategories];
+  }, [filteredCategories]);
+
   // Close dropdown when clicking outside (check both the input area and portal)
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -178,11 +187,38 @@ export default function TransactionModal({
         dropdownPortalRef.current.contains(e.target);
       if (!inDropdownArea && !inPortal) {
         setShowCategoryDropdown(false);
+        setActiveIndex(-1);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showCategoryDropdown) {
+      setActiveIndex(-1);
+      categoryOptionRefs.current = [];
+      return;
+    }
+
+    if (!keyboardNavigableCategories.length) {
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (activeIndex >= keyboardNavigableCategories.length) {
+      setActiveIndex(keyboardNavigableCategories.length - 1);
+    }
+  }, [
+    showCategoryDropdown,
+    keyboardNavigableCategories.length,
+    activeIndex,
+  ]);
+
+  useEffect(() => {
+    if (!showCategoryDropdown || activeIndex < 0) return;
+    categoryOptionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, showCategoryDropdown]);
 
   // Compute dropdown position when it opens
   useEffect(() => {
@@ -240,6 +276,60 @@ export default function TransactionModal({
       }
     },
     [errors],
+  );
+
+  const handleCategoryInputKeyDown = useCallback(
+    (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!showCategoryDropdown) {
+          setShowCategoryDropdown(true);
+          setActiveIndex(keyboardNavigableCategories.length ? 0 : -1);
+          return;
+        }
+        if (!keyboardNavigableCategories.length) return;
+        setActiveIndex((prev) => {
+          if (prev < 0) return 0;
+          return (prev + 1) % keyboardNavigableCategories.length;
+        });
+        return;
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!showCategoryDropdown) {
+          setShowCategoryDropdown(true);
+          setActiveIndex(keyboardNavigableCategories.length ? 0 : -1);
+          return;
+        }
+        if (!keyboardNavigableCategories.length) return;
+        setActiveIndex((prev) => {
+          if (prev <= 0) return keyboardNavigableCategories.length - 1;
+          return prev - 1;
+        });
+        return;
+      }
+
+      if (e.key === "Enter" && showCategoryDropdown) {
+        if (!keyboardNavigableCategories.length) return;
+        e.preventDefault();
+        const idx = activeIndex >= 0 ? activeIndex : 0;
+        handleCategorySelect(keyboardNavigableCategories[idx]);
+        return;
+      }
+
+      if (e.key === "Escape" && showCategoryDropdown) {
+        e.preventDefault();
+        setShowCategoryDropdown(false);
+        setActiveIndex(-1);
+      }
+    },
+    [
+      activeIndex,
+      handleCategorySelect,
+      keyboardNavigableCategories,
+      showCategoryDropdown,
+    ],
   );
 
   const handleQuickAmount = useCallback(
@@ -372,8 +462,8 @@ export default function TransactionModal({
           animation: "fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both",
         }}
       >
-        {/* Top glow line */}
-        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+        {/* Top accent line */}
+        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
@@ -580,7 +670,11 @@ export default function TransactionModal({
                         handleChange("categoryId", "");
                       }
                     }}
-                    onFocus={() => setShowCategoryDropdown(true)}
+                    onFocus={() => {
+                      setShowCategoryDropdown(true);
+                      setActiveIndex(keyboardNavigableCategories.length ? 0 : -1);
+                    }}
+                    onKeyDown={handleCategoryInputKeyDown}
                     className={`flex-1 bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
                       errors.categoryId
                         ? "border-red-500"
@@ -679,10 +773,14 @@ export default function TransactionModal({
                               return (
                                 <div
                                   key={cat.id}
+                                  ref={(node) => {
+                                    categoryOptionRefs.current[idx] = node;
+                                  }}
                                   onMouseDown={(e) => {
                                     e.preventDefault();
                                     handleCategorySelect(cat);
                                   }}
+                                  onMouseEnter={() => setActiveIndex(idx)}
                                   className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
                                     idx === activeIndex
                                       ? "bg-violet-500/10 border-l-2 border-l-violet-400"

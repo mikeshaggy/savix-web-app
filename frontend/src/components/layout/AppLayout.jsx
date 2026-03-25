@@ -1,11 +1,12 @@
 'use client';
 import React, { useState, useCallback, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AppProvider, useAppContext } from '@/contexts/AppContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { PageLoading } from '@/components/common/Loading';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import CommandPalette from './CommandPalette';
 import TransactionModal from '../modals/TransactionModal';
 import TransferModal from '../modals/TransferModal';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -84,6 +85,7 @@ function AppLayoutContent({
     onCloseTransferModal
 }) {
     const t = useTranslations();
+    const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const {
         categories,
@@ -96,6 +98,22 @@ function AppLayoutContent({
         onCreateTransfer,
         onRefresh
     } = useAppContext();
+
+    const handleNavigate = useCallback((href) => {
+        router.push(href);
+    }, [router]);
+
+    const handleAddFixedPayment = useCallback(() => {
+        router.push('/transactions/fixed-payments?open=create');
+    }, [router]);
+
+    const handleAddCategory = useCallback(() => {
+        router.push('/transactions/categories?open=create');
+    }, [router]);
+
+    const handleAddWallet = useCallback(() => {
+        router.push('/wallets?open=create');
+    }, [router]);
 
     useEffect(() => {
         setSidebarOpen(false);
@@ -134,7 +152,7 @@ function AppLayoutContent({
     }
 
     return (
-        <div className="min-h-screen bg-[#06060f] text-white flex overflow-x-hidden">
+        <div className="h-screen bg-[#06060f] text-white flex overflow-hidden">
             {/* Sidebar */}
             <Sidebar 
                 currentPath={pathname}
@@ -145,7 +163,7 @@ function AppLayoutContent({
             />
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0">
+            <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top Bar */}
                 <TopBar 
                     onRefresh={onRefresh}
@@ -171,6 +189,15 @@ function AppLayoutContent({
                 isOpen={showTransferModal}
                 onClose={onCloseTransferModal}
                 onSave={onCreateTransfer}
+            />
+
+            <CommandPalette
+                onNavigate={handleNavigate}
+                onNewTransaction={onNewTransaction}
+                onNewTransfer={onNewTransfer}
+                onAddFixedPayment={handleAddFixedPayment}
+                onAddCategory={handleAddCategory}
+                onAddWallet={handleAddWallet}
             />
         </div>
     );

@@ -150,8 +150,8 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
           animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
         }}
       >
-        {/* Top glow line */}
-        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+        {/* Top accent line */}
+        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">

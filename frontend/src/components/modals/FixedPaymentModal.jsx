@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2, Trash2 } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import { useTranslations } from 'next-intl';
@@ -12,7 +12,13 @@ const CYCLE_OPTIONS = [
   { value: 'YEARLY', labelKey: 'fixedPayments.yearly' },
 ];
 
-export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPayment = null }) {
+export default function FixedPaymentModal({
+  isOpen,
+  onClose,
+  onSave,
+  fixedPayment = null,
+  onDeactivateRequest = null,
+}) {
   const { currentWallet } = useWallets();
   const { categories } = useCategories();
   const t = useTranslations();
@@ -35,9 +41,11 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
 
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const categoryInputRef = useRef(null);
   const dropdownRef = useRef(null);
   const dropdownPortalRef = useRef(null);
+  const categoryOptionRefs = useRef([]);
   const [dropdownPosition, setDropdownPosition] = useState({
     top: 0, left: 0, width: 0, maxHeight: 280, openUp: false,
   });
@@ -79,11 +87,18 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (showCategoryDropdown) {
+          setShowCategoryDropdown(false);
+          setActiveIndex(-1);
+          return;
+        }
+        onClose();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showCategoryDropdown]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -91,6 +106,7 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
       const inPortal = dropdownPortalRef.current && dropdownPortalRef.current.contains(e.target);
       if (!inDropdownArea && !inPortal) {
         setShowCategoryDropdown(false);
+        setActiveIndex(-1);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -134,6 +150,28 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
       .slice(0, 30);
   }, [expenseCategories, categorySearch]);
 
+  useEffect(() => {
+    if (!showCategoryDropdown) {
+      setActiveIndex(-1);
+      categoryOptionRefs.current = [];
+      return;
+    }
+
+    if (!filteredCategories.length) {
+      setActiveIndex(-1);
+      return;
+    }
+
+    if (activeIndex >= filteredCategories.length) {
+      setActiveIndex(filteredCategories.length - 1);
+    }
+  }, [showCategoryDropdown, filteredCategories.length, activeIndex]);
+
+  useEffect(() => {
+    if (!showCategoryDropdown || activeIndex < 0) return;
+    categoryOptionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [showCategoryDropdown, activeIndex]);
+
   const handleChange = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -145,10 +183,58 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
     setFormData(prev => ({ ...prev, categoryId: category.id.toString() }));
     setCategorySearch(category.name);
     setShowCategoryDropdown(false);
+    setActiveIndex(-1);
     if (errors.categoryId) {
       setErrors(prev => ({ ...prev, categoryId: '' }));
     }
   }, [errors]);
+
+  const handleCategoryInputKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!showCategoryDropdown) {
+        setShowCategoryDropdown(true);
+        setActiveIndex(filteredCategories.length ? 0 : -1);
+        return;
+      }
+      if (!filteredCategories.length) return;
+      setActiveIndex((prev) => {
+        if (prev < 0) return 0;
+        return (prev + 1) % filteredCategories.length;
+      });
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!showCategoryDropdown) {
+        setShowCategoryDropdown(true);
+        setActiveIndex(filteredCategories.length ? 0 : -1);
+        return;
+      }
+      if (!filteredCategories.length) return;
+      setActiveIndex((prev) => {
+        if (prev <= 0) return filteredCategories.length - 1;
+        return prev - 1;
+      });
+      return;
+    }
+
+    if (e.key === 'Enter' && showCategoryDropdown) {
+      if (!filteredCategories.length) return;
+      e.preventDefault();
+      const idx = activeIndex >= 0 ? activeIndex : 0;
+      handleCategorySelect(filteredCategories[idx]);
+      return;
+    }
+
+    if (e.key === 'Escape' && showCategoryDropdown) {
+      e.preventDefault();
+      e.stopPropagation();
+      setShowCategoryDropdown(false);
+      setActiveIndex(-1);
+    }
+  }, [activeIndex, filteredCategories, handleCategorySelect, showCategoryDropdown]);
 
   const validateForm = useCallback(() => {
     const newErrors = {};
@@ -243,8 +329,8 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
           animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both',
         }}
       >
-        {/* Top glow line */}
-        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent opacity-60" />
+        {/* Top accent line */}
+        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
@@ -335,11 +421,16 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
                     onChange={(e) => {
                       setCategorySearch(e.target.value);
                       setShowCategoryDropdown(true);
+                      setActiveIndex(0);
                       if (formData.categoryId && e.target.value !== selectedCategory?.name) {
                         handleChange('categoryId', '');
                       }
                     }}
-                    onFocus={() => setShowCategoryDropdown(true)}
+                    onFocus={() => {
+                      setShowCategoryDropdown(true);
+                      setActiveIndex(filteredCategories.length ? 0 : -1);
+                    }}
+                    onKeyDown={handleCategoryInputKeyDown}
                     className={`flex-1 bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
                       errors.categoryId ? 'border-red-500' : 'border-white/[0.055]'
                     }`}
@@ -370,14 +461,22 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
                       {filteredCategories.length === 0 ? (
                         <div className="px-4 py-4 text-gray-400 text-sm">{t('transaction.noMatches')}</div>
                       ) : (
-                        filteredCategories.map(cat => (
+                        filteredCategories.map((cat, idx) => (
                           <div
                             key={cat.id}
+                            ref={(node) => {
+                              categoryOptionRefs.current[idx] = node;
+                            }}
                             onMouseDown={(e) => {
                               e.preventDefault();
                               handleCategorySelect(cat);
                             }}
-                            className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.03] border-l-2 border-l-transparent"
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors border-l-2 ${
+                              idx === activeIndex
+                                ? 'bg-violet-500/10 border-l-violet-400'
+                                : 'hover:bg-white/[0.03] border-l-transparent'
+                            }`}
                           >
                             <div className="w-8 h-8 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-base shrink-0">
                               {cat.emoji || '🏷️'}
@@ -445,8 +544,7 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
             {!isEditing && (
               <div>
                 <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2">
-                  {t('fixedPayments.activeFrom')}
-                  <span className="text-white/25 font-normal tracking-normal normal-case text-[13px] ml-1.5">({t('common.optional')})</span>
+                  {t('fixedPayments.activeFrom')} <span className="text-purple-300">*</span>
                 </div>
                 <input
                   type="date"
@@ -490,42 +588,57 @@ export default function FixedPaymentModal({ isOpen, onClose, onSave, fixedPaymen
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+          <div className="flex items-center justify-between gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+            <div>
+              {isEditing && onDeactivateRequest && (
+                <button
+                  type="button"
+                  onClick={() => onDeactivateRequest(fixedPayment)}
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 px-4 py-3 bg-[rgba(244,63,94,0.08)] border border-[rgba(244,63,94,0.35)] rounded-xl text-base font-semibold text-[#fda4af] cursor-pointer transition-all hover:bg-[rgba(244,63,94,0.14)] hover:border-[rgba(244,63,94,0.45)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {t('fixedPayments.deactivate')}
+                </button>
+              )}
+            </div>
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
-              style={{
-                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.3)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.3)'; }}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {t('common.loading')}
-                </>
-              ) : (
-                <>
-                  <div className="w-[18px] h-[18px] bg-white/20 rounded-[6px] flex items-center justify-center">
-                    <Save className="w-2.5 h-2.5" />
-                  </div>
-                  {t('common.save')}
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                  boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.3)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.3)'; }}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {t('common.loading')}
+                  </>
+                ) : (
+                  <>
+                    <div className="w-[18px] h-[18px] bg-white/20 rounded-[6px] flex items-center justify-center">
+                      <Save className="w-2.5 h-2.5" />
+                    </div>
+                    {t('common.save')}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

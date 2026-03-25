@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Wallet, Plus, Receipt, AlertTriangle } from 'lucide-react';
 import TransactionsView from '@/components/views/TransactionsView';
@@ -20,15 +20,26 @@ function TransactionsPageInner() {
         onCreateTransaction,
         onUpdateTransaction,
         onDeleteTransaction,
-        onNewTransfer
+        onNewTransfer,
+        walletMutationVersion
     } = useAppContext();
     const router = useRouter();
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const hasHandledMutationRef = useRef(false);
 
     const serverTx = useServerTransactions(currentWallet?.id);
+
+    useEffect(() => {
+        if (!hasHandledMutationRef.current) {
+            hasHandledMutationRef.current = true;
+            return;
+        }
+        if (!currentWallet?.id) return;
+        serverTx.refetch();
+    }, [walletMutationVersion, currentWallet?.id]);
 
     const handleNewTransaction = () => {
         setEditingTransaction(null);
@@ -49,7 +60,6 @@ function TransactionsPageInner() {
             }
             setShowTransactionModal(false);
             setEditingTransaction(null);
-            serverTx.refetch();
         } catch (error) {
             console.error('Failed to save transaction:', error);
             throw error;
@@ -67,7 +77,6 @@ function TransactionsPageInner() {
             setDeleteLoading(true);
             await onDeleteTransaction(deleteConfirm.id);
             setDeleteConfirm(null);
-            serverTx.refetch();
         } catch (error) {
             console.error('Failed to delete transaction:', error);
         } finally {
@@ -134,7 +143,7 @@ function TransactionsPageInner() {
         <div>
             {/* Transactions View */}
             <TransactionsView 
-                items={serverTx.items}
+                groups={serverTx.groups}
                 totalElements={serverTx.totalElements}
                 totalPages={serverTx.totalPages}
                 hasNext={serverTx.hasNext}
@@ -194,8 +203,8 @@ function TransactionsPageInner() {
                             animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
                         }}
                     >
-                        {/* Top glow line - red for delete */}
-                        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-red-400 to-transparent opacity-60" />
+                        {/* Top accent line - red for delete */}
+                        <div className="absolute top-0 left-[10%] right-[10%] h-px bg-red-400/55" />
                         
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2.5 bg-red-400/10 border border-red-400/20 rounded-xl">

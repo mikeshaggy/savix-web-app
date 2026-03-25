@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Edit, Trash2, Tag, AlertCircle, RefreshCw } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
@@ -9,6 +10,9 @@ import { useTranslations } from 'next-intl';
 
 export default function CategoryManagementView() {
   const t = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { currentWallet } = useWallets();
   const { user } = useUser();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, refetch } = useCategories();
@@ -17,6 +21,13 @@ export default function CategoryManagementView() {
   const [deletingCategory, setDeletingCategory] = useState(null);
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('open') !== 'create') return;
+    setEditingCategory(null);
+    setShowModal(true);
+    router.replace(pathname);
+  }, [pathname, router, searchParams]);
 
   const filteredCategories = categories.filter(category => {
     if (typeFilter === 'ALL') return true;
@@ -121,7 +132,6 @@ export default function CategoryManagementView() {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="text-xl sm:text-[22px] font-semibold tracking-[-0.3px] mb-1">
@@ -154,7 +164,6 @@ export default function CategoryManagementView() {
         )}
       </div>
 
-      {/* Filter Tabs */}
       <div className="flex gap-[6px] flex-wrap">
         <button
           onClick={() => setTypeFilter('ALL')}
@@ -205,39 +214,13 @@ export default function CategoryManagementView() {
         </button>
       </div>
 
-      {/* Categories Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 items-stretch">
         {filteredCategories.map((category) => (
           <div
             key={category.id}
-            className="group bg-[#13131f] border border-white/[0.06] rounded-[12px] px-4 py-[14px] flex items-center justify-between cursor-pointer transition-all hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[1px] hover:shadow-[0_6px_24px_rgba(0,0,0,0.25)]"
+            className="group relative h-full min-h-[188px] bg-[#13131f] border border-white/[0.06] rounded-[14px] p-4 sm:p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[1px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
           >
-            <div className="flex items-center gap-3">
-              {/* Icon with type dot */}
-              <div className="relative w-[38px] h-[38px] flex-shrink-0">
-                <div className={`w-[38px] h-[38px] rounded-[10px] flex items-center justify-center text-[18px] ${
-                  category.type === 'INCOME'
-                    ? 'bg-[rgba(34,197,94,0.1)]'
-                    : 'bg-[rgba(244,63,94,0.1)]'
-                }`}>
-                  {category.emoji || (category.type === 'INCOME' ? '💰' : '💸')}
-                </div>
-                <div className={`absolute -bottom-[1px] -right-[1px] w-[10px] h-[10px] rounded-full border-2 border-[#13131f] ${
-                  category.type === 'INCOME' ? 'bg-[#22c55e]' : 'bg-[#f43f5e]'
-                }`} />
-              </div>
-              <div>
-                <div className="text-[13.5px] font-medium text-white mb-[2px]">
-                  {category.name}
-                </div>
-                <div className="text-[11.5px] text-[#6b6b8a]">
-                  {t('wallet.created', { date: new Date(category.createdAt).toLocaleDateString() })}
-                </div>
-              </div>
-            </div>
-
-            {/* Actions — visible on hover */}
-            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
+            <div className="absolute top-3 right-3 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -259,11 +242,32 @@ export default function CategoryManagementView() {
                 <Trash2 className="w-3 h-3" />
               </button>
             </div>
+
+            <div className="relative w-[64px] h-[64px] mb-4">
+              <div className={`w-[64px] h-[64px] rounded-[16px] flex items-center justify-center text-[34px] leading-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${
+                category.type === 'INCOME'
+                  ? 'bg-[rgba(34,197,94,0.1)]'
+                  : 'bg-[rgba(244,63,94,0.1)]'
+              }`}>
+                {category.emoji || (category.type === 'INCOME' ? '💰' : '💸')}
+              </div>
+              <div className={`absolute -bottom-[2px] -right-[2px] w-[12px] h-[12px] rounded-full border-2 border-[#13131f] ${
+                category.type === 'INCOME' ? 'bg-[#22c55e]' : 'bg-[#f43f5e]'
+              }`} />
+            </div>
+
+            <div className="w-full">
+              <div className="text-[15px] font-semibold text-white mb-[4px] line-clamp-2 min-h-[42px] flex items-center justify-center px-1">
+                {category.name}
+              </div>
+              <div className="text-[11px] text-[#6b6b8a]">
+                {t('wallet.created', { date: new Date(category.createdAt).toLocaleDateString() })}
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Empty State — filtered */}
       {filteredCategories.length === 0 && categories.length > 0 && (
         <div className="text-center py-12">
           <Tag className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
@@ -280,8 +284,7 @@ export default function CategoryManagementView() {
           </button>
         </div>
       )}
-      
-      {/* Completely Empty State */}
+
       {categories.length === 0 && (
         <div className="text-center py-12">
           <Tag className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
@@ -299,7 +302,6 @@ export default function CategoryManagementView() {
         </div>
       )}
 
-      {/* Category Modal */}
       <CategoryModal
         isOpen={showModal}
         onClose={closeModal}
@@ -308,7 +310,6 @@ export default function CategoryManagementView() {
         loading={loading}
       />
 
-      {/* Delete Confirmation Modal */}
       {deletingCategory && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
@@ -321,11 +322,11 @@ export default function CategoryManagementView() {
                 <p className="text-[#6b6b8a] text-sm">{t('category.cannotBeUndone')}</p>
               </div>
             </div>
-            
+
             <p className="text-[#9898b8] mb-6">
               {t('category.deleteCategoryConfirm', { name: `${deletingCategory.emoji ? `${deletingCategory.emoji} ` : ''}${deletingCategory.name}` })}
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingCategory(null)}

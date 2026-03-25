@@ -11,7 +11,7 @@ export const useDashboard = (walletId = null) => {
   const [error, setError] = useState(null);
   const fetchedWalletIdRef = useRef(null);
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (forceRefresh = false) => {
     if (!walletId) {
       setData({
         transactions: [],
@@ -24,7 +24,7 @@ export const useDashboard = (walletId = null) => {
       return;
     }
 
-    if (fetchedWalletIdRef.current === walletId && data.transactions.length > 0) {
+    if (!forceRefresh && fetchedWalletIdRef.current === walletId && data.transactions.length > 0) {
       return;
     }
 
@@ -83,8 +83,8 @@ export const useDashboard = (walletId = null) => {
     };
   }, [walletId]);
 
-  const refetch = useCallback(() => {
-    fetchDashboardData();
+  const refetch = useCallback((forceRefresh = false) => {
+    return fetchDashboardData(forceRefresh);
   }, [fetchDashboardData]);
 
   return { data, loading, error, refetch };
