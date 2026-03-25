@@ -2,13 +2,15 @@ package com.mikeshaggy.backend.ledger.service;
 
 import com.mikeshaggy.backend.ledger.domain.SourceType;
 import com.mikeshaggy.backend.ledger.domain.WalletEntry;
+import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletEntryResponse;
 import com.mikeshaggy.backend.ledger.repo.WalletEntryRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.wallet.service.WalletService;
+import com.mikeshaggy.backend.wallet.repo.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,25 +26,51 @@ import java.util.UUID;
 public class WalletEntryService {
 
     private final WalletEntryRepository walletEntryRepository;
-    private final WalletService walletService;
+    private final WalletRepository walletRepository;
+    private final WalletBalanceHistoryQueryService walletBalanceHistoryQueryService;
 
-    public List<WalletEntryResponse> getEntriesForUser(UUID userId) {
-        return walletEntryRepository.findAllByUserId(userId).stream()
+    public List<WalletEntryResponse> getEntriesByWalletIdForUser(
+            Integer walletId,
+            UUID userId,
+            LocalDate from,
+            LocalDate to,
+            Integer limit
+    ) {
+        if (!walletRepository.existsByIdAndUserId(walletId, userId)) {
+            throw new EntityNotFoundException("Wallet not found with id: " + walletId);
+        }
+
+        if (limit != null && limit <= 0) {
+            throw new IllegalArgumentException("limit must be greater than 0");
+        }
+
+        Pageable pageable = limit == null ? Pageable.unpaged() : Pageable.ofSize(limit);
+
+        return walletEntryRepository.findByWalletIdAndUserIdForHistory(walletId, userId, from, to, pageable).stream()
                 .map(WalletEntryResponse::from)
                 .toList();
     }
 
-    public WalletEntryResponse getEntryByIdForUser(Long id, UUID userId) {
-        WalletEntry entry = getEntryOrThrowForUser(id, userId);
-        return WalletEntryResponse.from(entry);
+    public WalletBalanceHistoryResponse getBalanceHistoryByWalletIdForUser(Integer walletId, UUID userId) {
+        return walletBalanceHistoryQueryService.getBalanceHistoryByWalletIdForUser(walletId, userId);
     }
 
-    public List<WalletEntryResponse> getEntriesByWalletIdForUser(Integer walletId, UUID userId) {
-        walletService.getWalletEntityByIdForUser(walletId, userId);
-
-        return walletEntryRepository.findByWalletIdAndUserId(walletId, userId).stream()
-                .map(WalletEntryResponse::from)
-                .toList();
+    public WalletBalanceHistoryResponse getBalanceHistoryByWalletIdForUser(
+            Integer walletId,
+            UUID userId,
+            LocalDate from,
+            LocalDate to,
+            Integer page,
+            Integer size
+    ) {
+        return walletBalanceHistoryQueryService.getBalanceHistoryByWalletIdForUser(
+                walletId,
+                userId,
+                from,
+                to,
+                page,
+                size
+        );
     }
 
     @Transactional
@@ -62,10 +90,5 @@ public class WalletEntryService {
                 savedEntry.getId(), wallet, amountSigned, entryDate, sourceType, sourceId);
 
         return savedEntry;
-    }
-
-    private WalletEntry getEntryOrThrowForUser(Long id, UUID userId) {
-        return walletEntryRepository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new EntityNotFoundException("Wallet entry not found with id: " + id));
     }
 }

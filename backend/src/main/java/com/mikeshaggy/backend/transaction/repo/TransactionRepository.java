@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.transaction.repo;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -51,4 +52,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     @Override
     @EntityGraph(attributePaths = {"wallet", "category"})
     Page<Transaction> findAll(Specification<Transaction> spec, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"wallet", "category"})
+    List<Transaction> findAll(Specification<Transaction> spec, Sort sort);
 }

@@ -111,7 +111,7 @@ public class CategoryService {
     }
 
     private void validateEmojiUniqueness(String emoji, UUID userId, Integer excludeId) {
-        if (emoji == null && emoji.isBlank()) {
+        if (emoji == null || emoji.isBlank()) {
             return;
         }
 

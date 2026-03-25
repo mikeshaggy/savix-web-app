@@ -15,9 +15,6 @@ import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -25,7 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,7 +42,7 @@ public class TransactionService {
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("transactionDate", "amount", "title");
     private static final Set<Integer> ALLOWED_PAGE_SIZES = Set.of(10, 20, 50, 100);
-    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
 
 
@@ -50,9 +50,8 @@ public class TransactionService {
         int effectivePage = Math.max(filter.page(), 0);
         int effectiveSize = normalizeSize(filter.size());
         Sort effectiveSort = normalizeSort(filter.sort());
-        Pageable pageable = PageRequest.of(effectivePage, effectiveSize, effectiveSort);
 
-        return searchTransactions(
+        List<Transaction> transactions = searchAllTransactions(
                 filter.userId(),
                 filter.walletId(),
                 filter.types(),
@@ -61,7 +60,20 @@ public class TransactionService {
                 filter.startDate(),
                 filter.endDate(),
                 filter.q(),
-                pageable
+                effectiveSort
+        );
+
+        List<TransactionDateGroupResponse> groups = groupTransactionsByDate(transactions);
+        GroupedPaginationResult result = paginateTransactionGroups(groups, effectivePage, effectiveSize);
+
+        return new TransactionPageResponse(
+                result.groups(),
+                result.activePage(),
+                effectiveSize,
+                result.totalElements(),
+                result.totalPages(),
+                result.activePage() + 1 < result.totalPages(),
+                result.activePage() > 0
         );
     }
 
@@ -87,14 +99,17 @@ public class TransactionService {
         }
 
         if (!ALLOWED_SORT_FIELDS.contains(field)) {
-            field = "transactionDate";
-            direction = Sort.Direction.DESC;
+            return Sort.by(Sort.Direction.DESC, "transactionDate");
         }
 
-        return Sort.by(direction, field);
+        if (field.equals("transactionDate")) {
+            return Sort.by(direction, "transactionDate");
+        }
+
+        return Sort.by(Sort.Direction.DESC, "transactionDate").and(Sort.by(direction, field));
     }
 
-    private TransactionPageResponse searchTransactions(
+    private List<Transaction> searchAllTransactions(
             UUID userId,
             Integer walletId,
             List<CategoryType> types,
@@ -103,28 +118,64 @@ public class TransactionService {
             LocalDate startDate,
             LocalDate endDate,
             String q,
-            Pageable pageable
+            Sort sort
     ) {
         Specification<Transaction> spec = TransactionSpecifications.buildSpecification(
                 userId, walletId, types, categoryIds, importances, startDate, endDate, q
         );
-
-        Page<Transaction> page = transactionRepository.findAll(spec, pageable);
-
-        List<TransactionResponse> items = page.getContent().stream()
-                .map(TransactionResponse::from)
-                .toList();
-
-        return new TransactionPageResponse(
-                items,
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements(),
-                page.getTotalPages(),
-                page.hasNext(),
-                page.hasPrevious()
-        );
+        return transactionRepository.findAll(spec, sort);
     }
+
+    private List<TransactionDateGroupResponse> groupTransactionsByDate(List<Transaction> transactions) {
+        Map<LocalDate, List<TransactionResponse>> grouped = new LinkedHashMap<>();
+        for (Transaction t : transactions) {
+            grouped.computeIfAbsent(t.getTransactionDate(), ignored -> new ArrayList<>())
+                    .add(TransactionResponse.from(t));
+        }
+        return grouped.entrySet().stream()
+                .map(e -> new TransactionDateGroupResponse(e.getKey(), e.getValue()))
+                .toList();
+    }
+
+    private GroupedPaginationResult paginateTransactionGroups(
+            List<TransactionDateGroupResponse> groups,
+            int requestedPage,
+            int pageSize
+    ) {
+        long totalRows = groups.stream().mapToLong(g -> g.transactions().size()).sum();
+        if (totalRows == 0) {
+            return new GroupedPaginationResult(List.of(), 0L, 0, 0);
+        }
+
+        List<List<TransactionDateGroupResponse>> pages = new ArrayList<>();
+        List<TransactionDateGroupResponse> bucket = new ArrayList<>();
+        int bucketRows = 0;
+
+        for (TransactionDateGroupResponse group : groups) {
+            int groupRows = group.transactions().size();
+            if (!bucket.isEmpty() && bucketRows + groupRows > pageSize) {
+                pages.add(bucket);
+                bucket = new ArrayList<>();
+                bucketRows = 0;
+            }
+            bucket.add(group);
+            bucketRows += groupRows;
+        }
+        if (!bucket.isEmpty()) {
+            pages.add(bucket);
+        }
+
+        int totalPages = pages.size();
+        int activePage = Math.min(requestedPage, totalPages - 1);
+        return new GroupedPaginationResult(pages.get(activePage), totalRows, totalPages, activePage);
+    }
+
+    private record GroupedPaginationResult(
+            List<TransactionDateGroupResponse> groups,
+            long totalElements,
+            int totalPages,
+            int activePage
+    ) {}
 
     public List<TransactionResponse> getTransactionsByWalletIdForUser(Integer walletId, UUID userId) {
         walletService.getWalletEntityByIdForUser(walletId, userId);
