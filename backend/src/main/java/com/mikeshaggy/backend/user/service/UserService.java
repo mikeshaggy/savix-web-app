@@ -30,7 +30,7 @@ public class UserService {
         User user = getUserOrThrow(userId);
 
         request.applyTo(user);
-        log.info("Updated user id: {} to username: '{}'", userId, request.username());
+        log.info("User updated: userId={}", userId);
 
         User updatedUser = userRepository.save(user);
         return MeResponse.from(updatedUser);
@@ -40,8 +40,7 @@ public class UserService {
     public void deleteUserById(UUID userId) {
         User user = getUserOrThrow(userId);
 
-        log.info("Deleting user '{}' with id: {} and all related data",
-                user.getUsername(), user.getId());
+        log.info("User deleted: userId={}", user.getId());
 
         userRepository.delete(user);
     }

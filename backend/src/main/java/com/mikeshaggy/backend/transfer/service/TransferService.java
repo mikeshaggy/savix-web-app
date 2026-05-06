@@ -67,9 +67,8 @@ public class TransferService {
         walletBalanceService.applyTransfer(fromWallet.getId(), toWallet.getId(), request.amount(),
                 userId, savedTransfer.getId(), savedTransfer.getTransferDate());
 
-        log.info("Created transfer (id: {}) of {} from wallet {} to wallet {} for user {}",
-                savedTransfer.getId(), savedTransfer.getAmount(),
-                fromWallet.getId(), toWallet.getId(), userId);
+        log.info("Transfer created: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",
+            savedTransfer.getId(), userId, fromWallet.getId(), toWallet.getId(), savedTransfer.getAmount());
 
         return TransferResponse.from(savedTransfer);
     }
@@ -106,9 +105,8 @@ public class TransferService {
                 updatedTransfer.getId(), updatedTransfer.getTransferDate()
         );
 
-        log.info("Updated transfer id: {} to amount: {}, from wallet: {} to wallet: {}",
-                id, updatedTransfer.getAmount(),
-                newFromWallet.getId(), newToWallet.getId());
+        log.info("Transfer updated: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",
+            id, userId, newFromWallet.getId(), newToWallet.getId(), updatedTransfer.getAmount());
 
         return TransferResponse.from(updatedTransfer);
     }
@@ -126,15 +124,15 @@ public class TransferService {
                 transfer.getTransferDate()
         );
 
-        log.info("Deleting transfer (id: {}) of {} from wallet {} to wallet {}, rolled back balances",
-                id, transfer.getAmount(),
-                transfer.getFromWallet().getId(), transfer.getToWallet().getId());
+        log.info("Transfer deleted: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",
+            id, userId, transfer.getFromWallet().getId(), transfer.getToWallet().getId(), transfer.getAmount());
 
         transferRepository.delete(transfer);
     }
 
     private void validateNotSelfTransfer(Integer fromWalletId, Integer toWalletId) {
         if (fromWalletId.equals(toWalletId)) {
+            log.warn("Transfer validation failed: reason=self_transfer, walletId={}", fromWalletId);
             throw new IllegalArgumentException("Cannot transfer to the same wallet");
         }
     }

@@ -25,11 +25,13 @@ public class RegistrationService {
         String normalizedEmail = request.email().toLowerCase().trim();
         
         if (userRepository.existsByEmail(normalizedEmail)) {
+            log.warn("Registration rejected: reason=email_already_exists");
             throw new AuthException("Registration failed");
         }
 
         PasswordPolicyValidator.ValidationResult validation = passwordPolicyValidator.validate(request.password());
         if (!validation.isValid()) {
+            log.warn("Registration rejected: reason=password_policy_violation");
             throw new AuthException(validation.getMessage());
         }
 
@@ -41,6 +43,6 @@ public class RegistrationService {
 
         userRepository.save(user);
         
-        log.info("User registered successfully with email: {}", normalizedEmail);
+        log.info("User registered: userId={}", user.getId());
     }
 }

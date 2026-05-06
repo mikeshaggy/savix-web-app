@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="ACTIVE_PROFILE" source="spring.profiles.active" defaultValue="local"/>
+
+    <appender name="PLAIN_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <logLevel/>
+                <loggerName/>
+                <threadName/>
+                <message/>
+                <stackTrace>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepth>30</maxDepth>
+                        <maxLength>2048</maxLength>
+                        <shortenedClassNameLength>20</shortenedClassNameLength>
+                        <rootCauseFirst>true</rootCauseFirst>
+                        <inlineHash>false</inlineHash>
+                    </throwableConverter>
+                </stackTrace>
+                <mdc>
+                    <fieldName>mdc</fieldName>
+                </mdc>
+                <logstashMarkers/>
+                <provider class="net.logstash.logback.composite.loggingevent.LoggingEventPatternJsonProvider">
+                    <pattern>{"service":"savix-backend","environment":"${ACTIVE_PROFILE}"}</pattern>
+                </provider>
+            </providers>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC_JSON_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="JSON_CONSOLE"/>
+    </appender>
+
+    <springProfile name="local,dev">
+        <root level="INFO">
+            <appender-ref ref="PLAIN_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!local &amp; !dev &amp; !prod">
+        <root level="INFO">
+            <appender-ref ref="PLAIN_CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

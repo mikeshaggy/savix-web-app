@@ -59,6 +59,7 @@ public class AuthController {
             HttpServletResponse httpResponse) {
         String refreshToken = cookieManager.extractRefreshToken(httpRequest);
         if (refreshToken == null) {
+            log.warn("Refresh endpoint rejected: reason=missing_refresh_token");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(AuthResponse.of("No refresh token provided"));
         }

@@ -218,9 +218,8 @@ public class TransactionService {
         walletBalanceService.applyTransaction(wallet.getId(), savedTransaction.getAmount(), category.getType(),
                 userId, savedTransaction.getId(), savedTransaction.getTransactionDate());
 
-        log.info("Created transaction '{}' (id: {}) for wallet: {}, amount: {}, type: {}",
-                savedTransaction.getTitle(), savedTransaction.getId(), wallet.getId(),
-                savedTransaction.getAmount(), category.getType());
+        log.info("Transaction created: transactionId={}, userId={}, walletId={}, categoryId={}, amount={}",
+            savedTransaction.getId(), userId, wallet.getId(), category.getId(), savedTransaction.getAmount());
 
         return savedTransaction;
     }
@@ -257,8 +256,8 @@ public class TransactionService {
                 updatedTransaction.getId(), updatedTransaction.getTransactionDate()
         );
 
-        log.info("Updated transaction id: {} to title: '{}', amount: {}",
-                id, updatedTransaction.getTitle(), updatedTransaction.getAmount());
+        log.info("Transaction updated: transactionId={}, userId={}, walletId={}, categoryId={}, amount={}",
+            id, userId, updatedTransaction.getWallet().getId(), updatedTransaction.getCategory().getId(), updatedTransaction.getAmount());
 
         return TransactionResponse.from(updatedTransaction);
     }
@@ -277,17 +276,19 @@ public class TransactionService {
                 transaction.getTransactionDate()
         );
 
-        log.info("Deleting transaction '{}' (id: {}) from wallet: {}, rolled back balance",
-                transaction.getTitle(), id, wallet.getId());
+        log.info("Transaction deleted: transactionId={}, userId={}, walletId={}, amount={}",
+            id, userId, wallet.getId(), transaction.getAmount());
 
         transactionRepository.delete(transaction);
     }
 
     private void validateImportance(Importance importance, CategoryType categoryType) {
         if (categoryType == CategoryType.INCOME && importance != null) {
+            log.warn("Transaction validation failed: reason=importance_not_allowed_for_income");
             throw new IllegalArgumentException("Importance must be null for INCOME transactions");
         }
         if (categoryType == CategoryType.EXPENSE && importance == null) {
+            log.warn("Transaction validation failed: reason=importance_required_for_expense");
             throw new IllegalArgumentException("Importance is required for EXPENSE transactions");
         }
     }

@@ -51,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("Authenticated user: {}", claims.subject());
 
             } catch (JwtService.InvalidTokenException e) {
-                log.debug("Invalid JWT token: {}", e.getMessage());
+                log.debug("JWT authentication skipped: reason=invalid_access_token");
             }
         }
 

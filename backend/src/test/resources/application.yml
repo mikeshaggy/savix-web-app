@@ -5,3 +5,50 @@ spring:
     show-sql: true
   datasource:
     url: jdbc:h2:mem:testdb
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  mail:
+    host: localhost
+    port: 25
+  profiles:
+    active: dev
+
+app:
+  frontend:
+    url: http://localhost:3000
+  proxy:
+    secret: test-proxy-secret
+  email:
+    from: test@example.com
+    from-name: Savix Test
+
+auth:
+  jwt:
+    issuer: savix-backend-test
+    audience: savix-frontend-test
+    clock-skew-seconds: 30
+    public-key-location: classpath:jwt-public-key.pem
+    private-key-location: classpath:jwt-private-key.pem
+  access-token:
+    ttl-seconds: 600
+    cookie-name: access_token
+  refresh-token:
+    ttl-seconds: 1209600
+    cookie-name: refresh_token
+  reset-token:
+    ttl-seconds: 900
+  cookie:
+    secure: false
+    domain: ""
+  password:
+    min-length: 12
+    require-categories: 3
+  rate-limit:
+    max-attempts: 5
+    window-seconds: 900
+    lockout-seconds: 900
+    refresh:
+      max-attempts: 30
+      window-seconds: 60

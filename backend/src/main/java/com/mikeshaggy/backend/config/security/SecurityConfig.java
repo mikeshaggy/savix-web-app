@@ -1,6 +1,11 @@
 package com.mikeshaggy.backend.config.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
+import org.springframework.boot.actuate.info.InfoEndpoint;
+import org.springframework.boot.actuate.metrics.MetricsEndpoint;
+import org.springframework.boot.actuate.metrics.export.prometheus.PrometheusScrapeEndpoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -21,6 +26,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ProxySecretFilter proxySecretFilter;
+    private final RequestCorrelationFilter requestCorrelationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -42,14 +48,19 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/refresh",
                                 "/api/auth/forgot-password",
-                                "/api/auth/reset-password",
-                                "/actuator/health"
+                                "/api/auth/reset-password"
                         ).permitAll()
+                        .requestMatchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
+                        .requestMatchers(EndpointRequest.to(PrometheusScrapeEndpoint.class)).permitAll()
+                        .requestMatchers(EndpointRequest.to(InfoEndpoint.class)).permitAll()
+                        .requestMatchers(EndpointRequest.to(MetricsEndpoint.class)).permitAll()
+                        .requestMatchers(EndpointRequest.toAnyEndpoint()).authenticated()
                         .requestMatchers("/api/auth/logout", "/api/auth/change-password").authenticated()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(proxySecretFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(requestCorrelationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(proxySecretFilter, RequestCorrelationFilter.class)
                 .addFilterAfter(jwtAuthenticationFilter, ProxySecretFilter.class)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
