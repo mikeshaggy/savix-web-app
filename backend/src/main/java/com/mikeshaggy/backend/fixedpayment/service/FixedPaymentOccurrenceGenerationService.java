@@ -37,6 +37,8 @@ public class FixedPaymentOccurrenceGenerationService {
         List<FixedPayment> activePayments = fixedPaymentRepository
                 .findAllActiveByUserId(userId, LocalDate.now(clock));
 
+        int generatedCount = 0;
+
         for (FixedPayment fp : activePayments) {
             LocalDate horizon = LocalDate.now(clock).plus(HORIZONS.get(fp.getCycle()));
             LocalDate lastGenerated = occurrenceRepository
@@ -44,9 +46,12 @@ public class FixedPaymentOccurrenceGenerationService {
                     .orElse(fp.getAnchorDate().minusDays(1));
 
             if (lastGenerated.isBefore(horizon)) {
-                generateOccurrences(fp, lastGenerated.plusDays(1), horizon);
+                generatedCount += generateOccurrences(fp, lastGenerated.plusDays(1), horizon);
             }
         }
+
+        log.info("Fixed payment occurrence generation completed: userId={}, activePayments={}, generatedOccurrences={}",
+                userId, activePayments.size(), generatedCount);
     }
 
     @Transactional
@@ -70,12 +75,17 @@ public class FixedPaymentOccurrenceGenerationService {
         }
 
         occurrenceRepository.saveAll(overdueOccurrences);
+
+        if (!overdueOccurrences.isEmpty()) {
+            log.info("Fixed payment overdue update completed: userId={}, updatedOccurrences={}",
+                    userId, overdueOccurrences.size());
+        }
     }
 
-    private void generateOccurrences(FixedPayment fp, LocalDate from, LocalDate to) {
+    private int generateOccurrences(FixedPayment fp, LocalDate from, LocalDate to) {
         List<LocalDate> dueDates = computeDueDates(fp.getAnchorDate(), fp.getCycle(), from, to);
         if (dueDates.isEmpty()) {
-            return;
+            return 0;
         }
 
         Set<LocalDate> existingDueDates = new HashSet<>(
@@ -96,7 +106,10 @@ public class FixedPaymentOccurrenceGenerationService {
 
         if (!toSave.isEmpty()) {
             occurrenceRepository.saveAll(toSave);
+            log.info("Fixed payment occurrences generated: fixedPaymentId={}, count={}", fp.getId(), toSave.size());
         }
+
+        return toSave.size();
     }
 
     List<LocalDate> computeDueDates(LocalDate anchor, Cycle cycle, LocalDate from, LocalDate to) {

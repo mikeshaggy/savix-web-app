@@ -13,6 +13,7 @@ import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class FixedPaymentCrudService {
 
@@ -56,6 +58,9 @@ public class FixedPaymentCrudService {
 
         generationService.ensureOccurrencesGenerated(userId);
 
+        log.info("Fixed payment created: fixedPaymentId={}, userId={}, walletId={}, categoryId={}",
+            fp.getId(), userId, wallet.getId(), category.getId());
+
         return FixedPaymentResponse.from(fp);
     }
 
@@ -82,6 +87,9 @@ public class FixedPaymentCrudService {
             generationService.ensureOccurrencesGenerated(userId);
         }
 
+        log.info("Fixed payment updated: fixedPaymentId={}, userId={}, walletId={}, categoryId={}",
+            fp.getId(), userId, fp.getWallet().getId(), fp.getCategory().getId());
+
         return FixedPaymentResponse.from(fp);
     }
 
@@ -94,9 +102,13 @@ public class FixedPaymentCrudService {
 
         List<FixedPaymentOccurrence> futurePending = occurrenceRepository
                 .findFuturePendingByFixedPaymentId(fp.getId(), LocalDate.now(clock));
+        int deletedOccurrences = futurePending.size();
         occurrenceRepository.deleteAll(futurePending);
 
         fixedPaymentRepository.save(fp);
+
+        log.info("Fixed payment deactivated: fixedPaymentId={}, userId={}, removedFutureOccurrences={}",
+            fp.getId(), userId, deletedOccurrences);
     }
 
     public List<FixedPaymentResponse> getAllFixedPayments(Integer walletId, UUID userId) {

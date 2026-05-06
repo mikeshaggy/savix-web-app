@@ -28,6 +28,7 @@ public class FixedPaymentOccurrenceService {
     public void prepareOccurrencesForDashboard(UUID userId) {
         generationService.ensureOccurrencesGenerated(userId);
         generationService.markOverdueOccurrences(userId);
+        log.info("Fixed payment dashboard preparation completed: userId={}", userId);
     }
 
     @Transactional
@@ -46,7 +47,7 @@ public class FixedPaymentOccurrenceService {
         occurrence.setTransaction(savedTransaction);
         occurrenceRepository.save(occurrence);
 
-        log.info("Marked occurrence id: {} as PAID with transaction id: {}",
-                occurrence.getId(), savedTransaction.getId());
+        log.info("Fixed payment occurrence marked paid: occurrenceId={}, transactionId={}, userId={}",
+            occurrence.getId(), savedTransaction.getId(), userId);
     }
 }
