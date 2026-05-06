@@ -1,0 +1,8 @@
+logging:
+  level:
+    com.mikeshaggy.backend: INFO
+    org.springframework.security: INFO
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
