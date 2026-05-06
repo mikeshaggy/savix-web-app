@@ -51,17 +51,20 @@ public class SessionService {
         String userAgent = httpRequest.getHeader("User-Agent");
 
         if (!rateLimitService.isAllowed("login:ip", clientIp)) {
+            log.warn("Login rejected: reason=rate_limit_ip");
             cryptoUtils.addJitter();
             throw new RateLimitException("Too many login attempts. Please try again later.");
         }
 
         if (!rateLimitService.isAllowed("login:email", email)) {
+            log.warn("Login rejected: reason=rate_limit_email");
             cryptoUtils.addJitter();
             throw new RateLimitException("Too many login attempts. Please try again later.");
         }
 
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
+            log.warn("Login failed: reason=invalid_credentials");
             cryptoUtils.addJitter();
             throw new AuthException("Invalid credentials");
         }
@@ -69,6 +72,7 @@ public class SessionService {
         User user = userOpt.get();
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed: reason=invalid_credentials, userId={}", user.getId());
             cryptoUtils.addJitter();
             throw new AuthException("Invalid credentials");
         }
@@ -76,7 +80,9 @@ public class SessionService {
         rateLimitService.recordSuccess("login:ip", clientIp);
         rateLimitService.recordSuccess("login:email", email);
 
-        return createSession(user, clientIp, userAgent);
+        LoginResult loginResult = createSession(user, clientIp, userAgent);
+        log.info("Login successful: userId={}", user.getId());
+        return loginResult;
     }
 
     @Transactional
@@ -84,6 +90,7 @@ public class SessionService {
         String clientIp = HttpRequestUtils.getClientIp(httpRequest);
 
         if (!rateLimitService.isAllowed("refresh:ip", clientIp, refreshMaxAttempts, refreshWindowSeconds, refreshWindowSeconds)) {
+            log.warn("Refresh token rejected: reason=rate_limit_ip");
             throw new RateLimitException("Too many refresh attempts. Please try again later.");
         }
 
@@ -91,6 +98,7 @@ public class SessionService {
         try {
             claims = jwtService.validateAndParse(refreshToken);
         } catch (JwtService.InvalidTokenException e) {
+            log.warn("Refresh token validation failed: reason=invalid_token");
             throw new AuthException("Invalid refresh token");
         }
 
@@ -100,7 +108,7 @@ public class SessionService {
 
         String providedJtiHash = cryptoUtils.sha256Hash(claims.jti());
         if (!providedJtiHash.equals(session.getRefreshTokenJtiHash())) {
-            log.warn("Refresh token reuse detected for user: {}", claims.subject());
+            log.warn("Refresh token validation failed: reason=token_reuse, userId={}", claims.subject());
             refreshSessionRepository.deleteByUserId(claims.subject());
             throw new AuthException("Invalid refresh token");
         }
@@ -112,7 +120,9 @@ public class SessionService {
 
         String userAgent = httpRequest.getHeader("User-Agent");
 
-        return createSession(user, clientIp, userAgent);
+        LoginResult refreshResult = createSession(user, clientIp, userAgent);
+        log.info("Token refresh successful: userId={}", user.getId());
+        return refreshResult;
     }
 
     @Transactional
@@ -121,16 +131,16 @@ public class SessionService {
             JwtClaims claims = jwtService.validateAndParse(refreshToken);
             String sessionKey = buildSessionKey(claims.subject(), claims.jti());
             refreshSessionRepository.deleteById(sessionKey);
-            log.debug("User {} logged out successfully", claims.subject());
+            log.info("Logout successful: userId={}", claims.subject());
         } catch (Exception e) {
-            log.debug("Logout called with invalid token", e);
+            log.warn("Logout ignored: reason=invalid_refresh_token");
         }
     }
 
     @Transactional
     public void invalidateAllSessions(UUID userId) {
         refreshSessionRepository.deleteByUserId(userId);
-        log.debug("Invalidated all sessions for user: {}", userId);
+        log.info("Sessions invalidated: userId={}", userId);
     }
 
     private LoginResult createSession(User user, String clientIp, String userAgent) {

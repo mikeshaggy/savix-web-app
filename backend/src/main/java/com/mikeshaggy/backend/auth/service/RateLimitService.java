@@ -42,7 +42,7 @@ public class RateLimitService {
         }
 
         if (entry.getLockedUntil() != null && now.isBefore(entry.getLockedUntil())) {
-            log.warn("Rate limit lockout active for {}", key);
+            log.debug("Rate limit lockout active: key={}", key);
             return false;
         }
 
@@ -63,7 +63,7 @@ public class RateLimitService {
         entry.setTtl((long) (customLockoutSeconds + customWindowSeconds));
         rateLimitRepository.save(entry);
         
-        log.warn("Rate limit exceeded for {}. Locked until {}", key, entry.getLockedUntil());
+        log.warn("Rate limit exceeded: key={}, lockedUntil={}", key, entry.getLockedUntil());
         return false;
     }
 

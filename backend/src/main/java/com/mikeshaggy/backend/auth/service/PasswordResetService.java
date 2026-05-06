@@ -47,11 +47,13 @@ public class PasswordResetService {
         String clientIp = HttpRequestUtils.getClientIp(httpRequest);
 
         if (!rateLimitService.isAllowed("reset:ip", clientIp)) {
+            log.warn("Forgot password rejected: reason=rate_limit_ip");
             throw new RateLimitException("Too many password reset attempts. Please try again later.");
         }
 
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
+            log.warn("Forgot password requested for unknown email");
             cryptoUtils.addJitter();
             return;
         }
@@ -78,7 +80,7 @@ public class PasswordResetService {
 
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
         
-        log.info("Password reset email sent for user: {}", user.getId());
+        log.info("Password reset requested: userId={}", user.getId());
     }
 
     @Transactional
@@ -88,11 +90,13 @@ public class PasswordResetService {
         ResetToken resetToken = findValidResetToken(tokenHash);
 
         if (resetToken == null) {
+            log.warn("Password reset rejected: reason=invalid_token");
             cryptoUtils.addJitter();
             throw new AuthException("Invalid or expired reset token");
         }
 
         if (Instant.now().isAfter(resetToken.getExpiresAt())) {
+            log.warn("Password reset rejected: reason=expired_token, userId={}", resetToken.getUserId());
             resetTokenRepository.delete(resetToken);
             cryptoUtils.addJitter();
             throw new AuthException("Invalid or expired reset token");
@@ -106,7 +110,7 @@ public class PasswordResetService {
         resetTokenRepository.delete(resetToken);
         sessionService.invalidateAllSessions(user.getId());
 
-        log.info("Password reset successful for user: {}", user.getId());
+        log.info("Password reset completed: userId={}", user.getId());
     }
 
     @Transactional
@@ -115,18 +119,20 @@ public class PasswordResetService {
                 .orElseThrow(() -> new AuthException("User not found"));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            log.warn("Password change rejected: reason=current_password_mismatch, userId={}", userId);
             cryptoUtils.addJitter();
             throw new AuthException("Current password is incorrect");
         }
 
         if (request.currentPassword().equals(request.newPassword())) {
+            log.warn("Password change rejected: reason=same_password, userId={}", userId);
             throw new AuthException("New password must be different from current password");
         }
 
         validateAndUpdatePassword(user, request.newPassword());
         sessionService.invalidateAllSessions(user.getId());
 
-        log.info("Password changed successfully for user: {}", user.getId());
+        log.info("Password changed: userId={}", user.getId());
     }
 
     private ResetToken findValidResetToken(String tokenHash) {
