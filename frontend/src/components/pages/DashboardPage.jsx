@@ -41,16 +41,6 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!currentWallet?.id) return;
-
-        if (periodType === 'CUSTOM' && customStartDate && customEndDate) {
-            fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
-        } else if (periodType !== 'CUSTOM') {
-            fetchDashboard(currentWallet.id, periodType, null, null);
-        }
-    }, [currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
-
-    useEffect(() => {
-        if (!currentWallet?.id) return;
         if (periodType === 'CUSTOM' && (!customStartDate || !customEndDate)) return;
 
         if (periodType === 'CUSTOM') {
@@ -58,7 +48,7 @@ export default function DashboardPage() {
         } else {
             fetchDashboard(currentWallet.id, periodType, null, null);
         }
-    }, [walletMutationVersion, currentWallet?.id, periodType, customStartDate, customEndDate, fetchDashboard]);
+    }, [currentWallet?.id, periodType, customStartDate, customEndDate, walletMutationVersion, fetchDashboard]);
 
     const handlePeriodTypeChange = (newPeriodType) => {
         if (newPeriodType === 'CUSTOM') return;
