@@ -4,8 +4,6 @@ let cachedResult = null;
 let lastChecked = null;
 let inflightPromise = null;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/proxy';
-
 export const checkBackendHealth = async () => {
   if (cachedResult !== null && lastChecked && Date.now() - lastChecked < HEALTH_CHECK_TTL) {
     return cachedResult;
@@ -29,15 +27,12 @@ export const checkBackendHealth = async () => {
 
 async function performHealthCheck() {
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-      },
+    const response = await fetch('/api/health', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
     });
-    
-    return response.status < 500;
+
+    return response.ok;
   } catch (error) {
     console.warn('Backend not accessible:', error.message);
     return false;
