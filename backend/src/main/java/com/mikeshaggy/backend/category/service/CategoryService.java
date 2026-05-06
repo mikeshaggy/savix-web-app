@@ -62,8 +62,8 @@ public class CategoryService {
 
         Category savedCategory = categoryRepository.save(category);
         
-        log.info("Created category '{}' (type: {}) with id: {} for user: {}", 
-                savedCategory.getName(), savedCategory.getType(), savedCategory.getId(), userId);
+        log.info("Category created: categoryId={}, userId={}, type={}",
+            savedCategory.getId(), userId, savedCategory.getType());
         
         return CategoryResponse.from(savedCategory);
     }
@@ -80,8 +80,8 @@ public class CategoryService {
                     .ifPresent(existing -> {
                         existing.setCycleAnchor(false);
                         categoryRepository.save(existing);
-                        log.info("Cleared cycle anchor from category '{}' (id: {}) for user: {}",
-                                existing.getName(), existing.getId(), userId);
+                        log.info("Category cycle anchor cleared: categoryId={}, userId={}",
+                            existing.getId(), userId);
                     });
         }
 
@@ -89,8 +89,8 @@ public class CategoryService {
         
         Category updatedCategory = categoryRepository.save(category);
         
-        log.info("Updated category id: {} to name: '{}', type: {}", 
-                categoryId, request.name(), request.type());
+        log.info("Category updated: categoryId={}, userId={}, type={}",
+            categoryId, userId, updatedCategory.getType());
 
         return CategoryResponse.from(updatedCategory);
     }
@@ -99,8 +99,7 @@ public class CategoryService {
     public void deleteCategory(Integer id, UUID userId) {
         Category category = getCategoryOrThrowForUser(id, userId);
         
-        log.info("Deleting category '{}' (id: {}) for user: {}", 
-                category.getName(), id, userId);
+        log.info("Category deleted: categoryId={}, userId={}", id, userId);
         
         categoryRepository.delete(category);
     }

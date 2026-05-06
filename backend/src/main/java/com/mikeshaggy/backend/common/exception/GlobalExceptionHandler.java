@@ -25,11 +25,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFoundException(EntityNotFoundException ex) {
+        log.debug("Resource not found: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.warn("Invalid request: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
@@ -50,11 +52,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
+        log.warn("Authentication failed: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Authentication Failed", ex.getMessage());
     }
 
     @ExceptionHandler(RateLimitException.class)
     public ResponseEntity<ErrorResponse> handleRateLimitException(RateLimitException ex) {
+        log.warn("Rate limit enforced: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage());
     }
 
@@ -67,16 +71,20 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
+        log.warn("Validation failed: fieldErrorCount={}", errors.size());
+
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation Failed", "Input validation failed", errors);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex) {
+        log.warn("Authentication required or invalid: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Unauthorized", "Authentication required");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        log.warn("Access denied: reason={}", ex.getMessage());
         return buildErrorResponse(HttpStatus.FORBIDDEN, "Forbidden", "Access denied");
     }
 
