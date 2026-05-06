@@ -75,8 +75,8 @@ public class WalletService {
             walletEntryBalanceHistoryService.recalculateWalletLedger(savedWallet.getId().longValue());
         }
         
-        log.info("Created wallet '{}' with id: {} for user: {}",
-                savedWallet.getName(), savedWallet.getId(), userId);
+        log.info("Wallet created: walletId={}, userId={}",
+            savedWallet.getId(), userId);
         
             return WalletResponse.from(savedWallet);
     }
@@ -98,8 +98,7 @@ public class WalletService {
 
         Wallet updatedWallet = walletRepository.save(wallet);
         
-        log.info("Updated wallet id: {} to name: '{}', balance: {}",
-                id, updatedWallet.getName(), updatedWallet.getBalance());
+        log.info("Wallet updated: walletId={}, userId={}", id, userId);
         
         return WalletResponse.from(updatedWallet);
     }
@@ -108,8 +107,7 @@ public class WalletService {
     public void deleteWallet(Integer id, UUID userId) {
         Wallet wallet = getWalletOrThrowForUser(id, userId);
         
-        log.info("Deleting wallet '{}' (id: {}) for user: {}",
-                wallet.getName(), id, userId);
+        log.info("Wallet deleted: walletId={}, userId={}", id, userId);
         
         walletRepository.delete(wallet);
     }
