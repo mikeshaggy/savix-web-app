@@ -251,8 +251,12 @@ export const useCategories = (userId = null) => {
   const [error, setError] = useState(null);
   const [initialized, setInitialized] = useState(false);
   const isAuthenticatedRef = useRef(getAuthState());
+  const inFlightRef = useRef(false);
+  const initializedRef = useRef(false);
 
   const fetchCategories = useCallback(async () => {
+    if (inFlightRef.current) return;
+
     const isAuthenticated = getAuthState();
     isAuthenticatedRef.current = isAuthenticated;
 
@@ -260,29 +264,33 @@ export const useCategories = (userId = null) => {
       setCategories([]);
       setLoading(false);
       setError(null);
-      setInitialized(true);
       return;
     }
+
+    inFlightRef.current = true;
 
     try {
       setLoading(true);
       setError(null);
-      
+
       const backendAvailable = await checkBackendHealth();
-      
+
       if (!backendAvailable) {
         throw new Error('Backend not available');
       }
 
       const data = await categoryApi.getAllCategories();
-      
+
       setCategories(data || []);
+      initializedRef.current = true;
       setInitialized(true);
     } catch (err) {
       console.error('Failed to fetch categories:', err);
       setError(err.message);
+      initializedRef.current = true;
       setInitialized(true);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -347,6 +355,8 @@ export const useCategories = (userId = null) => {
   }, []);
 
   const resetCategories = useCallback(() => {
+    inFlightRef.current = false;
+    initializedRef.current = false;
     setCategories([]);
     setError(null);
     setInitialized(false);
@@ -360,13 +370,13 @@ export const useCategories = (userId = null) => {
     const unsubscribe = onAuthStateChange((authenticated) => {
       if (!authenticated) {
         resetCategories();
-      } else if (!initialized) {
+      } else if (!initializedRef.current && !inFlightRef.current) {
         fetchCategories();
       }
     });
 
     return unsubscribe;
-  }, [fetchCategories, resetCategories, initialized]);
+  }, [fetchCategories, resetCategories]);
 
   return {
     categories,

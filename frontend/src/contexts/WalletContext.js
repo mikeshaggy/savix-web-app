@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { walletApi, checkBackendHealth, onAuthStateChange } from '@/lib/api';
 import { useUser } from './UserContext';
 
@@ -109,6 +109,7 @@ const walletReducer = (state, action) => {
 export const WalletProvider = ({ children }) => {
   const [state, dispatch] = useReducer(walletReducer, initialState);
   const { isAuthenticated, isLoading: userLoading } = useUser();
+  const fetchingRef = useRef(false);
 
   const fetchWallets = useCallback(async () => {
     if (!isAuthenticated) {
@@ -117,9 +118,12 @@ export const WalletProvider = ({ children }) => {
       return;
     }
 
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
-    
+
     try {
       const backendAvailable = await checkBackendHealth();
       
@@ -143,6 +147,7 @@ export const WalletProvider = ({ children }) => {
       }
       dispatch({ type: 'SET_INITIALIZED', payload: true });
     } finally {
+      fetchingRef.current = false;
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [isAuthenticated]);

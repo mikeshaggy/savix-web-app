@@ -28,28 +28,35 @@ export const UserProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => getAuthState());
   
   const [sessionExpired, setSessionExpired] = useState(false);
-  
+
   const wasAuthenticated = useRef(false);
+  const isLoadingRef = useRef(false);
+  const userRef = useRef(null);
 
   const loadUser = useCallback(async () => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       const userData = await meApi.getCurrentUser();
+      userRef.current = userData;
       setUser(userData);
       setIsAuthenticated(true);
       markAuthenticated();
     } catch (err) {
       console.error('Failed to load user:', err);
-      
+
       if (err instanceof ApiError && err.isUnauthorized) {
+        userRef.current = null;
         setUser(null);
         setIsAuthenticated(false);
       } else {
         setError(err.message || 'Failed to load user');
       }
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   }, []);
@@ -70,6 +77,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   const clearUser = useCallback((expired = false) => {
+    userRef.current = null;
     setUser(null);
     setIsAuthenticated(false);
     setError(null);
@@ -99,22 +107,23 @@ export const UserProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChange((authenticated) => {
       setIsAuthenticated(authenticated);
-      
+
       if (!authenticated) {
         const expired = wasAuthenticated.current;
+        userRef.current = null;
         setUser(null);
         setError(null);
         if (expired) {
           setSessionExpired(true);
         }
         wasAuthenticated.current = false;
-      } else if (!user && !isLoading) {
+      } else if (!userRef.current && !isLoadingRef.current) {
         loadUser();
       }
     });
 
     return unsubscribe;
-  }, [user, isLoading, loadUser]);
+  }, [loadUser]);
 
   useEffect(() => {
     if (isAuthenticated) {
