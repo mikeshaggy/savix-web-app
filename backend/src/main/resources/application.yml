@@ -2,18 +2,17 @@ spring:
   application:
     name: savix-backend
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
-    show-sql: true
-
+    show-sql: false
   data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       timeout: 2000ms
   mail:
     host: ${SMTP_HOST}
@@ -31,8 +30,6 @@ spring:
           timeout: 5000
           writetimeout: 5000
         debug: false
-  profiles:
-    active:
 
 server:
   port: ${SERVER_PORT}
@@ -40,6 +37,8 @@ server:
 app:
   frontend:
     url: ${FRONTEND_URL}
+  proxy:
+    secret: ${PROXY_SECRET}
   email:
     from: ${EMAIL_FROM}
     from-name: ${EMAIL_FROM_NAME}
@@ -49,8 +48,8 @@ auth:
     issuer: ${JWT_ISSUER}
     audience: ${JWT_AUDIENCE}
     clock-skew-seconds: 30
-    public-key-location: ${JWT_PUBLIC_KEY_PATH}
-    private-key-location: ${JWT_PRIVATE_KEY_PATH}
+    public-key-location: ${JWT_PUBLIC_KEY}
+    private-key-location: ${JWT_PRIVATE_KEY}
 
   access-token:
     ttl-seconds: 600 # 10 minutes
@@ -65,27 +64,38 @@ auth:
 
   cookie:
     secure: true
-    domain: ${COOKIE_DOMAIN}
+    domain: ${COOKIE_DOMAIN:}
 
   password:
     min-length: 12
     require-categories: 3
 
   rate-limit:
-    max-attempts: 3
+    max-attempts: 5
     window-seconds: 900 # 15 minutes
     lockout-seconds: 900 # 15 minutes
+    refresh:
+      max-attempts: 30
+      window-seconds: 60 # 30 refreshes per minute is generous for normal usage
 
 logging:
   level:
-    com.mikeshaggy.backend: INFO
-    org.springframework.security: INFO
+    com.mikeshaggy.backend: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized

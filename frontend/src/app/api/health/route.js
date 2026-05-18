@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const BACKEND_URL = 'http://localhost:8000';
+const base = process.env.PROXY_BASE;
 
 export async function GET() {
   try {
-    const response = await fetch(`${BACKEND_URL}/actuator/health`, {
+    const response = await fetch(`${base}/actuator/health`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
