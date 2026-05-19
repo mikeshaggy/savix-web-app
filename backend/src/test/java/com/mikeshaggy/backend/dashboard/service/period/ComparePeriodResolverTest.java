@@ -169,4 +169,47 @@ class ComparePeriodResolverTest {
             assertThat(result.endDate()).isEqualTo(LocalDate.of(2026, 3, 14));
         }
     }
+
+    @Nested
+    class MonthlyComparison {
+
+        @Test
+        void shiftsToPreviousCalendarMonth() {
+            // given
+            PeriodDto current =
+                    new PeriodDto(
+                            LocalDate.of(2026, 3, 1),
+                            LocalDate.of(2026, 3, 31),
+                            LocalDate.of(2026, 4, 1),
+                            PeriodType.MONTHLY);
+
+            // when
+            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+
+            // then
+            assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 2, 1));
+            assertThat(result.endDate()).isEqualTo(LocalDate.of(2026, 2, 28));
+            assertThat(result.billingEndDate()).isEqualTo(LocalDate.of(2026, 3, 1));
+            assertThat(result.periodType()).isEqualTo(PeriodType.MONTHLY);
+        }
+
+        @Test
+        void january_shiftsAcrossYearBoundary() {
+            // given
+            PeriodDto current =
+                    new PeriodDto(
+                            LocalDate.of(2026, 1, 1),
+                            LocalDate.of(2026, 1, 31),
+                            LocalDate.of(2026, 2, 1),
+                            PeriodType.MONTHLY);
+
+            // when
+            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+
+            // then
+            assertThat(result.startDate()).isEqualTo(LocalDate.of(2025, 12, 1));
+            assertThat(result.endDate()).isEqualTo(LocalDate.of(2025, 12, 31));
+            assertThat(result.billingEndDate()).isEqualTo(LocalDate.of(2026, 1, 1));
+        }
+    }
 }

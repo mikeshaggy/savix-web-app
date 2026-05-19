@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fixedPaymentApi, checkBackendHealth, onAuthStateChange, getAuthState } from '@/lib/api';
+import { fixedPaymentApi, onAuthStateChange, getAuthState } from '@/lib/api';
 
 export const useFixedPaymentsTile = (walletId) => {
   const [tileData, setTileData] = useState(null);
@@ -18,12 +18,6 @@ export const useFixedPaymentsTile = (walletId) => {
     try {
       setLoading(true);
       setError(null);
-
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const data = await fixedPaymentApi.getTileData(walletId);
       setTileData(data);
@@ -74,12 +68,6 @@ export const useFixedPayments = (walletId) => {
       setLoading(true);
       setError(null);
 
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const data = await fixedPaymentApi.getAll(walletId);
       setFixedPayments(data || []);
     } catch (err) {
@@ -93,12 +81,6 @@ export const useFixedPayments = (walletId) => {
   const createFixedPayment = useCallback(async (data) => {
     try {
       setError(null);
-
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const newPayment = await fixedPaymentApi.create(data);
       setFixedPayments(prev => [newPayment, ...prev]);
@@ -114,12 +96,6 @@ export const useFixedPayments = (walletId) => {
     try {
       setError(null);
 
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const updated = await fixedPaymentApi.update(id, data);
       setFixedPayments(prev => prev.map(fp => fp.id === id ? updated : fp));
       return updated;
@@ -133,12 +109,6 @@ export const useFixedPayments = (walletId) => {
   const deactivateFixedPayment = useCallback(async (id) => {
     try {
       setError(null);
-
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       await fixedPaymentApi.deactivate(id);
       setFixedPayments(prev =>

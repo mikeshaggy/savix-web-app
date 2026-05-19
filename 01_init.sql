@@ -98,6 +98,8 @@ create table fixed_payment_occurrences (
 CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
 CREATE INDEX idx_transactions_date ON transactions(transaction_date);
+CREATE INDEX idx_transactions_wallet_date ON transactions(wallet_id, transaction_date);
+CREATE INDEX idx_transactions_wallet_date_category ON transactions(wallet_id, transaction_date, category_id);
 
 -- categories
 CREATE INDEX idx_categories_user ON categories(user_id);

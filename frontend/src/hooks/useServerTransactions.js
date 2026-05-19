@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { transactionApi, checkBackendHealth } from '@/lib/api';
+import { transactionApi } from '@/lib/api';
 
 const ALLOWED_SIZES = [10, 20, 50, 100];
 const DEFAULT_SIZE = 20;
@@ -128,13 +128,6 @@ export function useServerTransactions(walletId) {
     try {
       setLoading(true);
       setError(null);
-
-      const backendAvailable = await checkBackendHealth();
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
-      if (controller.signal.aborted) return;
 
       const response = await transactionApi.getTransactions({
         walletId: walletId || undefined,

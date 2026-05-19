@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
-import { walletApi, checkBackendHealth, onAuthStateChange } from '@/lib/api';
+import { walletApi, onAuthStateChange } from '@/lib/api';
 import { useUser } from './UserContext';
 
 const WalletContext = createContext();
@@ -108,10 +108,21 @@ const walletReducer = (state, action) => {
 
 export const WalletProvider = ({ children }) => {
   const [state, dispatch] = useReducer(walletReducer, initialState);
-  const { isAuthenticated, isLoading: userLoading } = useUser();
+  const { isAuthenticated, isLoading: userLoading, backendAvailable, backendChecked } = useUser();
   const fetchingRef = useRef(false);
 
   const fetchWallets = useCallback(async () => {
+    if (!backendChecked) {
+      return;
+    }
+
+    if (!backendAvailable) {
+      dispatch({ type: 'SET_WALLETS', payload: [] });
+      dispatch({ type: 'SET_ERROR', payload: 'Backend not available' });
+      dispatch({ type: 'SET_INITIALIZED', payload: true });
+      return;
+    }
+
     if (!isAuthenticated) {
       dispatch({ type: 'SET_WALLETS', payload: [] });
       dispatch({ type: 'SET_INITIALIZED', payload: true });
@@ -125,12 +136,6 @@ export const WalletProvider = ({ children }) => {
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const wallets = await walletApi.getAllWallets();
     
       dispatch({ type: 'SET_WALLETS', payload: wallets || [] });
@@ -150,17 +155,11 @@ export const WalletProvider = ({ children }) => {
       fetchingRef.current = false;
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [isAuthenticated]);
+  }, [backendAvailable, backendChecked, isAuthenticated]);
 
   const createWallet = useCallback(async (walletData) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const newWallet = await walletApi.createWallet(walletData);
       dispatch({ type: 'ADD_WALLET', payload: newWallet });
       return newWallet;
@@ -173,12 +172,6 @@ export const WalletProvider = ({ children }) => {
   const updateWallet = useCallback(async (id, walletData) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const updatedWallet = await walletApi.updateWallet(id, walletData);
       dispatch({ type: 'UPDATE_WALLET', payload: updatedWallet });
       return updatedWallet;
@@ -191,12 +184,6 @@ export const WalletProvider = ({ children }) => {
   const updateWalletBalance = useCallback(async (id, newBalance) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const updatedWallet = await walletApi.updateWalletBalance(id, newBalance);
       dispatch({ type: 'UPDATE_WALLET', payload: updatedWallet });
       return updatedWallet;
@@ -209,12 +196,6 @@ export const WalletProvider = ({ children }) => {
   const deleteWallet = useCallback(async (id) => {
     try {
       dispatch({ type: 'SET_ERROR', payload: null });
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       await walletApi.deleteWallet(id);
       dispatch({ type: 'DELETE_WALLET', payload: id });
     } catch (error) {
@@ -232,7 +213,7 @@ export const WalletProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (userLoading) {
+    if (userLoading || !backendChecked) {
       return;
     }
 
@@ -241,7 +222,7 @@ export const WalletProvider = ({ children }) => {
     } else {
       resetWallets();
     }
-  }, [isAuthenticated, userLoading, fetchWallets, resetWallets]);
+  }, [backendChecked, isAuthenticated, userLoading, fetchWallets, resetWallets]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange((authenticated) => {
@@ -278,4 +259,3 @@ export const useWallets = () => {
   }
   return context;
 };
-

@@ -23,6 +23,7 @@ public class ComparePeriodResolver {
             case PAY_CYCLE -> resolveForPayCycle(walletId, anchorCategoryId);
             case LAST_PAY_CYCLE -> resolveForLastPayCycle(walletId, anchorCategoryId);
             case CUSTOM -> resolveForCustom(currentPeriod);
+            case MONTHLY -> resolveForMonthly(currentPeriod);
         };
     }
 
@@ -55,6 +56,12 @@ public class ComparePeriodResolver {
         LocalDate compareEnd = currentPeriod.startDate().minusDays(1);
         LocalDate compareStart = compareEnd.minusDays(days - 1);
         return new PeriodDto(compareStart, compareEnd, compareStart.plusMonths(1), PeriodType.CUSTOM);
+    }
+
+    private PeriodDto resolveForMonthly(PeriodDto currentPeriod) {
+        LocalDate compareStart = currentPeriod.startDate().minusMonths(1);
+        LocalDate compareEnd = currentPeriod.startDate().minusDays(1);
+        return new PeriodDto(compareStart, compareEnd, currentPeriod.startDate(), PeriodType.MONTHLY);
     }
 
     private List<Transaction> findAnchorTransactions(Integer walletId, Integer anchorCategoryId, int count) {

@@ -8,7 +8,9 @@ import com.mikeshaggy.backend.dashboard.dto.CategorySpendingDto;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,18 +18,21 @@ import org.junit.jupiter.api.Test;
 class TopCategoriesCalculatorTest {
 
     private TopCategoriesCalculator calculator;
+    private Map<String, Integer> categoryIds;
 
     @BeforeEach
     void setUp() {
         calculator = new TopCategoriesCalculator();
+        categoryIds = new HashMap<>();
     }
 
     private Category category(String name, CategoryType type) {
-        return Category.builder().name(name).type(type).build();
+        return category(name, type, false);
     }
 
     private Category category(String name, CategoryType type, boolean excludedFromTopCategories) {
         return Category.builder()
+                .id(categoryIds.computeIfAbsent(type + ":" + name, ignored -> categoryIds.size() + 1))
                 .name(name)
                 .type(type)
                 .excludedFromTopCategories(excludedFromTopCategories)
@@ -161,6 +166,33 @@ class TopCategoriesCalculatorTest {
         }
 
         @Test
+        void groupsCategoriesByIdInsteadOfName() {
+            // given
+            Category groceries = Category.builder()
+                    .id(1)
+                    .name("Food")
+                    .type(CategoryType.EXPENSE)
+                    .build();
+            Category dining = Category.builder()
+                    .id(2)
+                    .name("Food")
+                    .type(CategoryType.EXPENSE)
+                    .build();
+            List<Transaction> current =
+                    List.of(
+                            Transaction.builder().amount(new BigDecimal("600")).category(groceries).build(),
+                            Transaction.builder().amount(new BigDecimal("400")).category(dining).build());
+
+            // when
+            List<CategorySpendingDto> result = calculator.calculate(current, Collections.emptyList());
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(CategorySpendingDto::amount)
+                    .containsExactly(new BigDecimal("600.00"), new BigDecimal("400.00"));
+        }
+
+        @Test
         void emptyTransactions_returnsEmpty() {
             // given
             // when
@@ -185,6 +217,33 @@ class TopCategoriesCalculatorTest {
             List<CategorySpendingDto> result = calculator.calculate(current, previous);
 
             // then
+            assertThat(result.getFirst().change().percentage()).isEqualByComparingTo("50.00");
+            assertThat(result.getFirst().change().isPositive()).isTrue();
+        }
+
+        @Test
+        void computesChangeByCategoryIdWhenNameChanged() {
+            // given
+            Category currentCategory = Category.builder()
+                    .id(1)
+                    .name("Food")
+                    .type(CategoryType.EXPENSE)
+                    .build();
+            Category previousCategory = Category.builder()
+                    .id(1)
+                    .name("Groceries")
+                    .type(CategoryType.EXPENSE)
+                    .build();
+            List<Transaction> current = List.of(
+                    Transaction.builder().amount(new BigDecimal("600")).category(currentCategory).build());
+            List<Transaction> previous = List.of(
+                    Transaction.builder().amount(new BigDecimal("400")).category(previousCategory).build());
+
+            // when
+            List<CategorySpendingDto> result = calculator.calculate(current, previous);
+
+            // then
+            assertThat(result.getFirst().categoryName()).isEqualTo("Food");
             assertThat(result.getFirst().change().percentage()).isEqualByComparingTo("50.00");
             assertThat(result.getFirst().change().isPositive()).isTrue();
         }

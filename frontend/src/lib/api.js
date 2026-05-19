@@ -438,52 +438,6 @@ export const dashboardApi = {
     
     return get(`/dashboard?${params.toString()}`);
   },
-
-  getWalletDashboardData: async (walletId) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
-    }
-    
-    try {
-      const [transactions, wallet] = await Promise.all([
-        transactionApi.getTransactionsByWalletId(walletId),
-        walletApi.getWalletById(walletId),
-      ]);
-      
-      const categories = await categoryApi.getAllCategories();
-      
-      return { transactions, categories, wallet };
-    } catch (error) {
-      console.error('Failed to fetch wallet dashboard data:', error);
-      throw error;
-    }
-  },
-
-  getAuthenticatedDashboardData: async () => {
-    try {
-      const wallets = await walletApi.getAllWallets();
-      
-      if (!wallets || wallets.length === 0) {
-        return { transactions: [], categories: [], wallets: [] };
-      }
-
-      const [allCategories, ...transactionsByWallet] = await Promise.all([
-        categoryApi.getAllCategories(),
-        ...wallets.map(wallet => transactionApi.getTransactionsByWalletId(wallet.id))
-      ]);
-      
-      const allTransactions = transactionsByWallet.flat();
-      
-      return { 
-        transactions: allTransactions, 
-        categories: allCategories, 
-        wallets 
-      };
-    } catch (error) {
-      console.error('Failed to fetch authenticated dashboard data:', error);
-      throw error;
-    }
-  },
 };
 
 export const fixedPaymentApi = {

@@ -91,8 +91,6 @@ function AppLayoutContent({
         categories,
         isLoading,
         hasError,
-        dashboardError,
-        transactionsError,
         categoriesError,
         onCreateTransaction,
         onCreateTransfer,
@@ -134,7 +132,7 @@ function AppLayoutContent({
                     <AlertCircle className="w-12 h-12 text-red-500" />
                     <h2 className="text-xl font-semibold">{t('errors.unableToConnectBackend')}</h2>
                     <p className="text-gray-400">
-                        {dashboardError || transactionsError || categoriesError}
+                        {categoriesError}
                     </p>
                     <button
                         onClick={onRefresh}
@@ -202,4 +200,3 @@ function AppLayoutContent({
         </div>
     );
 }
-

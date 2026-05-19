@@ -1,94 +1,5 @@
- import { useState, useEffect, useCallback, useRef } from 'react';
-import { dashboardApi, transactionApi, categoryApi, checkBackendHealth, onAuthStateChange, getAuthState } from '@/lib/api';
-
-export const useDashboard = (walletId = null) => {
-  const [data, setData] = useState({
-    transactions: [],
-    categories: [],
-    analytics: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const fetchedWalletIdRef = useRef(null);
-
-  const fetchDashboardData = useCallback(async (forceRefresh = false) => {
-    if (!walletId) {
-      setData({
-        transactions: [],
-        categories: [],
-        analytics: null,
-      });
-      setLoading(false);
-      setError(null);
-      fetchedWalletIdRef.current = null;
-      return;
-    }
-
-    if (!forceRefresh && fetchedWalletIdRef.current === walletId && data.transactions.length > 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (cancelled) return;
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
-      const dashboardData = await dashboardApi.getWalletDashboardData(walletId);
-      
-      if (cancelled) return;
-      
-      setData({
-        transactions: dashboardData.transactions || [],
-        categories: dashboardData.categories || [],
-        analytics: null,
-      });
-      fetchedWalletIdRef.current = walletId;
-    } catch (err) {
-      if (!cancelled) {
-        console.error('Failed to fetch dashboard data:', err);
-        setError(err.message);
-      }
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [walletId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    
-    const runFetch = async () => {
-      await fetchDashboardData();
-      if (cancelled) return;
-    };
-    
-    runFetch();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [walletId]);
-
-  const refetch = useCallback((forceRefresh = false) => {
-    return fetchDashboardData(forceRefresh);
-  }, [fetchDashboardData]);
-
-  return { data, loading, error, refetch };
-};
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { transactionApi, categoryApi, onAuthStateChange, getAuthState } from '@/lib/api';
 
 export const useTransactions = (walletId = null) => {
   const [transactions, setTransactions] = useState([]);
@@ -117,14 +28,6 @@ export const useTransactions = (walletId = null) => {
         setLoading(true);
       }
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (cancelled) return;
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const data = await transactionApi.getTransactionsByWalletId(walletId);
       
@@ -156,12 +59,6 @@ export const useTransactions = (walletId = null) => {
 
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const newTransaction = await transactionApi.createTransaction(transactionData);
       setTransactions(prev => [newTransaction, ...prev]);
@@ -176,12 +73,6 @@ export const useTransactions = (walletId = null) => {
   const updateTransaction = useCallback(async (id, transactionData) => {
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const updatedTransaction = await transactionApi.updateTransaction(id, transactionData);
       setTransactions(prev => prev.map(t => t.id === id ? updatedTransaction : t));
@@ -196,12 +87,6 @@ export const useTransactions = (walletId = null) => {
   const deleteTransaction = useCallback(async (id) => {
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       await transactionApi.deleteTransaction(id);
       setTransactions(prev => prev.filter(t => t.id !== id));
@@ -273,12 +158,6 @@ export const useCategories = (userId = null) => {
       setLoading(true);
       setError(null);
 
-      const backendAvailable = await checkBackendHealth();
-
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
-
       const data = await categoryApi.getAllCategories();
 
       setCategories(data || []);
@@ -298,12 +177,6 @@ export const useCategories = (userId = null) => {
   const createCategory = useCallback(async (categoryData) => {
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const newCategory = await categoryApi.createCategory(categoryData);
       setCategories(prev => [...prev, newCategory]);
@@ -318,12 +191,6 @@ export const useCategories = (userId = null) => {
   const updateCategory = useCallback(async (id, categoryData) => {
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       const updatedCategory = await categoryApi.updateCategory(id, categoryData);
       setCategories(prev => prev.map(c => c.id === id ? updatedCategory : c));
@@ -338,12 +205,6 @@ export const useCategories = (userId = null) => {
   const deleteCategory = useCallback(async (id) => {
     try {
       setError(null);
-      
-      const backendAvailable = await checkBackendHealth();
-      
-      if (!backendAvailable) {
-        throw new Error('Backend not available');
-      }
 
       await categoryApi.deleteCategory(id);
       setCategories(prev => prev.filter(c => c.id !== id));
@@ -390,4 +251,3 @@ export const useCategories = (userId = null) => {
     resetCategories,
   };
 };
-

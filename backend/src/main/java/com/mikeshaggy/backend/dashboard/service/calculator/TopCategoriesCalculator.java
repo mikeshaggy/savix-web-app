@@ -21,37 +21,52 @@ public class TopCategoriesCalculator {
 
     public List<CategorySpendingDto> calculate(List<Transaction> currentTransactions,
                                                 List<Transaction> compareTransactions) {
-        Map<String, BigDecimal> currentByCategory = groupExpensesByCategory(currentTransactions);
-        Map<String, BigDecimal> compareByCategory = groupExpensesByCategory(compareTransactions);
+        Map<Integer, BigDecimal> currentByCategory = groupExpensesByCategory(currentTransactions);
+        Map<Integer, BigDecimal> compareByCategory = groupExpensesByCategory(compareTransactions);
+        Map<Integer, String> currentCategoryNames = categoryNamesById(currentTransactions);
 
         BigDecimal totalExpenses = currentByCategory.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return currentByCategory.entrySet().stream()
-                .sorted(Map.Entry.<String, BigDecimal>comparingByValue(Comparator.reverseOrder()))
+                .sorted(Map.Entry.<Integer, BigDecimal>comparingByValue(Comparator.reverseOrder()))
                 .limit(TOP_N)
                 .map(entry -> {
-                    String categoryName = entry.getKey();
+                    Integer categoryId = entry.getKey();
                     BigDecimal amount = entry.getValue().setScale(SCALE, ROUNDING);
                     BigDecimal percentageOfTotal = calculatePercentage(amount, totalExpenses);
-                    BigDecimal previousAmount = compareByCategory.getOrDefault(categoryName, BigDecimal.ZERO);
+                    BigDecimal previousAmount = compareByCategory.getOrDefault(categoryId, BigDecimal.ZERO);
                     PercentageChangeDto change = percentageChange(amount, previousAmount);
 
-                    return new CategorySpendingDto(categoryName, amount, percentageOfTotal, change);
+                    return new CategorySpendingDto(currentCategoryNames.get(categoryId), amount, percentageOfTotal, change);
                 })
                 .toList();
     }
 
-    private Map<String, BigDecimal> groupExpensesByCategory(List<Transaction> transactions) {
+    private Map<Integer, BigDecimal> groupExpensesByCategory(List<Transaction> transactions) {
         return transactions.stream()
-                .filter(t -> t.getCategory().getType() == CategoryType.EXPENSE)
-                .filter(t -> !t.getCategory().isExcludedFromTopCategories())
+                .filter(this::isTopCategoryExpense)
                 .collect(Collectors.groupingBy(
-                        t -> t.getCategory().getName(),
+                        t -> t.getCategory().getId(),
                         Collectors.reducing(BigDecimal.ZERO,
                                 Transaction::getAmount,
                                 BigDecimal::add)
                 ));
+    }
+
+    private Map<Integer, String> categoryNamesById(List<Transaction> transactions) {
+        return transactions.stream()
+                .filter(this::isTopCategoryExpense)
+                .collect(Collectors.toMap(
+                        t -> t.getCategory().getId(),
+                        t -> t.getCategory().getName(),
+                        (existing, ignored) -> existing
+                ));
+    }
+
+    private boolean isTopCategoryExpense(Transaction transaction) {
+        return transaction.getCategory().getType() == CategoryType.EXPENSE
+                && !transaction.getCategory().isExcludedFromTopCategories();
     }
 
     private BigDecimal calculatePercentage(BigDecimal amount, BigDecimal total) {
@@ -60,4 +75,5 @@ public class TopCategoriesCalculator {
         }
         return amount.multiply(HUNDRED).divide(total, SCALE, ROUNDING);
     }
+
 }

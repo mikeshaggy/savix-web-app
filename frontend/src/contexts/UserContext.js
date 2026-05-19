@@ -7,6 +7,7 @@ import {
   getAuthState,
   markAuthenticated,
   markUnauthenticated,
+  checkBackendHealth,
   ApiError 
 } from '@/lib/api';
 
@@ -24,6 +25,8 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [backendAvailable, setBackendAvailable] = useState(null);
+  const [backendChecked, setBackendChecked] = useState(false);
   
   const [isAuthenticated, setIsAuthenticated] = useState(() => getAuthState());
   
@@ -35,6 +38,15 @@ export const UserProvider = ({ children }) => {
 
   const loadUser = useCallback(async () => {
     if (isLoadingRef.current) return;
+    if (backendChecked && !backendAvailable) {
+      userRef.current = null;
+      setUser(null);
+      setIsAuthenticated(false);
+      setError('Backend not available');
+      setIsLoading(false);
+      return;
+    }
+
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -59,7 +71,7 @@ export const UserProvider = ({ children }) => {
       isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, []);
+  }, [backendAvailable, backendChecked]);
 
   const updateProfile = useCallback(async (data) => {
     setError(null);
@@ -105,6 +117,33 @@ export const UserProvider = ({ children }) => {
   }, [loadUser]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const runHealthCheck = async () => {
+      const available = await checkBackendHealth();
+
+      if (cancelled) return;
+
+      setBackendAvailable(available);
+      setBackendChecked(true);
+
+      if (!available) {
+        userRef.current = null;
+        setUser(null);
+        setIsAuthenticated(false);
+        setError('Backend not available');
+        setIsLoading(false);
+      }
+    };
+
+    runHealthCheck();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChange((authenticated) => {
       setIsAuthenticated(authenticated);
 
@@ -117,13 +156,13 @@ export const UserProvider = ({ children }) => {
           setSessionExpired(true);
         }
         wasAuthenticated.current = false;
-      } else if (!userRef.current && !isLoadingRef.current) {
+      } else if (backendAvailable && !userRef.current && !isLoadingRef.current) {
         loadUser();
       }
     });
 
     return unsubscribe;
-  }, [loadUser]);
+  }, [backendAvailable, loadUser]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -132,8 +171,10 @@ export const UserProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    if (backendChecked && backendAvailable) {
+      loadUser();
+    }
+  }, [backendAvailable, backendChecked, loadUser]);
 
   const currentUser = user;
 
@@ -143,6 +184,8 @@ export const UserProvider = ({ children }) => {
     
     isLoading,
     isAuthenticated,
+    backendAvailable,
+    backendChecked,
     sessionExpired,
     error,
     

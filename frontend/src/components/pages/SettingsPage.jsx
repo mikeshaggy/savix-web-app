@@ -8,7 +8,6 @@ import { useTranslations } from 'next-intl';
 export default function SettingsPage() {
     const t = useTranslations();
     const { 
-        dashboardData, 
         categories, 
         onRefresh,
         isLoading,
@@ -32,7 +31,6 @@ export default function SettingsPage() {
     
     return (
         <SettingsView 
-            dashboardData={dashboardData}
             categories={categories}
             onRefresh={onRefresh}
         />
