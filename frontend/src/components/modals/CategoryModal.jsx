@@ -286,10 +286,10 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
               </p>
             </div>
 
-            {/* Top Categories */}
+            {/* Dashboard Visibility */}
             <div>
               <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px]">
-                {t('category.topCategories')}
+                {t('category.dashboardVisibility')}
               </div>
               <button
                 type="button"
@@ -300,12 +300,10 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                     : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
                 }`}
               >
-                {formData.excludedFromTopCategories
-                  ? t('category.excludedFromTopCategoriesActive')
-                  : t('category.excludeFromTopCategories')}
+                {t('category.hideFromTopCategories')}
               </button>
               <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
-                {t('category.excludeFromTopCategoriesHint')}
+                {t('category.hideFromTopCategoriesHint')}
               </p>
             </div>
 
