@@ -467,13 +467,6 @@ export const walletEntryApi = {
 };
 
 export const analyticsApi = {
-  getMonthlyOverview: (walletId, month) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
-    }
-    return get(`/wallets/${walletId}/analytics/monthly-overview?month=${month}`);
-  },
-
   getPeriodOverview: (walletId, periodType, startDate, endDate) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
