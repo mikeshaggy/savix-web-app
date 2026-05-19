@@ -375,7 +375,10 @@
     "cycleAnchor": "Cycle Anchor",
     "isCycleAnchorActive": "★ This is my salary / income anchor",
     "setCycleAnchor": "Set as cycle anchor (salary category)",
-    "cycleAnchorHint": "Mark your main salary category so Savix knows when your pay cycle starts."
+    "cycleAnchorHint": "Mark your main salary category so Savix knows when your pay cycle starts.",
+    "dashboardVisibility": "DASHBOARD VISIBILITY",
+    "hideFromTopCategories": "Hide from top categories",
+    "hideFromTopCategoriesHint": "This category will still count toward totals and analytics, but it will not appear in the dashboard top categories widget."
   },
   "filters": {
     "title": "Filters & Sorting",

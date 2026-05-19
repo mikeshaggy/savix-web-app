@@ -11,6 +11,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     type: 'EXPENSE',
     emoji: '',
     isCycleAnchor: false,
+    excludedFromTopCategories: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -23,6 +24,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         type: category.type || 'EXPENSE',
         emoji: category.emoji || '',
         isCycleAnchor: category.isCycleAnchor || false,
+        excludedFromTopCategories: category.excludedFromTopCategories || false,
       });
     } else {
       setFormData({
@@ -30,6 +32,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         type: 'EXPENSE',
         emoji: '',
         isCycleAnchor: false,
+        excludedFromTopCategories: false,
       });
     }
     setErrors({});
@@ -95,6 +98,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         type: formData.type,
         emoji: trimmedEmoji || null,
         isCycleAnchor: formData.isCycleAnchor,
+        excludedFromTopCategories: formData.excludedFromTopCategories,
       });
       
       if (!category) {
@@ -103,6 +107,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
           type: 'EXPENSE',
           emoji: '',
           isCycleAnchor: false,
+          excludedFromTopCategories: false,
         });
       }
       
@@ -134,6 +139,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         type: 'EXPENSE',
         emoji: '',
         isCycleAnchor: false,
+        excludedFromTopCategories: false,
       });
     }
     onClose();
@@ -144,7 +150,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
   return (
     <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-[60] p-3 sm:p-6">
       <div 
-        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[480px] overflow-hidden relative"
+        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[480px] max-h-[calc(100vh-24px)] overflow-hidden relative flex flex-col"
         style={{ 
           boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.06)',
           animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
@@ -167,8 +173,8 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit}>
-          <div className="px-4 sm:px-7 py-5 sm:py-6 flex flex-col gap-[22px]">
+        <form onSubmit={handleSubmit} className="min-h-0 flex flex-col">
+          <div className="px-4 sm:px-7 py-5 sm:py-6 flex flex-col gap-[22px] overflow-y-auto">
               
             {/* Category Type */}
             <div>
@@ -277,6 +283,27 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
               </button>
               <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
                 {t('category.cycleAnchorHint')}
+              </p>
+            </div>
+
+            {/* Dashboard Visibility */}
+            <div>
+              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px]">
+                {t('category.dashboardVisibility')}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleChange('excludedFromTopCategories', !formData.excludedFromTopCategories)}
+                className={`w-full py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
+                  formData.excludedFromTopCategories
+                    ? 'bg-purple-400/10 border-purple-400/35 text-purple-400'
+                    : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
+                }`}
+              >
+                {t('category.hideFromTopCategories')}
+              </button>
+              <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
+                {t('category.hideFromTopCategoriesHint')}
               </p>
             </div>
 

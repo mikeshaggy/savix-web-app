@@ -17,7 +17,9 @@ public record CategoryUpdateRequest(
         @Size(max = 16, message = "Emoji must not exceed 16 characters")
         String emoji,
 
-        Boolean isCycleAnchor
+        Boolean isCycleAnchor,
+
+        Boolean excludedFromTopCategories
 ) {
         public void applyTo(Category category) {
                 category.setName(name);
@@ -25,6 +27,9 @@ public record CategoryUpdateRequest(
                 category.setEmoji((emoji == null || emoji.isBlank()) ? null : emoji.trim());
                 if (isCycleAnchor != null) {
                         category.setCycleAnchor(isCycleAnchor);
+                }
+                if (excludedFromTopCategories != null) {
+                        category.setExcludedFromTopCategories(excludedFromTopCategories);
                 }
         }
 }

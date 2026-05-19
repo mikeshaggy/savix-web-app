@@ -45,8 +45,7 @@ public class TopCategoriesCalculator {
     private Map<String, BigDecimal> groupExpensesByCategory(List<Transaction> transactions) {
         return transactions.stream()
                 .filter(t -> t.getCategory().getType() == CategoryType.EXPENSE)
-                // TODO: implement proper category exclusion mechanism
-                .filter(t -> !t.getCategory().getName().equalsIgnoreCase("rent")) // temp solution
+                .filter(t -> !t.getCategory().isExcludedFromTopCategories())
                 .collect(Collectors.groupingBy(
                         t -> t.getCategory().getName(),
                         Collectors.reducing(BigDecimal.ZERO,

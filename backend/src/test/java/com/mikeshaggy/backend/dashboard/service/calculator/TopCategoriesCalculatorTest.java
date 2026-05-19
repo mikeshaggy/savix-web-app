@@ -26,10 +26,25 @@ class TopCategoriesCalculatorTest {
         return Category.builder().name(name).type(type).build();
     }
 
+    private Category category(String name, CategoryType type, boolean excludedFromTopCategories) {
+        return Category.builder()
+                .name(name)
+                .type(type)
+                .excludedFromTopCategories(excludedFromTopCategories)
+                .build();
+    }
+
     private Transaction expense(String categoryName, String amount) {
         return Transaction.builder()
                 .amount(new BigDecimal(amount))
                 .category(category(categoryName, CategoryType.EXPENSE))
+                .build();
+    }
+
+    private Transaction expense(String categoryName, String amount, boolean excludedFromTopCategories) {
+        return Transaction.builder()
+                .amount(new BigDecimal(amount))
+                .category(category(categoryName, CategoryType.EXPENSE, excludedFromTopCategories))
                 .build();
     }
 
@@ -112,6 +127,37 @@ class TopCategoriesCalculatorTest {
             // then
             assertThat(result).hasSize(2);
             assertThat(result).noneMatch(dto -> dto.categoryName().equals("Salary"));
+        }
+
+        @Test
+        void includesRentWhenNotExcludedFromTopCategories() {
+            // given
+            List<Transaction> current = List.of(expense("rent", "1200", false), expense("Food", "300"));
+
+            // when
+            List<CategorySpendingDto> result = calculator.calculate(current, Collections.emptyList());
+
+            // then
+            assertThat(result).extracting(CategorySpendingDto::categoryName).contains("rent", "Food");
+            assertThat(result.getFirst().categoryName()).isEqualTo("rent");
+            assertThat(result.getFirst().amount()).isEqualByComparingTo("1200.00");
+        }
+
+        @Test
+        void excludesCategoriesMarkedExcludedFromTopCategories() {
+            // given
+            List<Transaction> current =
+                    List.of(
+                            expense("Rent", "1200", true),
+                            expense("Food", "500"),
+                            expense("Transport", "300"));
+
+            // when
+            List<CategorySpendingDto> result = calculator.calculate(current, Collections.emptyList());
+
+            // then
+            assertThat(result).extracting(CategorySpendingDto::categoryName)
+                    .containsExactly("Food", "Transport");
         }
 
         @Test

@@ -11,6 +11,7 @@ public record CategoryResponse(
         CategoryType type,
         String emoji,
         boolean isCycleAnchor,
+        boolean excludedFromTopCategories,
         Instant createdAt
 ) {
     public static CategoryResponse from(Category category) {
@@ -20,6 +21,7 @@ public record CategoryResponse(
                 category.getType(),
                 category.getEmoji(),
                 category.isCycleAnchor(),
+                category.isExcludedFromTopCategories(),
                 category.getCreatedAt()
         );
     }

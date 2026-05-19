@@ -39,6 +39,10 @@ public class Category {
     @Builder.Default
     private boolean isCycleAnchor = false;
 
+    @Column(name = "excluded_from_top_categories", nullable = false)
+    @Builder.Default
+    private boolean excludedFromTopCategories = false;
+
     @CreationTimestamp
     private Instant createdAt;
 

@@ -14,5 +14,7 @@ public record CategoryCreateRequest(
         CategoryType type,
 
         @Size(max = 16, message = "Emoji must not exceed 16 characters")
-        String emoji
+        String emoji,
+
+        Boolean excludedFromTopCategories
 ) {}
