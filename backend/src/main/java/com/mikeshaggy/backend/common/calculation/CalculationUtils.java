@@ -1,4 +1,4 @@
-package com.mikeshaggy.backend.dashboard.service.calculator;
+package com.mikeshaggy.backend.common.calculation;
 
 import com.mikeshaggy.backend.dashboard.dto.PercentageChangeDto;
 
@@ -7,9 +7,9 @@ import java.math.RoundingMode;
 
 public final class CalculationUtils {
 
-    static final int SCALE = 2;
-    static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
-    static final BigDecimal HUNDRED = new BigDecimal("100");
+    public static final int SCALE = 2;
+    public static final RoundingMode ROUNDING = RoundingMode.HALF_UP;
+    public static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private CalculationUtils() {
     }

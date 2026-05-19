@@ -22,6 +22,10 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [periodType, setPeriodType] = useState('PAY_CYCLE');
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
     const [customStartDate, setCustomStartDate] = useState(null);
     const [customEndDate, setCustomEndDate] = useState(null);
 
@@ -45,10 +49,12 @@ export default function DashboardPage() {
 
         if (periodType === 'CUSTOM') {
             fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
+        } else if (periodType === 'MONTHLY') {
+            fetchDashboard(currentWallet.id, 'MONTHLY', `${selectedMonth}-01`, null);
         } else {
             fetchDashboard(currentWallet.id, periodType, null, null);
         }
-    }, [currentWallet?.id, periodType, customStartDate, customEndDate, walletMutationVersion, fetchDashboard]);
+    }, [currentWallet?.id, periodType, selectedMonth, customStartDate, customEndDate, walletMutationVersion, fetchDashboard]);
 
     const handlePeriodTypeChange = (newPeriodType) => {
         if (newPeriodType === 'CUSTOM') return;
@@ -61,6 +67,10 @@ export default function DashboardPage() {
         setCustomStartDate(startDate);
         setCustomEndDate(endDate);
         setPeriodType('CUSTOM');
+    };
+
+    const handleMonthChange = (month) => {
+        setSelectedMonth(month);
     };
 
     if (walletsLoading) {
@@ -143,11 +153,13 @@ export default function DashboardPage() {
 
     return (
         <div>
-            <DashboardHeader 
+            <DashboardHeader
                 period={dashboardData.period}
                 periodType={periodType}
                 currentBalance={currentWallet?.balance}
+                selectedMonth={selectedMonth}
                 onPeriodTypeChange={handlePeriodTypeChange}
+                onMonthChange={handleMonthChange}
                 onCustomDateChange={handleCustomDateChange}
             />
 

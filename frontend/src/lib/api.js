@@ -465,3 +465,22 @@ export const transferApi = {
 export const walletEntryApi = {
   getWalletBalanceHistory: (walletId) => get(`/wallet-entries/wallet/${walletId}`),
 };
+
+export const analyticsApi = {
+  getMonthlyOverview: (walletId, month) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    return get(`/wallets/${walletId}/analytics/monthly-overview?month=${month}`);
+  },
+
+  getPeriodOverview: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/overview?${params.toString()}`);
+  },
+};

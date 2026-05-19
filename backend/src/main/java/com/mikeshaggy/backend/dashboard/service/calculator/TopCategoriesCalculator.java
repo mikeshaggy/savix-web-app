@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.mikeshaggy.backend.dashboard.service.calculator.CalculationUtils.*;
+import static com.mikeshaggy.backend.common.calculation.CalculationUtils.*;
 
 @Component
 public class TopCategoriesCalculator {
