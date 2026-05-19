@@ -376,7 +376,11 @@
     "cycleAnchor": "Zakotwiczenie cyklu",
     "isCycleAnchorActive": "★ To jest moja kategoria wypłaty",
     "setCycleAnchor": "Ustaw jako zakotwiczenie cyklu (kategoria wypłaty)",
-    "cycleAnchorHint": "Oznacz główną kategorię wypłaty, aby Savix wiedział kiedy zaczyna się Twój cykl."
+    "cycleAnchorHint": "Oznacz główną kategorię wypłaty, aby Savix wiedział kiedy zaczyna się Twój cykl.",
+    "topCategories": "Najpopularniejsze kategorie",
+    "excludedFromTopCategoriesActive": "Ukryta w Najpopularniejszych kategoriach",
+    "excludeFromTopCategories": "Ukryj w Najpopularniejszych kategoriach",
+    "excludeFromTopCategoriesHint": "Wpływa tylko na widget Najpopularniejsze kategorie na dashboardzie."
   },
   "filters": {
     "title": "Filtry i sortowanie",
