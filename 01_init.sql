@@ -24,6 +24,7 @@ create table categories (
     type varchar(20) not null check (type in ('INCOME', 'EXPENSE')),
     emoji varchar(16),
     is_cycle_anchor boolean not null default false,
+    excluded_from_top_categories boolean not null default false,
     created_at timestamp default NOW(),
     unique(user_id, name, type),
     unique(user_id) where is_cycle_anchor = true
