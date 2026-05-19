@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.transaction.repo;
 
+import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,6 +49,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         @Param("from") LocalDate from,
         @Param("to") LocalDate to
     );
+
+    @Query("""
+        SELECT SUM(t.amount) FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = :type
+    """)
+    BigDecimal sumByWalletDateRangeAndType(
+            @Param("walletId") Integer walletId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("type") CategoryType type);
+
+    @Query("""
+        SELECT COUNT(t) FROM Transaction t
+        WHERE t.wallet.id = :walletId
+        AND t.transactionDate BETWEEN :from AND :to
+    """)
+    long countByWalletDateRange(
+            @Param("walletId") Integer walletId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 
     @Override
     @EntityGraph(attributePaths = {"wallet", "category"})

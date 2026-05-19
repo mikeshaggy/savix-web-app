@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 
-import static com.mikeshaggy.backend.dashboard.service.calculator.CalculationUtils.*;
+import static com.mikeshaggy.backend.common.calculation.CalculationUtils.*;
 
 @Component
 public class SummaryCalculator {
