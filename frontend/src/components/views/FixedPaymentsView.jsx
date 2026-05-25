@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, RefreshCw, Loader2, AlertCircle, Check, X, ArrowRight,
-  Edit3, Trash2, Calendar, Clock, Eye, EyeOff,
+  Edit3, Trash2, Calendar, Clock, Eye, EyeOff, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
@@ -15,7 +15,24 @@ import { useAppContext } from '@/contexts/AppContext';
 import FixedPaymentModal from '@/components/modals/FixedPaymentModal';
 import TransactionModal from '@/components/modals/TransactionModal';
 
-const TABS = ['overview', 'upcoming', 'overdue', 'history'];
+const TABS = ['schedule', 'attention', 'paid', 'history'];
+
+const SOON_DAYS = 7;
+const ATTENTION_DAYS = 3;
+
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const diffDays = (from, to) => {
+  if (!from || !to) return null;
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((end - start) / 86400000);
+};
 
 export default function FixedPaymentsView() {
   const t = useTranslations();
@@ -36,7 +53,7 @@ export default function FixedPaymentsView() {
   } = useFixedPayments(walletId);
   const { categories } = useCategories();
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('schedule');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [deactivatingPayment, setDeactivatingPayment] = useState(null);
@@ -158,6 +175,12 @@ export default function FixedPaymentsView() {
     setTransactionPrefill(null);
   };
 
+  const getDaysLabel = (daysDelta) => {
+    if (daysDelta < 0) return t('fixedPayments.daysLate', { days: Math.abs(daysDelta) });
+    if (daysDelta === 0) return t('fixedPayments.dueToday');
+    return t('fixedPayments.daysLeft', { days: daysDelta });
+  };
+
   const allOccurrences = useMemo(() => {
     if (!tileData) return [];
     const overdue = (tileData.overdue || []).map(o => ({ ...o, _section: 'overdue' }));
@@ -166,20 +189,139 @@ export default function FixedPaymentsView() {
     return [...overdue, ...upcoming, ...paid];
   }, [tileData]);
 
+  const enrichedOccurrences = useMemo(() => {
+    return allOccurrences
+      .map((occ) => {
+        const isPaid = occ.status === 'PAID';
+        const isSkipped = occ.status === 'SKIPPED';
+        const dueDate = parseDateOnly(occ.dueDate);
+        const paidDate = parseDateOnly(occ.paidAt);
+        const paidDelayDays = isPaid ? diffDays(dueDate, paidDate) : null;
+        const daysDelta = Number.isFinite(occ.daysDelta) ? occ.daysDelta : 999;
+        const isOverdue = !isPaid && occ.status === 'OVERDUE';
+        const isDueToday = !isPaid && occ.status === 'PENDING' && daysDelta === 0;
+        const isDueSoon = !isPaid && occ.status === 'PENDING' && daysDelta > 0 && daysDelta <= SOON_DAYS;
+        const needsAttention = isOverdue || isDueToday || isSkipped
+          || (!isPaid && occ.status === 'PENDING' && daysDelta > 0 && daysDelta <= ATTENTION_DAYS);
+        const dueMonthKey = dueDate ? `${dueDate.getFullYear()}-${dueDate.getMonth()}` : '';
+        const periodStart = parseDateOnly(tileData?.periodStart);
+        const currentMonthKey = periodStart ? `${periodStart.getFullYear()}-${periodStart.getMonth()}` : '';
+
+        let badgeKey = 'upcoming';
+        let tone = 'purple';
+        let timingLabel = getDaysLabel(daysDelta);
+
+        if (isPaid) {
+          const lateDays = Math.max(paidDelayDays ?? 0, 0);
+          badgeKey = lateDays > 0 ? 'paidLate' : 'paidOnTime';
+          tone = lateDays > 0 ? 'amber' : 'green';
+          timingLabel = lateDays > 0
+            ? t('fixedPayments.paidDaysLate', { days: lateDays })
+            : t('fixedPayments.paidOnTime');
+        } else if (isSkipped) {
+          badgeKey = 'skipped';
+          tone = 'slate';
+          timingLabel = t('fixedPayments.skipped');
+        } else if (isOverdue) {
+          badgeKey = 'overdue';
+          tone = 'red';
+        } else if (isDueToday || isDueSoon) {
+          badgeKey = 'dueSoon';
+          tone = isDueToday ? 'amber' : 'yellow';
+        } else if (occ.status === 'PENDING') {
+          badgeKey = dueMonthKey && currentMonthKey && dueMonthKey !== currentMonthKey ? 'upcoming' : 'pending';
+          tone = 'purple';
+        }
+
+        return {
+          ...occ,
+          isPaid,
+          isSkipped,
+          isOverdue,
+          isDueToday,
+          isDueSoon,
+          needsAttention,
+          paidDelayDays,
+          paidDate: occ.paidAt ? String(occ.paidAt).slice(0, 10) : null,
+          displayAmount: occ.paidAmount ?? occ.expectedAmount,
+          badgeKey,
+          tone,
+          timingLabel,
+          dueMonthKey,
+          currentMonthKey,
+        };
+      })
+      .sort((a, b) => {
+        if (a.needsAttention !== b.needsAttention) return a.needsAttention ? -1 : 1;
+        if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+        return String(a.dueDate).localeCompare(String(b.dueDate));
+      });
+  }, [allOccurrences, tileData?.periodStart, t]);
+
   const filteredOccurrences = useMemo(() => {
-    let list = allOccurrences;
+    let list = enrichedOccurrences;
     if (filterCategory !== 'all') {
       list = list.filter(o => String(o.categoryId) === filterCategory);
     }
     return list;
-  }, [allOccurrences, filterCategory]);
+  }, [enrichedOccurrences, filterCategory]);
 
   const tabOccurrences = useMemo(() => {
-    if (activeTab === 'upcoming') return filteredOccurrences.filter(o => o.status === 'PENDING');
-    if (activeTab === 'overdue') return filteredOccurrences.filter(o => o.status === 'OVERDUE');
-    if (activeTab === 'history') return filteredOccurrences.filter(o => o.status === 'PAID' || o.status === 'SKIPPED');
+    if (activeTab === 'attention') return filteredOccurrences.filter(o => o.needsAttention && !o.isPaid);
+    if (activeTab === 'paid') return filteredOccurrences.filter(o => o.isPaid);
+    if (activeTab === 'history') return filteredOccurrences.filter(o => o.isPaid || o.isSkipped);
     return filteredOccurrences;
   }, [activeTab, filteredOccurrences]);
+
+  const scheduleGroups = useMemo(() => {
+    const groups = [
+      {
+        key: 'needsAttention',
+        title: t('fixedPayments.group_needsAttention'),
+        subtitle: t('fixedPayments.group_needsAttentionDesc'),
+        tone: 'red',
+        items: tabOccurrences.filter(o => o.needsAttention && !o.isPaid),
+      },
+      {
+        key: 'dueSoon',
+        title: t('fixedPayments.group_dueSoon'),
+        subtitle: t('fixedPayments.group_dueSoonDesc'),
+        tone: 'amber',
+        items: tabOccurrences.filter(o => !o.needsAttention && !o.isPaid && o.status === 'PENDING' && o.daysDelta <= SOON_DAYS),
+      },
+      {
+        key: 'paidThisCycle',
+        title: t('fixedPayments.group_paidThisCycle'),
+        subtitle: t('fixedPayments.group_paidThisCycleDesc'),
+        tone: 'green',
+        items: tabOccurrences.filter(o => o.isPaid),
+      },
+      {
+        key: 'laterThisMonth',
+        title: t('fixedPayments.group_laterThisMonth'),
+        subtitle: t('fixedPayments.group_laterThisMonthDesc'),
+        tone: 'purple',
+        items: tabOccurrences.filter(o => !o.isPaid && o.status === 'PENDING' && o.daysDelta > SOON_DAYS && o.dueMonthKey === o.currentMonthKey),
+      },
+      {
+        key: 'nextMonth',
+        title: t('fixedPayments.group_nextMonth'),
+        subtitle: t('fixedPayments.group_nextMonthDesc'),
+        tone: 'slate',
+        items: tabOccurrences.filter(o => !o.isPaid && o.status === 'PENDING' && o.daysDelta > SOON_DAYS && o.dueMonthKey !== o.currentMonthKey),
+      },
+    ];
+
+    if (activeTab === 'schedule') return groups.filter(group => group.items.length > 0);
+
+    return [{
+      key: activeTab,
+      title: t(`fixedPayments.group_${activeTab}`),
+      subtitle: t(`fixedPayments.group_${activeTab}Desc`),
+      tone: activeTab === 'attention' ? 'red' : activeTab === 'paid' ? 'green' : 'slate',
+      items: tabOccurrences,
+    }];
+  }, [activeTab, tabOccurrences, t]);
 
   const activeTemplates = useMemo(() => {
     return (fixedPayments || []).filter(fp => !fp.activeTo || new Date(fp.activeTo) >= new Date());
@@ -198,16 +340,16 @@ export default function FixedPaymentsView() {
 
   const loading = tileLoading || listLoading;
 
-  const getDaysChipClass = (daysDelta) => {
-    if (daysDelta < 0) return 'text-red-400 bg-red-500/10 border border-red-500/20';
-    if (daysDelta <= 7) return 'text-amber-400 bg-amber-500/10 border border-amber-500/20';
-    return 'text-white/25 bg-white/[0.04] border border-white/[0.06]';
-  };
+  const attentionCount = filteredOccurrences.filter(o => o.needsAttention && !o.isPaid).length;
+  const paidCount = filteredOccurrences.filter(o => o.isPaid).length;
 
-  const getDaysLabel = (daysDelta) => {
-    if (daysDelta < 0) return t('fixedPayments.daysLate', { days: Math.abs(daysDelta) });
-    if (daysDelta === 0) return t('fixedPayments.dueToday');
-    return t('fixedPayments.daysLeft', { days: daysDelta });
+  const getStatusToneClass = (tone) => {
+    if (tone === 'red') return 'text-red-300 bg-red-500/10 border-red-500/25';
+    if (tone === 'amber') return 'text-amber-300 bg-amber-500/10 border-amber-500/25';
+    if (tone === 'yellow') return 'text-yellow-200 bg-yellow-500/10 border-yellow-500/25';
+    if (tone === 'green') return 'text-green-300 bg-green-500/10 border-green-500/25';
+    if (tone === 'slate') return 'text-white/35 bg-white/[0.04] border-white/[0.08]';
+    return 'text-purple-300 bg-purple-500/10 border-purple-500/25';
   };
 
   const getCycleLabel = (cycle) => {
@@ -481,9 +623,14 @@ export default function FixedPaymentsView() {
               }`}
             >
               {t(`fixedPayments.tab_${tab}`)}
-              {tab === 'overdue' && (tileData?.overdue?.length || 0) > 0 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-red-500/20 text-red-400 border border-red-500/25">
-                  {tileData.overdue.length}
+              {tab === 'attention' && attentionCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-red-500/20 text-red-300 border border-red-500/25">
+                  {attentionCount}
+                </span>
+              )}
+              {tab === 'paid' && paidCount > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-green-500/15 text-green-300 border border-green-500/20">
+                  {paidCount}
                 </span>
               )}
             </button>
@@ -506,85 +653,116 @@ export default function FixedPaymentsView() {
         </div>
       </div>
 
-      {/* Occurrence list */}
-      <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden">
-        {tabOccurrences.length === 0 ? (
+      {/* Occurrence schedule */}
+      <div className="bg-[#10101c] border border-white/[0.06] rounded-[14px] overflow-hidden">
+        {scheduleGroups.length === 0 || tabOccurrences.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-white/25">
             <Calendar className="w-8 h-8 mb-3 opacity-40" />
             <div className="text-[13px]">{t('fixedPayments.noOccurrences')}</div>
           </div>
         ) : (
-          tabOccurrences.map((occ, idx) => {
-            const isOverdue = occ.status === 'OVERDUE';
-            const isPaid = occ.status === 'PAID';
-            const isSkipped = occ.status === 'SKIPPED';
-            const canMarkPaid = occ.status === 'PENDING' || isOverdue;
-
-            return (
+          <div className="divide-y divide-white/[0.045]">
+            {scheduleGroups.map((group, groupIndex) => (
               <div
-                key={occ.occurrenceId || idx}
-                className={`group flex items-center gap-3 px-4 md:px-5 py-3 transition-colors border-b border-white/[0.03] last:border-b-0 ${
-                  isOverdue ? 'bg-red-500/[0.03] hover:bg-red-500/[0.06]' : 'hover:bg-white/[0.025]'
-                } ${isPaid ? 'opacity-60' : ''}`}
-                style={{ animation: `fadeUp 0.3s ease both`, animationDelay: `${0.03 * idx}s` }}
+                key={group.key}
+                className="px-3 py-3 sm:px-4 sm:py-4"
+                style={{ animation: `fadeUp 0.3s ease both`, animationDelay: `${0.04 * groupIndex}s` }}
               >
-                {/* Overdue pulse */}
-                {isOverdue && (
-                  <div className="w-[5px] h-[5px] rounded-full bg-red-400 shrink-0 animate-pulse" />
-                )}
-
-                {/* Icon */}
-                <div className="w-[36px] h-[36px] bg-[#1a1a2a] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-[14px] shrink-0">
-                  {occ.categoryEmoji || '🔁'}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-white truncate">{occ.title}</div>
-                  <div className="text-[10px] text-white/25 flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span>{occ.dueDate}</span>
-                    <span className="text-[9px] tracking-[0.05em] uppercase bg-white/[0.04] border border-white/[0.06] px-1.5 py-px rounded">
-                      {occ.categoryName}
-                    </span>
-                    <span className={`text-[9px] px-1.5 py-px rounded ${getDaysChipClass(occ.daysDelta)}`}>
-                      {getDaysLabel(occ.daysDelta)}
-                    </span>
+                <div className="flex items-start justify-between gap-3 px-1 pb-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        group.tone === 'red' ? 'bg-red-400' : group.tone === 'amber' ? 'bg-amber-300' : group.tone === 'green' ? 'bg-green-300' : group.tone === 'purple' ? 'bg-purple-300' : 'bg-white/25'
+                      }`} />
+                      <div className="text-[13px] sm:text-[14px] font-semibold text-white">{group.title}</div>
+                    </div>
+                    <div className="text-[11px] sm:text-[12px] text-white/28 mt-1">{group.subtitle}</div>
+                  </div>
+                  <div className="text-[11px] text-white/30 bg-white/[0.035] border border-white/[0.06] rounded-full px-2.5 py-1 shrink-0">
+                    {t('fixedPayments.countItems', { count: group.items.length })}
                   </div>
                 </div>
+                <div className="grid gap-2">
+                  {group.items.map((occ, idx) => {
+                    const canMarkPaid = occ.status === 'PENDING' || occ.isOverdue;
 
-                {/* Mark paid */}
-                {canMarkPaid && (
-                  <button
-                    onClick={() => handleMarkPaidClick(occ)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.06em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-400 md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-green-400/[0.15] shrink-0"
-                  >
-                    <Check className="w-3 h-3" />
-                    {t('fixedPayments.markAsPaid')}
-                  </button>
-                )}
+                    return (
+                      <div
+                        key={occ.occurrenceId || `${group.key}-${idx}`}
+                        className={`group/row grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border px-3.5 py-3 transition-colors ${
+                          occ.isOverdue
+                            ? 'bg-red-500/[0.045] border-red-500/15 hover:bg-red-500/[0.07]'
+                            : 'bg-[#151525] border-white/[0.055] hover:bg-[#1a1a2d]'
+                        }`}
+                      >
+                        <div className="w-[38px] h-[38px] bg-[#1c1c30] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-[15px] shrink-0">
+                          {occ.categoryEmoji || '🔁'}
+                        </div>
 
-                {/* Amount + badge */}
-                <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                  <div className={`font-bold text-[14px] tracking-[-0.01em] ${
-                    isOverdue ? 'text-red-400' : isPaid ? 'text-green-400' : 'text-purple-400'
-                  }`}>
-                    {formatCurrency(occ.expectedAmount, lang)}
-                  </div>
-                  <span className={`text-[8px] tracking-[0.08em] uppercase px-1.5 py-px rounded ${
-                    isOverdue
-                      ? 'bg-red-500/[0.12] text-red-400 border border-red-500/25'
-                      : isPaid
-                        ? 'bg-green-400/10 text-green-400 border border-green-400/20'
-                        : isSkipped
-                          ? 'bg-white/[0.04] text-white/25 border border-white/[0.06]'
-                          : 'bg-purple-500/[0.12] text-purple-400 border border-purple-500/25'
-                  }`}>
-                    {occ.status}
-                  </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="text-[13.5px] font-semibold text-white truncate max-w-[220px] sm:max-w-none">
+                              {occ.title}
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${getStatusToneClass(occ.tone)}`}>
+                              {t(`fixedPayments.badge_${occ.badgeKey}`)}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[11px] sm:text-[12px] text-white/30">
+                            <span>{formatDate(occ.dueDate, lang)}</span>
+                            <span className="text-white/14">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <span>{occ.categoryEmoji}</span>
+                              <span>{occ.categoryName}</span>
+                            </span>
+                            <span className="text-white/14">·</span>
+                            <span className={occ.isOverdue ? 'text-red-300' : occ.isPaid ? 'text-green-300' : 'text-white/35'}>
+                              {occ.timingLabel}
+                            </span>
+                            {occ.paidDate && (
+                              <>
+                                <span className="text-white/14">·</span>
+                                <span>{t('fixedPayments.paidOnDate', { date: formatDate(occ.paidDate, lang) })}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 sm:col-span-1 flex sm:flex-col items-center sm:items-end justify-between gap-3 sm:min-w-[150px]">
+                          {canMarkPaid ? (
+                            <button
+                              onClick={() => handleMarkPaidClick(occ)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.04em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-300 transition-all hover:bg-green-400/[0.15] shrink-0"
+                            >
+                              <Check className="w-3 h-3" />
+                              {t('fixedPayments.markAsPaid')}
+                            </button>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1.5 text-[11px] ${occ.isPaid ? 'text-green-300' : 'text-white/25'}`}>
+                              {occ.isPaid ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                              {occ.isPaid ? t('fixedPayments.settled') : t('fixedPayments.notActionable')}
+                            </span>
+                          )}
+                          <div className="text-right">
+                            <div className={`font-bold text-[15px] sm:text-[16px] tracking-[-0.01em] ${
+                              occ.isOverdue ? 'text-red-300' : occ.isPaid ? 'text-green-300' : 'text-purple-300'
+                            }`}>
+                              {formatCurrency(occ.displayAmount, lang)}
+                            </div>
+                            {occ.paidAmount && occ.paidAmount !== occ.expectedAmount && (
+                              <div className="text-[10px] text-white/25 mt-0.5">
+                                {t('fixedPayments.plannedShort')}: {formatCurrency(occ.expectedAmount, lang)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
 
