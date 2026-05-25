@@ -28,7 +28,7 @@ public class PayCyclePeriodResolver implements PeriodResolver {
     public PeriodDto resolve(Integer walletId, UUID userId, LocalDate customStart, LocalDate customEnd, Integer anchorCategoryId) {
         LocalDate today = LocalDate.now(clock);
 
-        LocalDate latestAnchorDate = findLatestAnchorTransactionDate(walletId, anchorCategoryId);
+        LocalDate latestAnchorDate = findLatestAnchorTransactionDate(walletId, userId, anchorCategoryId);
 
         if (latestAnchorDate != null) {
             return new PeriodDto(latestAnchorDate, today, latestAnchorDate.plusMonths(1), PeriodType.PAY_CYCLE);
@@ -37,13 +37,14 @@ public class PayCyclePeriodResolver implements PeriodResolver {
         return new PeriodDto(today.withDayOfMonth(1), today, today.withDayOfMonth(1).plusMonths(1), PeriodType.PAY_CYCLE);
     }
 
-    LocalDate findLatestAnchorTransactionDate(Integer walletId, Integer anchorCategoryId) {
+    LocalDate findLatestAnchorTransactionDate(Integer walletId, UUID userId, Integer anchorCategoryId) {
         if (anchorCategoryId == null) {
             return null;
         }
 
         return transactionRepository
-                .findByWalletIdAndCategoryIdOrderByTransactionDateDesc(walletId, anchorCategoryId, PageRequest.of(0, 1))
+                .findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                        walletId, userId, anchorCategoryId, PageRequest.of(0, 1))
                 .stream()
                 .findFirst()
                 .map(Transaction::getTransactionDate)

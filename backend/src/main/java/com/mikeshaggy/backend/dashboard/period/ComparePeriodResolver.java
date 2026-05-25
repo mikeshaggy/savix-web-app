@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -18,17 +19,18 @@ public class ComparePeriodResolver {
 
     private final TransactionRepository transactionRepository;
 
-    public PeriodDto resolve(PeriodDto currentPeriod, Integer walletId, Integer anchorCategoryId) {
+    public PeriodDto resolve(PeriodDto currentPeriod, Integer walletId, UUID userId, Integer anchorCategoryId) {
         return switch (currentPeriod.periodType()) {
-            case PAY_CYCLE -> resolveForPayCycle(walletId, anchorCategoryId);
-            case LAST_PAY_CYCLE -> resolveForLastPayCycle(walletId, anchorCategoryId);
+            case PAY_CYCLE -> resolveForPayCycle(currentPeriod, walletId, userId, anchorCategoryId);
+            case LAST_PAY_CYCLE -> resolveForLastPayCycle(currentPeriod, walletId, userId, anchorCategoryId);
             case CUSTOM -> resolveForCustom(currentPeriod);
             case MONTHLY -> resolveForMonthly(currentPeriod);
         };
     }
 
-    private PeriodDto resolveForPayCycle(Integer walletId, Integer anchorCategoryId) {
-        List<Transaction> anchorTransactions = findAnchorTransactions(walletId, anchorCategoryId, 2);
+    private PeriodDto resolveForPayCycle(PeriodDto currentPeriod, Integer walletId,
+                                         UUID userId, Integer anchorCategoryId) {
+        List<Transaction> anchorTransactions = findAnchorTransactions(walletId, userId, anchorCategoryId, 2);
 
         if (anchorTransactions.size() >= 2) {
             LocalDate latestDate = anchorTransactions.get(0).getTransactionDate();
@@ -36,11 +38,12 @@ public class ComparePeriodResolver {
             return new PeriodDto(previousDate, latestDate.minusDays(1), previousDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
         }
 
-        return null;
+        return resolveForCustom(currentPeriod);
     }
 
-    private PeriodDto resolveForLastPayCycle(Integer walletId, Integer anchorCategoryId) {
-        List<Transaction> anchorTransactions = findAnchorTransactions(walletId, anchorCategoryId, 3);
+    private PeriodDto resolveForLastPayCycle(PeriodDto currentPeriod, Integer walletId,
+                                             UUID userId, Integer anchorCategoryId) {
+        List<Transaction> anchorTransactions = findAnchorTransactions(walletId, userId, anchorCategoryId, 3);
 
         if (anchorTransactions.size() >= 3) {
             LocalDate secondDate = anchorTransactions.get(1).getTransactionDate();
@@ -48,7 +51,7 @@ public class ComparePeriodResolver {
             return new PeriodDto(thirdDate, secondDate.minusDays(1), thirdDate.plusMonths(1), PeriodType.LAST_PAY_CYCLE);
         }
 
-        return null;
+        return resolveForCustom(currentPeriod);
     }
 
     private PeriodDto resolveForCustom(PeriodDto currentPeriod) {
@@ -64,11 +67,12 @@ public class ComparePeriodResolver {
         return new PeriodDto(compareStart, compareEnd, currentPeriod.startDate(), PeriodType.MONTHLY);
     }
 
-    private List<Transaction> findAnchorTransactions(Integer walletId, Integer anchorCategoryId, int count) {
+    private List<Transaction> findAnchorTransactions(Integer walletId, UUID userId,
+                                                     Integer anchorCategoryId, int count) {
         if (anchorCategoryId == null) {
             return List.of();
         }
-        return transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                walletId, anchorCategoryId, PageRequest.of(0, count));
+        return transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                walletId, userId, anchorCategoryId, PageRequest.of(0, count));
     }
 }

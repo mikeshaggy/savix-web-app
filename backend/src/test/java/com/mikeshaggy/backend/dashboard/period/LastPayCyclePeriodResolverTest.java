@@ -61,8 +61,8 @@ class LastPayCyclePeriodResolverTest {
             Transaction previous =
                     Transaction.builder().transactionDate(LocalDate.of(2026, 1, 25)).build();
 
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, 5, PageRequest.of(0, 2)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, 5, PageRequest.of(0, 2)))
                     .thenReturn(List.of(latest, previous));
 
             // when
@@ -100,8 +100,8 @@ class LastPayCyclePeriodResolverTest {
             LastPayCyclePeriodResolver sut = resolverWithClock();
 
             Transaction single = Transaction.builder().transactionDate(LocalDate.of(2026, 2, 25)).build();
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, 5, PageRequest.of(0, 2)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, 5, PageRequest.of(0, 2)))
                     .thenReturn(List.of(single));
 
             // when

@@ -31,7 +31,8 @@ public class LastPayCyclePeriodResolver implements PeriodResolver {
 
         if (anchorCategoryId != null) {
             List<Transaction> anchorTransactions = transactionRepository
-                    .findByWalletIdAndCategoryIdOrderByTransactionDateDesc(walletId, anchorCategoryId, PageRequest.of(0, 2));
+                    .findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                            walletId, userId, anchorCategoryId, PageRequest.of(0, 2));
 
             if (anchorTransactions.size() >= 2) {
                 LocalDate latestDate = anchorTransactions.get(0).getTransactionDate();

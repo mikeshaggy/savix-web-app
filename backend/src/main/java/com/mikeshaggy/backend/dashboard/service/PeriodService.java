@@ -51,7 +51,7 @@ public class PeriodService {
             throw new IllegalArgumentException("Unsupported period type: " + periodType);
         }
         PeriodDto primary = resolver.resolve(walletId, userId, startDate, endDate, anchorCategoryId);
-        PeriodDto compare = comparePeriodResolver.resolve(primary, walletId, anchorCategoryId);
+        PeriodDto compare = comparePeriodResolver.resolve(primary, walletId, userId, anchorCategoryId);
         return new ResolvedPeriods(primary, compare);
     }
 

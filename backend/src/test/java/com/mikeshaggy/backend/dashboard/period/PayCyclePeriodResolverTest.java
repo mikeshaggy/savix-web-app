@@ -59,8 +59,8 @@ class PayCyclePeriodResolverTest {
 
             Transaction anchorTx =
                     Transaction.builder().transactionDate(LocalDate.of(2026, 2, 25)).build();
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, 5, PageRequest.of(0, 1)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, 5, PageRequest.of(0, 1)))
                     .thenReturn(List.of(anchorTx));
 
             // when
@@ -97,8 +97,8 @@ class PayCyclePeriodResolverTest {
             // given
             PayCyclePeriodResolver sut = resolverWithClock();
 
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, 5, PageRequest.of(0, 1)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, 5, PageRequest.of(0, 1)))
                     .thenReturn(List.of());
 
             // when

@@ -9,6 +9,7 @@ import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +28,7 @@ class ComparePeriodResolverTest {
     private ComparePeriodResolver resolver;
 
     private static final Integer WALLET_ID = 1;
+    private static final UUID USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final Integer ANCHOR_CATEGORY_ID = 5;
 
     @Nested
@@ -45,12 +47,12 @@ class ComparePeriodResolverTest {
             Transaction latest = Transaction.builder().transactionDate(LocalDate.of(2026, 2, 25)).build();
             Transaction previous =
                     Transaction.builder().transactionDate(LocalDate.of(2026, 1, 25)).build();
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 2)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 2)))
                     .thenReturn(List.of(latest, previous));
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, ANCHOR_CATEGORY_ID);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 1, 25));
@@ -59,7 +61,7 @@ class ComparePeriodResolverTest {
         }
 
         @Test
-        void insufficientAnchorTransactions_returnsNull() {
+        void insufficientAnchorTransactions_fallsBackToPreviousEqualLengthPeriod() {
             // given
             PeriodDto current =
                     new PeriodDto(
@@ -69,10 +71,13 @@ class ComparePeriodResolverTest {
                             PeriodType.PAY_CYCLE);
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, null);
 
             // then
-            assertThat(result).isNull();
+            assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 2, 10));
+            assertThat(result.endDate()).isEqualTo(LocalDate.of(2026, 2, 24));
+            assertThat(result.endDate()).isBefore(current.startDate());
+            assertThat(result.periodType()).isEqualTo(PeriodType.CUSTOM);
         }
     }
 
@@ -92,12 +97,12 @@ class ComparePeriodResolverTest {
             Transaction t1 = Transaction.builder().transactionDate(LocalDate.of(2026, 2, 25)).build();
             Transaction t2 = Transaction.builder().transactionDate(LocalDate.of(2026, 1, 25)).build();
             Transaction t3 = Transaction.builder().transactionDate(LocalDate.of(2025, 12, 25)).build();
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 3)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 3)))
                     .thenReturn(List.of(t1, t2, t3));
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, ANCHOR_CATEGORY_ID);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2025, 12, 25));
@@ -105,7 +110,7 @@ class ComparePeriodResolverTest {
         }
 
         @Test
-        void insufficientAnchorTransactions_returnsNull() {
+        void insufficientAnchorTransactions_fallsBackToPreviousEqualLengthPeriod() {
             // given
             PeriodDto current =
                     new PeriodDto(
@@ -114,18 +119,21 @@ class ComparePeriodResolverTest {
                             LocalDate.of(2026, 2, 25),
                             PeriodType.LAST_PAY_CYCLE);
 
-            when(transactionRepository.findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-                            WALLET_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 3)))
+            when(transactionRepository.findByWalletUserAndCategoryOrderByTransactionDateDesc(
+                WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID, PageRequest.of(0, 3)))
                     .thenReturn(
                             List.of(
                                     Transaction.builder().transactionDate(LocalDate.of(2026, 2, 25)).build(),
                                     Transaction.builder().transactionDate(LocalDate.of(2026, 1, 25)).build()));
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, ANCHOR_CATEGORY_ID);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, ANCHOR_CATEGORY_ID);
 
             // then
-            assertThat(result).isNull();
+            assertThat(result.startDate()).isEqualTo(LocalDate.of(2025, 12, 25));
+            assertThat(result.endDate()).isEqualTo(LocalDate.of(2026, 1, 24));
+            assertThat(result.endDate()).isBefore(current.startDate());
+            assertThat(result.periodType()).isEqualTo(PeriodType.CUSTOM);
         }
     }
 
@@ -143,7 +151,7 @@ class ComparePeriodResolverTest {
                             PeriodType.CUSTOM);
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, null);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 1, 29));
@@ -162,7 +170,7 @@ class ComparePeriodResolverTest {
                             PeriodType.CUSTOM);
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, null);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 3, 14));
@@ -184,7 +192,7 @@ class ComparePeriodResolverTest {
                             PeriodType.MONTHLY);
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, null);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2026, 2, 1));
@@ -204,7 +212,7 @@ class ComparePeriodResolverTest {
                             PeriodType.MONTHLY);
 
             // when
-            PeriodDto result = resolver.resolve(current, WALLET_ID, null);
+            PeriodDto result = resolver.resolve(current, WALLET_ID, USER_ID, null);
 
             // then
             assertThat(result.startDate()).isEqualTo(LocalDate.of(2025, 12, 1));
