@@ -161,6 +161,8 @@ export default function DashboardPage() {
                 onPeriodTypeChange={handlePeriodTypeChange}
                 onMonthChange={handleMonthChange}
                 onCustomDateChange={handleCustomDateChange}
+                customStartDate={customStartDate}
+                customEndDate={customEndDate}
             />
 
             {/* Bento grid */}
