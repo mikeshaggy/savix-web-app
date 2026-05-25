@@ -1,5 +1,9 @@
 package com.mikeshaggy.backend.analytics.overview;
 
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
@@ -7,7 +11,6 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
 import com.mikeshaggy.backend.dashboard.service.PeriodService;
-import com.mikeshaggy.backend.transaction.repository.CategoryBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -36,6 +39,7 @@ public class AnalyticsSummaryService {
     private final PeriodService periodService;
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
+    private final CategoryAggregationService categoryAggregationService;
 
     public AnalyticsSummaryDto getSummary(Integer walletId, UUID userId,
                                           PeriodType periodType,
@@ -47,15 +51,15 @@ public class AnalyticsSummaryService {
                 walletId, userId, periodType, startDate, endDate);
 
         // ── 2. Top spending category ──────────────────────────────────────────
-        List<CategoryBreakdownProjection> cats = transactionRepository
-                .findIncludedCategorySpendByWalletUserAndDateRange(
-                        walletId, userId, proj.startDate(), proj.endDate(), CategoryType.EXPENSE);
-        CategoryBreakdownProjection topCat = cats.isEmpty() ? null : cats.get(0);
+        CategoryAggregationResult categoryResult = categoryAggregationService.aggregateExpenses(
+                walletId, userId, proj.startDate(), proj.endDate(),
+                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+        CategoryAggregation topCat = categoryResult.categories().isEmpty() ? null : categoryResult.categories().getFirst();
 
         // ── 3. Daily stats from heatmap rows ──────────────────────────────────
         List<HeatmapProjection> heatmapRows = transactionRepository
                 .findHeatmapByWalletDateRangeAndType(
-                        walletId, proj.startDate(), proj.endDate(), CategoryType.EXPENSE);
+                        walletId, userId, proj.startDate(), proj.endDate(), CategoryType.EXPENSE);
 
         Map<LocalDate, BigDecimal> dailyTotals = heatmapRows.stream()
                 .collect(Collectors.groupingBy(
@@ -79,8 +83,10 @@ public class AnalyticsSummaryService {
                 periodType, walletId, userId, startDate, endDate);
         PeriodDto compare = resolvedPeriods.compare();
 
-        BigDecimal compareExpenses = money(transactionRepository.sumByWalletUserDateRangeAndType(
-                walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE));
+        BigDecimal compareExpenses = compare == null
+                ? money(BigDecimal.ZERO)
+                : money(transactionRepository.sumByWalletUserDateRangeAndType(
+                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE));
         boolean comparisonAvailable = compareExpenses.compareTo(BigDecimal.ZERO) > 0;
         BigDecimal expensesDeltaPercent = null;
         if (comparisonAvailable) {
@@ -116,10 +122,10 @@ public class AnalyticsSummaryService {
                 savingsRate,
                 proj.projectedPeriodExpenses(),
                 proj.incomeForPeriod(),
-                topCat != null ? topCat.getCategoryId() : null,
-                topCat != null ? topCat.getName() : null,
-                topCat != null ? topCat.getEmoji() : null,
-                topCat != null ? money(topCat.getAmount()) : null,
+                topCat != null ? topCat.categoryId() : null,
+                topCat != null ? topCat.name() : null,
+                topCat != null ? topCat.emoji() : null,
+                topCat != null ? topCat.amount() : null,
                 highestSpendingDay,
                 highestSpendingDayAmount,
                 activeDays,

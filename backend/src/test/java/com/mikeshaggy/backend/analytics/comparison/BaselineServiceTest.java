@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,7 +46,7 @@ class BaselineServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BaselineService(transactionRepository, walletService, periodService);
+        service = new BaselineService(transactionRepository, walletService, periodService, new com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService(transactionRepository));
         when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                 .thenReturn(Wallet.builder().id(WALLET_ID).build());
         when(periodService.resolvePeriods(PeriodType.CUSTOM, WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END))
@@ -53,10 +54,10 @@ class BaselineServiceTest {
                         new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM),
                         new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
         // Default: no categories
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE)).thenReturn(List.of());
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE)).thenReturn(List.of());
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE)).thenReturn(List.of());
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE)).thenReturn(List.of());
     }
 
     private BaselineComparisonDto run(BigDecimal primaryIncome, BigDecimal primaryExpenses,
@@ -171,11 +172,11 @@ class BaselineServiceTest {
 
     @Test
     void categoryComparisonsUseCurrentVsComparePeriod() {
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
                 .thenReturn(List.of(categoryRow(12, "Groceries", "G", "1000.00")));
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
                 .thenReturn(List.of(categoryRow(12, "Groceries", "G", "800.00")));
 
         BaselineComparisonDto result = run(
@@ -189,15 +190,19 @@ class BaselineServiceTest {
         assertThat(result.categories().getFirst().expensesDeltaPercent()).isEqualByComparingTo("25.00");
         assertThat(result.categories().getFirst().expensesDeltaDisplay()).isEqualTo("+25.00%");
         assertThat(result.categories().getFirst().expensesDeltaAvailable()).isTrue();
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE);
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE);
     }
 
     @Test
     void categoryPresentOnlyInCompareAppearesWithZeroCurrentExpenses() {
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
                 .thenReturn(List.of());
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
+        when(transactionRepository.findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
                 .thenReturn(List.of(categoryRow(5, "Dining", "D", "300.00")));
 
         BaselineComparisonDto result = run(

@@ -28,41 +28,26 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     List<Transaction> findByWalletIdAndWalletUserId(Integer walletId, UUID userId);
 
     @Query("SELECT t FROM Transaction t JOIN FETCH t.category WHERE t.wallet.id = :walletId " +
+           "AND t.wallet.user.id = :userId " +
            "AND t.transactionDate >= :startDate AND t.transactionDate <= :endDate " +
            "ORDER BY t.transactionDate DESC")
-    List<Transaction> findByWalletIdAndTransactionDateBetween(Integer walletId,
-                                                              LocalDate startDate,
-                                                              LocalDate endDate);
-
-    List<Transaction> findByWalletIdAndCategoryIdOrderByTransactionDateDesc(
-            Integer walletId, Integer categoryId, Pageable pageable);
-
+    List<Transaction> findByWalletIdAndWalletUserIdAndTransactionDateBetween(Integer walletId,
+                                                                             UUID userId,
+                                                                             LocalDate startDate,
+                                                                             LocalDate endDate);
 
     @Query("""
-        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
-        JOIN t.category c
+        SELECT t FROM Transaction t
         WHERE t.wallet.id = :walletId
-        AND c.type = 'INCOME'
-        AND t.transactionDate BETWEEN :from AND :to
+        AND t.wallet.user.id = :userId
+        AND t.category.id = :categoryId
+        ORDER BY t.transactionDate DESC
     """)
-    BigDecimal sumIncomeByWalletIdAndDateRange(
-        @Param("walletId") Integer walletId,
-        @Param("from") LocalDate from,
-        @Param("to") LocalDate to
-    );
-
-    @Query("""
-        SELECT SUM(t.amount) FROM Transaction t
-        JOIN t.category c
-        WHERE t.wallet.id = :walletId
-        AND t.transactionDate BETWEEN :from AND :to
-        AND c.type = :type
-    """)
-    BigDecimal sumByWalletDateRangeAndType(
+    List<Transaction> findByWalletUserAndCategoryOrderByTransactionDateDesc(
             @Param("walletId") Integer walletId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("type") CategoryType type);
+            @Param("userId") UUID userId,
+            @Param("categoryId") Integer categoryId,
+            Pageable pageable);
 
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
@@ -105,13 +90,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         FROM Transaction t
         JOIN t.category c
         WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
         AND t.transactionDate BETWEEN :from AND :to
         AND c.type = :type
         GROUP BY c.id, c.name, c.emoji
-        ORDER BY SUM(t.amount) DESC
+        ORDER BY SUM(t.amount) DESC, c.name ASC, c.id ASC
     """)
-    List<CategoryBreakdownProjection> findCategoryBreakdownByWalletDateRangeAndType(
+    List<CategoryBreakdownProjection> findCategorySpendByWalletUserAndDateRange(
             @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("type") CategoryType type);
@@ -123,6 +110,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         FROM Transaction t
         JOIN t.category c
         WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
         AND t.transactionDate BETWEEN :from AND :to
         AND c.type = :type
         AND t.importance IS NOT NULL
@@ -130,6 +118,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     """)
     List<ImportanceBreakdownProjection> findImportanceBreakdownByWalletDateRangeAndType(
             @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("type") CategoryType type);
@@ -144,6 +133,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         FROM Transaction t
         JOIN t.category c
         WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
         AND t.transactionDate BETWEEN :from AND :to
         AND c.type = :type
         GROUP BY t.transactionDate, c.id, c.name, c.emoji
@@ -151,6 +141,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     """)
     List<HeatmapProjection> findHeatmapByWalletDateRangeAndType(
             @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("type") CategoryType type);
@@ -211,7 +202,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         AND c.type = :type
         AND c.excludedFromTopCategories = false
         GROUP BY c.id, c.name, c.emoji
-        ORDER BY SUM(t.amount) DESC
+        ORDER BY SUM(t.amount) DESC, c.name ASC, c.id ASC
     """)
     List<CategoryBreakdownProjection> findIncludedCategorySpendByWalletUserAndDateRange(
             @Param("walletId") Integer walletId,
@@ -258,10 +249,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
     @Query("""
         SELECT COUNT(t) FROM Transaction t
         WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
         AND t.transactionDate BETWEEN :from AND :to
     """)
-    long countByWalletDateRange(
+    long countByWalletUserDateRange(
             @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 

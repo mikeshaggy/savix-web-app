@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,6 +101,10 @@ class InsightEngineTest {
         assertThat(insight.relatedCategoryId()).isEqualTo(7);
         assertThat(insight.relatedAmount()).isEqualByComparingTo("620.00");
         assertThat(insight.description()).contains("previous period");
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE);
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE);
     }
 
     @Test
@@ -299,7 +304,8 @@ class InsightEngineTest {
         Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
         return new InsightEngine(
                 transactionRepository, walletService, spendingProjectionService,
-                InsightThresholds.defaults(), clock, periodService);
+                InsightThresholds.defaults(), clock, periodService,
+                new com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService(transactionRepository));
     }
 
     private InsightDto onlyInsightOfType(InsightResponseDto result, InsightType type) {

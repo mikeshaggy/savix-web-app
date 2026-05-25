@@ -1,14 +1,14 @@
 package com.mikeshaggy.backend.analytics.comparison;
 
-import com.mikeshaggy.backend.analytics.comparison.BaselineCategoryComparisonDto;
-import com.mikeshaggy.backend.analytics.comparison.BaselineComparisonDto;
-import com.mikeshaggy.backend.analytics.comparison.BaselineDeltaDto;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
 import com.mikeshaggy.backend.dashboard.service.PeriodService;
-import com.mikeshaggy.backend.transaction.repository.CategoryBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +38,7 @@ public class BaselineService {
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
     private final PeriodService periodService;
+    private final CategoryAggregationService categoryAggregationService;
 
     public BaselineComparisonDto getBaseline(Integer walletId, UUID userId,
                                              PeriodType periodType, LocalDate startDate, LocalDate endDate) {
@@ -65,12 +66,12 @@ public class BaselineService {
         BaselineDeltaDto expensesDelta = delta(currentExpenses, baselineExpenses);
         BaselineDeltaDto savingsRateDelta = delta(currentSavingsRateForDelta, baselineSavingsRateForDelta);
 
-        List<CategoryBreakdownProjection> currentCategories = transactionRepository
-                .findCategoryBreakdownByWalletDateRangeAndType(
-                        walletId, primary.startDate(), primary.endDate(), CategoryType.EXPENSE);
-        List<CategoryBreakdownProjection> compareCategories = transactionRepository
-                .findCategoryBreakdownByWalletDateRangeAndType(
-                        walletId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
+        CategoryAggregationResult currentCategories = categoryAggregationService.aggregateExpenses(
+                walletId, userId, primary.startDate(), primary.endDate(),
+                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+        CategoryAggregationResult compareCategories = categoryAggregationService.aggregateExpenses(
+                walletId, userId, compare.startDate(), compare.endDate(),
+                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
 
         return new BaselineComparisonDto(
                 primary.startDate(), primary.endDate(),
@@ -84,26 +85,26 @@ public class BaselineService {
     }
 
     private List<BaselineCategoryComparisonDto> categoryComparisons(
-            List<CategoryBreakdownProjection> current,
-            List<CategoryBreakdownProjection> compare) {
-        Map<Integer, CategoryBreakdownProjection> currentMap = current.stream()
-                .collect(Collectors.toMap(CategoryBreakdownProjection::getCategoryId, Function.identity()));
-        Map<Integer, CategoryBreakdownProjection> compareMap = compare.stream()
-                .collect(Collectors.toMap(CategoryBreakdownProjection::getCategoryId, Function.identity()));
+            CategoryAggregationResult current,
+            CategoryAggregationResult compare) {
+        Map<Integer, CategoryAggregation> currentMap = current.categories().stream()
+                .collect(Collectors.toMap(CategoryAggregation::categoryId, Function.identity()));
+        Map<Integer, CategoryAggregation> compareMap = compare.categories().stream()
+                .collect(Collectors.toMap(CategoryAggregation::categoryId, Function.identity()));
 
         // Maintain insertion order: current-period categories first, then compare-only
         Map<Integer, Object> orderedIds = new LinkedHashMap<>();
-        current.forEach(c -> orderedIds.put(c.getCategoryId(), c));
-        compare.forEach(c -> orderedIds.putIfAbsent(c.getCategoryId(), c));
+        current.categories().forEach(c -> orderedIds.put(c.categoryId(), c));
+        compare.categories().forEach(c -> orderedIds.putIfAbsent(c.categoryId(), c));
 
         return orderedIds.keySet().stream()
                 .map(id -> {
-                    CategoryBreakdownProjection curr = currentMap.get(id);
-                    CategoryBreakdownProjection comp = compareMap.get(id);
-                    String name = curr != null ? curr.getName() : comp.getName();
-                    String emoji = curr != null ? curr.getEmoji() : comp.getEmoji();
-                    BigDecimal currentAmt = money(curr != null ? curr.getAmount() : null);
-                    BigDecimal compareAmt = money(comp != null ? comp.getAmount() : null);
+                    CategoryAggregation curr = currentMap.get(id);
+                    CategoryAggregation comp = compareMap.get(id);
+                    String name = curr != null ? curr.name() : comp.name();
+                    String emoji = curr != null ? curr.emoji() : comp.emoji();
+                    BigDecimal currentAmt = money(curr != null ? curr.amount() : null);
+                    BigDecimal compareAmt = money(comp != null ? comp.amount() : null);
                     BaselineDeltaDto d = delta(currentAmt, compareAmt);
                     return new BaselineCategoryComparisonDto(
                             id, name, emoji, compareAmt, currentAmt,

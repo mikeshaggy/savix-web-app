@@ -1,5 +1,9 @@
 package com.mikeshaggy.backend.analytics.insight;
 
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
@@ -8,7 +12,6 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
 import com.mikeshaggy.backend.dashboard.service.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
-import com.mikeshaggy.backend.transaction.repository.CategoryBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,7 @@ public class InsightEngine {
     private final InsightThresholds thresholds;
     private final Clock clock;
     private final PeriodService periodService;
+    private final CategoryAggregationService categoryAggregationService;
 
     public InsightResponseDto getInsights(Integer walletId, UUID userId,
                                           PeriodType periodType, LocalDate startDate, LocalDate endDate) {
@@ -80,23 +84,23 @@ public class InsightEngine {
 
     private List<InsightDto> categorySpikeInsights(
             Integer walletId, UUID userId, PeriodDto primary, PeriodDto compare) {
-        List<CategoryBreakdownProjection> currentRows = transactionRepository
-                .findIncludedCategorySpendByWalletUserAndDateRange(
-                        walletId, userId, primary.startDate(), primary.endDate(), CategoryType.EXPENSE);
-        List<CategoryBreakdownProjection> compareRows = transactionRepository
-                .findIncludedCategorySpendByWalletUserAndDateRange(
-                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
+        CategoryAggregationResult currentRows = categoryAggregationService.aggregateExpenses(
+                walletId, userId, primary.startDate(), primary.endDate(),
+                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+        CategoryAggregationResult compareRows = categoryAggregationService.aggregateExpenses(
+                walletId, userId, compare.startDate(), compare.endDate(),
+                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
 
-        Map<Integer, BigDecimal> compareByCategory = compareRows.stream()
+        Map<Integer, BigDecimal> compareByCategory = compareRows.categories().stream()
                 .collect(Collectors.toMap(
-                        CategoryBreakdownProjection::getCategoryId,
-                        r -> money(r.getAmount())));
+                        CategoryAggregation::categoryId,
+                        CategoryAggregation::amount));
 
-        return currentRows.stream()
+        return currentRows.categories().stream()
                 .map(row -> {
-                    BigDecimal current = money(row.getAmount());
+                    BigDecimal current = row.amount();
                     BigDecimal baseline = compareByCategory.getOrDefault(
-                            row.getCategoryId(), BigDecimal.ZERO.setScale(SCALE, ROUNDING));
+                            row.categoryId(), BigDecimal.ZERO.setScale(SCALE, ROUNDING));
                     return new CategoryComparison(row, current, baseline);
                 })
                 .filter(c -> c.baseline().compareTo(BigDecimal.ZERO) > 0)
@@ -107,7 +111,7 @@ public class InsightEngine {
                 .toList();
     }
 
-    private InsightDto categorySpikeInsight(CategoryBreakdownProjection row,
+    private InsightDto categorySpikeInsight(CategoryAggregation row,
                                             BigDecimal current, BigDecimal baseline) {
         BigDecimal percent = current.subtract(baseline)
                 .multiply(HUNDRED)
@@ -115,10 +119,10 @@ public class InsightEngine {
         return new InsightDto(
                 InsightType.CATEGORY_SPIKE,
                 InsightSeverity.WARN,
-                "%s up %s%%".formatted(row.getName(), wholePercent(percent)),
+                "%s up %s%%".formatted(row.name(), wholePercent(percent)),
                 "You spent %s PLN on %s, compared to the previous period (%s PLN)."
-                        .formatted(moneyText(current), row.getName(), moneyText(baseline)),
-                row.getCategoryId(),
+                        .formatted(moneyText(current), row.name(), moneyText(baseline)),
+                row.categoryId(),
                 money(current));
     }
 
@@ -289,7 +293,7 @@ public class InsightEngine {
     }
 
     private record CategoryComparison(
-            CategoryBreakdownProjection row,
+            CategoryAggregation row,
             BigDecimal current,
             BigDecimal baseline) {
     }

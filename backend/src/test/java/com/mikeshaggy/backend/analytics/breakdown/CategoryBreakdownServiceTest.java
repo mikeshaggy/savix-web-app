@@ -49,14 +49,14 @@ class CategoryBreakdownServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T10:00:00Z"), ZoneOffset.UTC);
-        service = new CategoryBreakdownService(transactionRepository, walletService, periodService, clock);
+        service = new CategoryBreakdownService(new com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService(transactionRepository), walletService, periodService, clock);
     }
 
     @Test
     void emptyPeriodReturnsZeroAndEmptyCategories() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         CategoryBreakdownDto result = service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
@@ -67,8 +67,8 @@ class CategoryBreakdownServiceTest {
     @Test
     void singleExpenseCategoryReturnsFullShare() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(row(12, "Groceries", "🛒", "820.00", 14L)));
 
         CategoryBreakdownDto result = service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
@@ -84,8 +84,8 @@ class CategoryBreakdownServiceTest {
     @Test
     void multipleExpenseCategoriesKeepAmountOrderAndCalculateShares() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(12, "Groceries", "🛒", "820.00", 14L),
                         row(5, "Transport", "🚗", "410.00", 8L),
@@ -106,34 +106,51 @@ class CategoryBreakdownServiceTest {
     @Test
     void incomeCategoriesAreExcludedByExplicitExpenseTypeFilter() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(row(12, "Groceries", "🛒", "100.00", 1L)));
 
         service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
-        verify(transactionRepository).findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE);
+        verify(transactionRepository).findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE);
+    }
+
+    @Test
+    void usesFullCategoryAggregationSoExcludedTopCategoriesStillAppearInBreakdown() {
+        resolvedPeriod();
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
+                .thenReturn(List.of(
+                        row(1, "Rent", "🏠", "1200.00", 1L),
+                        row(2, "Groceries", "🛒", "300.00", 3L)));
+
+        CategoryBreakdownDto result = service.getCategoryBreakdown(WALLET_ID, USER_ID,
+                PeriodType.CUSTOM, START, END);
+
+        assertThat(result.totalExpenses()).isEqualByComparingTo("1500.00");
+        assertThat(result.categories()).extracting(CategoryBreakdownItemDto::name)
+                .containsExactly("Rent", "Groceries");
     }
 
     @Test
     void dateRangeFilteringUsesResolvedDates() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
         verify(periodService).resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, START, END);
-        verify(transactionRepository).findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE);
+        verify(transactionRepository).findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE);
     }
 
     @Test
     void walletOwnershipIsCheckedBeforeQueryingBreakdown() {
         resolvedPeriod();
-        when(transactionRepository.findCategoryBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
