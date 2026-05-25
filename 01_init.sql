@@ -1,6 +1,6 @@
 create table users (
     id uuid primary key default gen_random_uuid(),
-    email varchar(100) unique not null,
+    email varchar(255) unique not null,
     username varchar(100) unique not null,
     password_hash varchar(255) not null,
     created_at timestamp default NOW(),
@@ -26,9 +26,13 @@ create table categories (
     is_cycle_anchor boolean not null default false,
     excluded_from_top_categories boolean not null default false,
     created_at timestamp default NOW(),
-    unique(user_id, name, type),
-    unique(user_id) where is_cycle_anchor = true
+    unique(user_id, name, type)
+    -- unique(user_id) where is_cycle_anchor = true
 );
+
+create unique index ux_categories_one_cycle_anchor_per_user
+on categories(user_id)
+where is_cycle_anchor = true;
 
 create table transactions (
     id bigserial primary key,
@@ -59,6 +63,7 @@ create table wallet_entries (
     id bigserial primary key,
     wallet_id int not null references wallets(id) on delete cascade,
     amount_signed numeric(12,2) not null check (amount_signed <> 0),
+    balance_after numeric(12,2),
     entry_date date not null,
     source_type varchar(20) not null check (source_type in (
         'TRANSACTION', 'TRANSFER', 'ADJUSTMENT'
