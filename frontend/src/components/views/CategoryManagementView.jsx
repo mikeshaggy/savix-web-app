@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit, Trash2, Tag, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Edit3, Trash2, Tag, AlertCircle, RefreshCw, Search, ArrowUpDown, Anchor, EyeOff, CalendarDays } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
-import { useUser } from '@/contexts/UserContext';
 import CategoryModal from '@/components/modals/CategoryModal';
 import { Loading } from '@/components/common/Loading';
 import { useTranslations } from 'next-intl';
+
+const TYPE_STYLES = {
+  INCOME: 'bg-green-400/10 border-green-400/25 text-green-300',
+  EXPENSE: 'bg-rose-400/10 border-rose-400/25 text-rose-300',
+};
+
+const SORT_OPTIONS = ['name', 'createdAt', 'type'];
 
 export default function CategoryManagementView() {
   const t = useTranslations();
@@ -14,12 +20,13 @@ export default function CategoryManagementView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { currentWallet } = useWallets();
-  const { user } = useUser();
   const { categories, loading, error, createCategory, updateCategory, deleteCategory, refetch } = useCategories();
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
   const [typeFilter, setTypeFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -29,10 +36,25 @@ export default function CategoryManagementView() {
     router.replace(pathname);
   }, [pathname, router, searchParams]);
 
-  const filteredCategories = categories.filter(category => {
-    if (typeFilter === 'ALL') return true;
-    return category.type === typeFilter;
-  });
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return categories
+      .filter(category => {
+        const matchesType = typeFilter === 'ALL' || category.type === typeFilter;
+        const matchesSearch = !query || category.name.toLowerCase().includes(query);
+        return matchesType && matchesSearch;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'createdAt') {
+          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        }
+        if (sortBy === 'type') {
+          return `${a.type}-${a.name}`.localeCompare(`${b.type}-${b.name}`);
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }, [categories, searchQuery, sortBy, typeFilter]);
 
   const incomeCount = categories.filter(c => c.type === 'INCOME').length;
   const expenseCount = categories.filter(c => c.type === 'EXPENSE').length;
@@ -164,116 +186,77 @@ export default function CategoryManagementView() {
         )}
       </div>
 
-      <div className="flex gap-[6px] flex-wrap">
-        <button
-          onClick={() => setTypeFilter('ALL')}
-          className={`flex items-center gap-[7px] px-[14px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
-            typeFilter === 'ALL'
-              ? 'bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border border-transparent text-white shadow-[0_4px_16px_rgba(124,58,237,0.25)]'
-              : 'bg-[#13131f] border border-white/[0.06] text-[#6b6b8a] hover:border-white/[0.12] hover:text-[#9898b8]'
-          }`}
-        >
-          {t('common.all')}
-          <span className={`font-mono text-[11px] rounded-[4px] px-[5px] py-[1px] ${
-            typeFilter === 'ALL' ? 'bg-white/20' : 'bg-white/[0.06]'
-          }`}>
-            {categories.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setTypeFilter('INCOME')}
-          className={`flex items-center gap-[7px] px-[14px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
-            typeFilter === 'INCOME'
-              ? 'bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border border-transparent text-white shadow-[0_4px_16px_rgba(124,58,237,0.25)]'
-              : 'bg-[#13131f] border border-white/[0.06] text-[#6b6b8a] hover:border-white/[0.12] hover:text-[#9898b8]'
-          }`}
-        >
-          <div className="w-[7px] h-[7px] rounded-full bg-[#22c55e]" />
-          {t('categoryType.income')}
-          <span className={`font-mono text-[11px] rounded-[4px] px-[5px] py-[1px] ${
-            typeFilter === 'INCOME' ? 'bg-white/20' : 'bg-white/[0.06]'
-          }`}>
-            {incomeCount}
-          </span>
-        </button>
-        <button
-          onClick={() => setTypeFilter('EXPENSE')}
-          className={`flex items-center gap-[7px] px-[14px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
-            typeFilter === 'EXPENSE'
-              ? 'bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border border-transparent text-white shadow-[0_4px_16px_rgba(124,58,237,0.25)]'
-              : 'bg-[#13131f] border border-white/[0.06] text-[#6b6b8a] hover:border-white/[0.12] hover:text-[#9898b8]'
-          }`}
-        >
-          <div className="w-[7px] h-[7px] rounded-full bg-[#f43f5e]" />
-          {t('categoryType.expense')}
-          <span className={`font-mono text-[11px] rounded-[4px] px-[5px] py-[1px] ${
-            typeFilter === 'EXPENSE' ? 'bg-white/20' : 'bg-white/[0.06]'
-          }`}>
-            {expenseCount}
-          </span>
-        </button>
+      <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[16px] p-3 sm:p-4 flex flex-col gap-3">
+        <div className="flex gap-[6px] flex-wrap">
+          {[
+            { value: 'ALL', label: t('common.all'), count: categories.length },
+            { value: 'INCOME', label: t('categoryType.income'), count: incomeCount, dot: 'bg-[#22c55e]' },
+            { value: 'EXPENSE', label: t('categoryType.expense'), count: expenseCount, dot: 'bg-[#f43f5e]' },
+          ].map(filter => (
+            <button
+              key={filter.value}
+              onClick={() => setTypeFilter(filter.value)}
+              className={`flex items-center gap-[7px] px-[13px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
+                typeFilter === filter.value
+                  ? 'bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border border-transparent text-white shadow-[0_4px_16px_rgba(124,58,237,0.25)]'
+                  : 'bg-[#13131f] border border-white/[0.06] text-[#6b6b8a] hover:border-white/[0.12] hover:text-[#9898b8]'
+              }`}
+            >
+              {filter.dot && <div className={`w-[7px] h-[7px] rounded-full ${filter.dot}`} />}
+              {filter.label}
+              <span className={`font-mono text-[11px] rounded-[4px] px-[5px] py-[1px] ${
+                typeFilter === filter.value ? 'bg-white/20' : 'bg-white/[0.06]'
+              }`}>
+                {filter.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <label className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t('category.searchPlaceholder')}
+              className="w-full h-10 bg-[#13131f] border border-white/[0.06] rounded-[9px] pl-9 pr-3 text-[13.5px] text-white placeholder:text-[#6b6b8a] outline-none transition-all focus:border-purple-400/45 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
+            />
+          </label>
+          <label className="relative sm:w-[190px]">
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+              className="w-full h-10 appearance-none bg-[#13131f] border border-white/[0.06] rounded-[9px] pl-9 pr-3 text-[13.5px] text-white outline-none transition-all focus:border-purple-400/45 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
+            >
+              {SORT_OPTIONS.map(option => (
+                <option key={option} value={option}>{t(`category.sort.${option}`)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 items-stretch">
         {filteredCategories.map((category) => (
-          <div
+          <CategoryCard
             key={category.id}
-            className="group relative h-full min-h-[188px] bg-[#13131f] border border-white/[0.06] rounded-[14px] p-4 sm:p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[1px] hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
-          >
-            <div className="absolute top-3 right-3 flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openEditModal(category);
-                }}
-                className="w-7 h-7 rounded-[7px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-white/[0.08] hover:text-white"
-                title={t('category.editCategory')}
-              >
-                <Edit className="w-3 h-3" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeletingCategory(category);
-                }}
-                className="w-7 h-7 rounded-[7px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-[rgba(244,63,94,0.12)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.25)]"
-                title={t('category.deleteCategory')}
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="relative w-[64px] h-[64px] mb-4">
-              <div className={`w-[64px] h-[64px] rounded-[16px] flex items-center justify-center text-[34px] leading-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${
-                category.type === 'INCOME'
-                  ? 'bg-[rgba(34,197,94,0.1)]'
-                  : 'bg-[rgba(244,63,94,0.1)]'
-              }`}>
-                {category.emoji || (category.type === 'INCOME' ? '💰' : '💸')}
-              </div>
-              <div className={`absolute -bottom-[2px] -right-[2px] w-[12px] h-[12px] rounded-full border-2 border-[#13131f] ${
-                category.type === 'INCOME' ? 'bg-[#22c55e]' : 'bg-[#f43f5e]'
-              }`} />
-            </div>
-
-            <div className="w-full">
-              <div className="text-[15px] font-semibold text-white mb-[4px] line-clamp-2 min-h-[42px] flex items-center justify-center px-1">
-                {category.name}
-              </div>
-              <div className="text-[11px] text-[#6b6b8a]">
-                {t('wallet.created', { date: new Date(category.createdAt).toLocaleDateString() })}
-              </div>
-            </div>
-          </div>
+            category={category}
+            t={t}
+            onEdit={openEditModal}
+            onDelete={setDeletingCategory}
+          />
         ))}
       </div>
 
       {filteredCategories.length === 0 && categories.length > 0 && (
         <div className="text-center py-12">
           <Tag className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">{t('category.noTypeCategories', { type: typeFilter.toLowerCase() })}</h3>
+          <h3 className="text-xl font-semibold mb-2">{searchQuery ? t('category.noMatchingCategories') : t('category.noTypeCategories', { type: typeFilter.toLowerCase() })}</h3>
           <p className="text-[#6b6b8a] mb-4">
-            {t('category.noTypeCategoriesDesc', { type: typeFilter.toLowerCase() })}
+            {searchQuery ? t('category.noMatchingCategoriesDesc') : t('category.noTypeCategoriesDesc', { type: typeFilter.toLowerCase() })}
           </p>
           <button
             onClick={openCreateModal}
@@ -344,6 +327,65 @@ export default function CategoryManagementView() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CategoryCard({ category, t, onEdit, onDelete }) {
+  const isIncome = category.type === 'INCOME';
+
+  return (
+    <div className="group bg-[#13131f] border border-white/[0.06] rounded-[12px] p-3.5 flex flex-col gap-3 transition-all hover:border-white/[0.12] hover:bg-[#171729] hover:-translate-y-[1px] hover:shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
+      <div className="flex items-start gap-3">
+        <div className={`w-11 h-11 shrink-0 rounded-[12px] flex items-center justify-center text-[24px] leading-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${
+          isIncome ? 'bg-green-400/[0.09]' : 'bg-rose-400/[0.1]'
+        }`}>
+          {category.emoji || (isIncome ? '💰' : '💸')}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-[15px] font-semibold text-white truncate">{category.name}</h3>
+            <span className={`shrink-0 px-2 py-[2px] rounded-full border text-[11px] font-semibold ${TYPE_STYLES[category.type]}`}>
+              {isIncome ? t('categoryType.income') : t('categoryType.expense')}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-1 text-[12px] text-[#6b6b8a]">
+            <CalendarDays className="w-3.5 h-3.5" />
+            {t('wallet.created', { date: category.createdAt ? new Date(category.createdAt).toLocaleDateString() : '-' })}
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <button
+            onClick={() => onEdit(category)}
+            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#9898b8] transition-all hover:bg-white/[0.08] hover:text-white"
+            title={t('category.editCategory')}
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => onDelete(category)}
+            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#9898b8] transition-all hover:bg-[rgba(244,63,94,0.12)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.25)]"
+            title={t('category.deleteCategory')}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[4px] ${
+          category.isCycleAnchor ? 'bg-purple-400/10 border-purple-400/25 text-purple-300' : 'bg-white/[0.035] border-white/[0.055] text-white/35'
+        }`}>
+          <Anchor className="w-3.5 h-3.5" />
+          {category.isCycleAnchor ? t('category.cycleAnchor') : t('category.notCycleAnchor')}
+        </span>
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[4px] ${
+          category.excludedFromTopCategories ? 'bg-amber-400/10 border-amber-400/25 text-amber-300' : 'bg-white/[0.035] border-white/[0.055] text-white/35'
+        }`}>
+          <EyeOff className="w-3.5 h-3.5" />
+          {category.excludedFromTopCategories ? t('category.hiddenFromTop') : t('category.visibleInTop')}
+        </span>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -52,7 +52,13 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
   }, [isOpen]);
 
   const handleChange = useCallback((field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (field === 'type' && value === 'EXPENSE') {
+        next.isCycleAnchor = false;
+      }
+      return next;
+    });
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -97,7 +103,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         name: formData.name.trim(),
         type: formData.type,
         emoji: trimmedEmoji || null,
-        isCycleAnchor: formData.isCycleAnchor,
+        isCycleAnchor: formData.type === 'INCOME' ? formData.isCycleAnchor : false,
         excludedFromTopCategories: formData.excludedFromTopCategories,
       });
       
@@ -150,7 +156,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
   return (
     <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-[60] p-3 sm:p-6">
       <div 
-        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl sm:rounded-3xl w-full max-w-[480px] max-h-[calc(100vh-24px)] overflow-hidden relative flex flex-col"
+        className="bg-[#0e0e1c] border border-white/[0.12] rounded-2xl w-full max-w-[500px] max-h-[calc(100vh-24px)] overflow-hidden relative flex flex-col"
         style={{ 
           boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1), 0 0 80px rgba(124,58,237,0.06)',
           animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both'
@@ -160,8 +166,8 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
-          <div className="flex items-center gap-2.5 text-lg sm:text-xl font-bold tracking-[-0.3px]">
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-4 border-b border-white/[0.055]">
+          <div className="flex items-center gap-2.5 text-lg font-bold tracking-[-0.3px]">
             {isEditing ? t('category.editCategory') : t('category.addCategory')}
           </div>
           <button
@@ -174,18 +180,18 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
 
         {/* Body */}
         <form onSubmit={handleSubmit} className="min-h-0 flex flex-col">
-          <div className="px-4 sm:px-7 py-5 sm:py-6 flex flex-col gap-[22px] overflow-y-auto">
+          <div className="px-4 sm:px-6 py-5 flex flex-col gap-5 overflow-y-auto">
               
             {/* Category Type */}
             <div>
-              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px] flex items-center gap-1.5">
+              <div className="text-[12px] font-bold tracking-[0.12em] uppercase text-white/30 mb-2 flex items-center gap-1.5">
                 {t('category.categoryType')} <span className="text-purple-300">*</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => handleChange('type', 'INCOME')}
-                  className={`py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
+                  className={`py-2.5 rounded-[10px] border text-[14px] font-semibold text-center transition-all cursor-pointer ${
                     formData.type === 'INCOME'
                       ? 'bg-green-400/10 border-green-400/35 text-green-400 shadow-[0_0_20px_rgba(74,222,128,0.08)]'
                       : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
@@ -196,7 +202,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                 <button
                   type="button"
                   onClick={() => handleChange('type', 'EXPENSE')}
-                  className={`py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
+                  className={`py-2.5 rounded-[10px] border text-[14px] font-semibold text-center transition-all cursor-pointer ${
                     formData.type === 'EXPENSE'
                       ? 'bg-red-400/10 border-red-400/35 text-red-400 shadow-[0_0_20px_rgba(248,113,113,0.08)]'
                       : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
@@ -212,7 +218,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
 
             {/* Category Name */}
             <div>
-              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px] flex items-center gap-1.5">
+              <div className="text-[12px] font-bold tracking-[0.12em] uppercase text-white/30 mb-2 flex items-center gap-1.5">
                 {t('category.categoryName')} <span className="text-purple-300">*</span>
               </div>
               <input
@@ -220,7 +226,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 maxLength={50}
-                className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                className={`w-full bg-[#131325] border rounded-[10px] px-3.5 py-2.5 text-[15px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
                   errors.name ? 'border-red-500' : 'border-white/[0.055]'
                 }`}
                 placeholder={t('category.categoryNamePlaceholder')}
@@ -233,7 +239,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
 
             {/* Category Emoji */}
             <div>
-              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px] flex items-center gap-1.5">
+              <div className="text-[12px] font-bold tracking-[0.12em] uppercase text-white/30 mb-2 flex items-center gap-1.5">
                 {t('category.emoji')}
                 <span className="text-white/25 font-normal tracking-normal normal-case text-[13px]">({t('common.optional')})</span>
               </div>
@@ -246,7 +252,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                   value={formData.emoji}
                   onChange={(e) => handleChange('emoji', e.target.value)}
                   maxLength={16}
-                  className={`flex-1 bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                  className={`flex-1 bg-[#131325] border rounded-[10px] px-3.5 py-2.5 text-[15px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
                     errors.emoji ? 'border-red-500' : 'border-white/[0.055]'
                   }`}
                   placeholder={t('category.emojiPlaceholder')}
@@ -263,68 +269,41 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
               )}
             </div>
 
-            {/* Cycle Anchor */}
-            <div>
-              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px]">
-                {t('category.cycleAnchor')}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleChange('isCycleAnchor', !formData.isCycleAnchor)}
-                className={`w-full py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
-                  formData.isCycleAnchor
-                    ? 'bg-purple-400/10 border-purple-400/35 text-purple-400'
-                    : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
-                }`}
-              >
-                {formData.isCycleAnchor
-                  ? t('category.isCycleAnchorActive')
-                  : t('category.setCycleAnchor')}
-              </button>
-              <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
-                {t('category.cycleAnchorHint')}
-              </p>
-            </div>
+            <div className="flex flex-col gap-2.5">
+              <SettingToggle
+                label={t('category.cycleAnchor')}
+                description={formData.type === 'INCOME' ? t('category.cycleAnchorHint') : t('category.cycleAnchorIncomeOnly')}
+                checked={formData.isCycleAnchor}
+                disabled={formData.type !== 'INCOME'}
+                onChange={(checked) => handleChange('isCycleAnchor', checked)}
+              />
 
-            {/* Dashboard Visibility */}
-            <div>
-              <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-[9px]">
-                {t('category.dashboardVisibility')}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleChange('excludedFromTopCategories', !formData.excludedFromTopCategories)}
-                className={`w-full py-[13px] rounded-xl border text-base font-semibold text-center transition-all cursor-pointer ${
-                  formData.excludedFromTopCategories
-                    ? 'bg-purple-400/10 border-purple-400/35 text-purple-400'
-                    : 'bg-[#131325] border-white/[0.055] text-white/25 hover:border-white/[0.12] hover:text-white'
-                }`}
-              >
-                {t('category.hideFromTopCategories')}
-              </button>
-              <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
-                {t('category.hideFromTopCategoriesHint')}
-              </p>
+              <SettingToggle
+                label={t('category.hideFromTopCategories')}
+                description={t('category.hideFromTopCategoriesHint')}
+                checked={formData.excludedFromTopCategories}
+                onChange={(checked) => handleChange('excludedFromTopCategories', checked)}
+              />
             </div>
 
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
+          <div className="flex items-center justify-end gap-2.5 px-4 sm:px-6 py-4 border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
             <button
               type="button"
               onClick={handleClose}
-              className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
+              className="px-[18px] py-2.5 bg-[#131325] border border-white/[0.055] rounded-[10px] text-[14px] font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] border-none text-[14px] font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
               style={{
                 background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
                 boxShadow: '0 4px 20px rgba(124,58,237,0.3)'
@@ -348,6 +327,43 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function SettingToggle({ label, description, checked, disabled = false, onChange }) {
+  return (
+    <div className={`rounded-[12px] border px-3.5 py-3 flex items-start gap-3 transition-all ${
+      disabled
+        ? 'bg-[#101020] border-white/[0.045] opacity-70'
+        : checked
+          ? 'bg-purple-400/10 border-purple-400/30'
+          : 'bg-[#131325] border-white/[0.055] hover:border-white/[0.12]'
+    }`}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`mt-0.5 relative h-6 w-11 shrink-0 rounded-full border transition-all disabled:cursor-not-allowed ${
+          checked
+            ? 'bg-purple-500 border-purple-400'
+            : 'bg-white/[0.06] border-white/[0.12]'
+        }`}
+      >
+        <span className={`absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? 'translate-x-[19px]' : 'translate-x-[3px]'
+        }`} />
+      </button>
+      <div className="min-w-0">
+        <div className={`text-[14px] font-semibold ${disabled ? 'text-white/35' : 'text-white/80'}`}>
+          {label}
+        </div>
+        <p className={`mt-1 text-[12.5px] leading-relaxed ${disabled ? 'text-white/25' : 'text-white/35'}`}>
+          {description}
+        </p>
       </div>
     </div>
   );
