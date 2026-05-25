@@ -476,4 +476,84 @@ export const analyticsApi = {
     if (endDate) params.set('endDate', endDate);
     return get(`/wallets/${walletId}/analytics/overview?${params.toString()}`);
   },
+
+  getProjections: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/projections?${params.toString()}`);
+  },
+
+  getCategoryBreakdown: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/category-breakdown?${params.toString()}`);
+  },
+
+  getImportanceBreakdown: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/importance-breakdown?${params.toString()}`);
+  },
+
+  getHeatmap: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/heatmap?${params.toString()}`);
+  },
+
+  getBaseline: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/baseline?${params.toString()}`);
+  },
+
+  getInsights: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/insights?${params.toString()}`);
+  },
+
+  getSummary: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/summary?${params.toString()}`);
+  },
+
+  resolvePeriod: (walletId, periodType, startDate, endDate) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const params = new URLSearchParams({ periodType });
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    return get(`/wallets/${walletId}/analytics/period?${params.toString()}`);
+  },
 };
