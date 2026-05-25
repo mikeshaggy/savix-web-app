@@ -7,8 +7,8 @@ import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.dto.*;
-import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
-import com.mikeshaggy.backend.transaction.repo.TransactionSpecifications;
+import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
+import com.mikeshaggy.backend.transaction.repository.TransactionSpecifications;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -298,12 +298,14 @@ public class TransactionService {
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
     }
 
-    public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, PeriodDto period) {
+    public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, UUID userId, PeriodDto period) {
         return transactionRepository
-                .findByWalletIdAndTransactionDateBetween(walletId, period.startDate(), period.endDate());
+                .findByWalletIdAndWalletUserIdAndTransactionDateBetween(
+                        walletId, userId, period.startDate(), period.endDate());
     }
 
-    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, LocalDate from, LocalDate to) {
-        return transactionRepository.sumIncomeByWalletIdAndDateRange(walletId, from, to);
+    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        return transactionRepository.sumByWalletUserDateRangeAndType(
+                walletId, userId, from, to, CategoryType.INCOME);
     }
 }

@@ -15,7 +15,7 @@ import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
 import com.mikeshaggy.backend.wallet.dto.WalletResponse;
 import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
-import com.mikeshaggy.backend.wallet.repo.WalletRepository;
+import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;

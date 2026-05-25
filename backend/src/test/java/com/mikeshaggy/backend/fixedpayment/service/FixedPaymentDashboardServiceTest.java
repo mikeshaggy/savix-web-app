@@ -13,10 +13,10 @@ import com.mikeshaggy.backend.dashboard.service.PeriodService;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.*;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -193,7 +193,7 @@ class FixedPaymentDashboardServiceTest {
                             eq(List.of(1, 2)), eq(OccurrenceStatus.OVERDUE)))
                     .thenReturn(overdueOccurrences);
             when(transactionService.sumIncomeByWalletIdAndDateRange(
-                            eq(1), eq(period.startDate()), eq(period.endDate())))
+                            eq(1), eq(USER_ID), eq(period.startDate()), eq(period.endDate())))
                     .thenReturn(new BigDecimal("4000.00"));
 
             FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);

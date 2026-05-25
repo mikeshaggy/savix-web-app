@@ -1,8 +1,8 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -33,13 +33,10 @@ public class FixedPaymentOccurrenceService {
 
     @Transactional
     public void markOccurrenceAsPaid(Long occurrenceId, Transaction savedTransaction, UUID userId) {
-        FixedPaymentOccurrence occurrence = occurrenceRepository.findById(occurrenceId)
+        FixedPaymentOccurrence occurrence = occurrenceRepository
+                .findByIdAndFixedPaymentWalletUserId(occurrenceId, userId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Occurrence not found with id: " + occurrenceId));
-
-        if (!occurrence.getFixedPayment().getWallet().getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException("Occurrence does not belong to current user");
-        }
 
         occurrence.setStatus(OccurrenceStatus.PAID);
         occurrence.setPaidAmount(savedTransaction.getAmount());

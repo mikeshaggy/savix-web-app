@@ -10,7 +10,7 @@ import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.dto.CategoryCreateRequest;
 import com.mikeshaggy.backend.category.dto.CategoryResponse;
 import com.mikeshaggy.backend.category.dto.CategoryUpdateRequest;
-import com.mikeshaggy.backend.category.repo.CategoryRepository;
+import com.mikeshaggy.backend.category.repository.CategoryRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
 import jakarta.persistence.EntityNotFoundException;

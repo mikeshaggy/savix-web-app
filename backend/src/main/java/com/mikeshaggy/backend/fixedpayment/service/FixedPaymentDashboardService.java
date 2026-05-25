@@ -5,9 +5,9 @@ import com.mikeshaggy.backend.dashboard.service.PeriodService;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -58,7 +58,7 @@ public class FixedPaymentDashboardService {
                 .findByFixedPaymentIdsAndStatus(fixedPaymentIds, OccurrenceStatus.OVERDUE);
 
         BigDecimal totalIncome = transactionService.sumIncomeByWalletIdAndDateRange(
-                walletId, period.startDate(), period.endDate());
+                walletId, userId, period.startDate(), period.endDate());
 
         return tileAssembler.assemble(
                 period, allInPeriod, overdueAll,

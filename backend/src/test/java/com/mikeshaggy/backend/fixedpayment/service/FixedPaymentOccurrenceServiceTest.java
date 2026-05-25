@@ -9,9 +9,9 @@ import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -133,7 +133,8 @@ class FixedPaymentOccurrenceServiceTest {
             Transaction savedTransaction =
                     Transaction.builder().id(200L).amount(new BigDecimal("1500.00")).build();
 
-            when(occurrenceRepository.findById(100L)).thenReturn(Optional.of(occurrence));
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(100L, USER_ID))
+                    .thenReturn(Optional.of(occurrence));
 
             // when
             fixedPaymentOccurrenceService.markOccurrenceAsPaid(100L, savedTransaction, USER_ID);
@@ -166,7 +167,8 @@ class FixedPaymentOccurrenceServiceTest {
             Transaction savedTransaction =
                     Transaction.builder().id(201L).amount(new BigDecimal("1500.00")).build();
 
-            when(occurrenceRepository.findById(101L)).thenReturn(Optional.of(occurrence));
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(101L, USER_ID))
+                    .thenReturn(Optional.of(occurrence));
 
             // when
             fixedPaymentOccurrenceService.markOccurrenceAsPaid(101L, savedTransaction, USER_ID);
@@ -192,7 +194,8 @@ class FixedPaymentOccurrenceServiceTest {
             Transaction savedTransaction =
                     Transaction.builder().id(202L).amount(new BigDecimal("1450.00")).build();
 
-            when(occurrenceRepository.findById(102L)).thenReturn(Optional.of(occurrence));
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(102L, USER_ID))
+                    .thenReturn(Optional.of(occurrence));
 
             // when
             fixedPaymentOccurrenceService.markOccurrenceAsPaid(102L, savedTransaction, USER_ID);
@@ -202,7 +205,7 @@ class FixedPaymentOccurrenceServiceTest {
         }
 
         @Test
-        void wrongUser_throwsIllegalArgument() {
+        void crossUserOccurrence_behavesLikeNotFoundAndDoesNotMutateState() {
             // given
             User otherUser = User.builder().id(UUID.randomUUID()).build();
             Wallet otherWallet = Wallet.builder().id(2).user(otherUser).build();
@@ -227,15 +230,20 @@ class FixedPaymentOccurrenceServiceTest {
 
             Transaction tx = Transaction.builder().id(203L).amount(new BigDecimal("100.00")).build();
 
-            when(occurrenceRepository.findById(103L)).thenReturn(Optional.of(occurrence));
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(103L, USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
             // then
             assertThatThrownBy(
                             () -> fixedPaymentOccurrenceService.markOccurrenceAsPaid(103L, tx, USER_ID))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("does not belong to current user");
+                    .isInstanceOf(EntityNotFoundException.class)
+                    .hasMessageContaining("Occurrence not found");
 
+            assertThat(occurrence.getStatus()).isEqualTo(OccurrenceStatus.PENDING);
+            assertThat(occurrence.getPaidAmount()).isNull();
+            assertThat(occurrence.getPaidAt()).isNull();
+            assertThat(occurrence.getTransaction()).isNull();
             verify(occurrenceRepository, never()).save(any());
         }
 
@@ -244,7 +252,8 @@ class FixedPaymentOccurrenceServiceTest {
             // given
             Transaction tx = Transaction.builder().id(204L).amount(new BigDecimal("100.00")).build();
 
-            when(occurrenceRepository.findById(999L)).thenReturn(Optional.empty());
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(999L, USER_ID))
+                    .thenReturn(Optional.empty());
 
             // when
             // then

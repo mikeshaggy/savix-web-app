@@ -3,7 +3,7 @@ package com.mikeshaggy.backend.fixedpayment.service;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.*;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

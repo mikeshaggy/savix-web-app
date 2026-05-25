@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.ratelimit.RateLimitEntry;
-import com.mikeshaggy.backend.auth.repo.RateLimitRepository;
+import com.mikeshaggy.backend.auth.repository.RateLimitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

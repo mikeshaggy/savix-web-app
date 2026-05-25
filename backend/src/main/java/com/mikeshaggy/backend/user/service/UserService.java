@@ -3,7 +3,7 @@ package com.mikeshaggy.backend.user.service;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.dto.MeResponse;
 import com.mikeshaggy.backend.user.dto.MeUpdateRequest;
-import com.mikeshaggy.backend.user.repo.UserRepository;
+import com.mikeshaggy.backend.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

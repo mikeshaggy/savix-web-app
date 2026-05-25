@@ -4,7 +4,7 @@ import com.mikeshaggy.backend.auth.domain.password.PasswordPolicyValidator;
 import com.mikeshaggy.backend.auth.dto.request.RegisterRequest;
 import com.mikeshaggy.backend.auth.exception.AuthException;
 import com.mikeshaggy.backend.user.domain.User;
-import com.mikeshaggy.backend.user.repo.UserRepository;
+import com.mikeshaggy.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;

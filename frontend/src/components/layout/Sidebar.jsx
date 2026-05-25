@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, Activity, Import } from 'lucide-react';
+import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -40,9 +40,11 @@ const getNavItems = (t) => [
         href: '/analytics',
         hasSubmenu: true,
         submenu: [
-            { id: 'overview', label: t('nav.overview'), icon: PieChart, href: '/analytics' },
-            { id: 'cashflow', label: t('nav.cashflow'), icon: Activity, href: '/analytics/cashflow' },
-            { id: 'trends', label: t('nav.trends'), icon: TrendingUp, href: '/analytics/trends' }
+            { id: 'overview',    label: t('nav.analyticsOverview'),    icon: LayoutDashboard,   href: '/analytics/overview' },
+            { id: 'forecast',    label: t('nav.forecast'),    icon: TrendingUp,        href: '/analytics/forecast' },
+            { id: 'breakdown',   label: t('nav.breakdown'),   icon: PieChart,          href: '/analytics/breakdown' },
+            { id: 'comparison',  label: t('nav.comparison'),  icon: GitCompareArrows,  href: '/analytics/comparison' },
+            { id: 'daily',       label: t('nav.daily'),       icon: CalendarDays,      href: '/analytics/daily' },
         ]
     },
     { id: 'import-export', label: t('nav.importExport'), icon: Import, href: '/import-export' },

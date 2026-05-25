@@ -1,12 +1,12 @@
 package com.mikeshaggy.backend.dashboard.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.repo.CategoryRepository;
+import com.mikeshaggy.backend.category.repository.CategoryRepository;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
-import com.mikeshaggy.backend.dashboard.service.period.ComparePeriodResolver;
-import com.mikeshaggy.backend.dashboard.service.period.PeriodResolver;
+import com.mikeshaggy.backend.dashboard.period.ComparePeriodResolver;
+import com.mikeshaggy.backend.dashboard.period.PeriodResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,7 +51,7 @@ public class PeriodService {
             throw new IllegalArgumentException("Unsupported period type: " + periodType);
         }
         PeriodDto primary = resolver.resolve(walletId, userId, startDate, endDate, anchorCategoryId);
-        PeriodDto compare = comparePeriodResolver.resolve(primary, walletId, anchorCategoryId);
+        PeriodDto compare = comparePeriodResolver.resolve(primary, walletId, userId, anchorCategoryId);
         return new ResolvedPeriods(primary, compare);
     }
 

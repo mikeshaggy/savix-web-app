@@ -5,9 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 import com.mikeshaggy.backend.ledger.domain.WalletEntry;
-import com.mikeshaggy.backend.ledger.repo.WalletEntryRepository;
+import com.mikeshaggy.backend.ledger.repository.WalletEntryRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.wallet.repo.WalletRepository;
+import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -15,6 +15,7 @@ import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
+import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -99,21 +100,23 @@ class TransactionOrchestratorTest {
     }
 
     @Test
-    void withOccurrenceId_wrongUser_propagatesException() {
+    void withCrossUserOccurrenceId_propagatesNotFoundSoTransactionCanRollback() {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
                         1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
-        doThrow(new IllegalArgumentException("Occurrence does not belong to current user"))
+        doThrow(new EntityNotFoundException("Occurrence not found with id: 10"))
                 .when(fixedPaymentOccurrenceService)
                 .markOccurrenceAsPaid(eq(10L), any(), eq(USER_ID));
 
         // when
         // then
         assertThatThrownBy(() -> orchestrator.createTransaction(request, USER_ID))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("does not belong to current user");
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("Occurrence not found");
+        verify(transactionService).createTransactionEntity(request, USER_ID);
+        verify(fixedPaymentOccurrenceService).markOccurrenceAsPaid(10L, savedTransaction, USER_ID);
     }
 }

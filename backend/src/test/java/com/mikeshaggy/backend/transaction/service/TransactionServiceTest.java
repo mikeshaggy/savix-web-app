@@ -17,7 +17,7 @@ import com.mikeshaggy.backend.transaction.dto.TransactionFilterParams;
 import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
-import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
+import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
@@ -449,6 +449,36 @@ class TransactionServiceTest {
         }
 
         @Test
+        void updateExpenseWithoutImportance_throws() {
+            // given
+            Transaction existing =
+                    Transaction.builder()
+                            .id(100L)
+                            .title("Old")
+                            .amount(new BigDecimal("50.00"))
+                            .wallet(wallet)
+                            .category(expenseCategory)
+                            .transactionDate(DATE)
+                            .importance(Importance.ESSENTIAL)
+                            .build();
+
+            TransactionUpdateRequest request =
+                    new TransactionUpdateRequest(
+                            1, 1, "Updated", new BigDecimal("75.00"), DATE, null, null);
+
+            when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
+                    .thenReturn(Optional.of(existing));
+
+            // when
+            // then
+            assertThatThrownBy(() -> transactionService.updateTransaction(100L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Importance is required for EXPENSE");
+            verify(transactionRepository, never()).save(any(Transaction.class));
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
         void transactionNotFound_throws() {
             // given
             TransactionUpdateRequest request =
@@ -850,15 +880,15 @@ class TransactionServiceTest {
                             .category(expenseCategory)
                             .transactionDate(DATE)
                             .build();
-            when(transactionRepository.findByWalletIdAndTransactionDateBetween(1, start, end))
+            when(transactionRepository.findByWalletIdAndWalletUserIdAndTransactionDateBetween(1, USER_ID, start, end))
                     .thenReturn(List.of(t));
 
             // when
-            List<Transaction> result = transactionService.getTransactionsForWalletAndPeriod(1, period);
+            List<Transaction> result = transactionService.getTransactionsForWalletAndPeriod(1, USER_ID, period);
 
             // then
             assertThat(result).hasSize(1);
-            verify(transactionRepository).findByWalletIdAndTransactionDateBetween(1, start, end);
+            verify(transactionRepository).findByWalletIdAndWalletUserIdAndTransactionDateBetween(1, USER_ID, start, end);
         }
     }
 }

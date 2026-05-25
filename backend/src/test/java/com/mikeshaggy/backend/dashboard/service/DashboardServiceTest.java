@@ -5,11 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryComparisonAggregation;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.dashboard.dto.*;
 import com.mikeshaggy.backend.dashboard.service.calculator.SummaryCalculator;
-import com.mikeshaggy.backend.dashboard.service.calculator.TopCategoriesCalculator;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
@@ -41,13 +45,13 @@ class DashboardServiceTest {
     private SummaryCalculator summaryCalculator;
 
     @Mock
-    private TopCategoriesCalculator topCategoriesCalculator;
-
-    @Mock
     private WalletService walletService;
 
     @Mock
     private FixedPaymentDashboardService fixedPaymentDashboardService;
+
+    @Mock
+    private CategoryAggregationService categoryAggregationService;
 
     private DashboardService dashboardService;
 
@@ -61,9 +65,9 @@ class DashboardServiceTest {
                         periodService,
                         transactionService,
                         summaryCalculator,
-                        topCategoriesCalculator,
                         walletService,
-                        fixedPaymentDashboardService);
+                        fixedPaymentDashboardService,
+                        categoryAggregationService);
     }
 
     private Category category(String name, CategoryType type) {
@@ -136,12 +140,19 @@ class DashboardServiceTest {
 
             when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
                     .thenReturn(new ResolvedPeriods(currentPeriod, comparePeriod));
-            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, currentPeriod))
+            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, USER_ID, currentPeriod))
                     .thenReturn(currentTxns);
-            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, comparePeriod))
+            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, USER_ID, comparePeriod))
                     .thenReturn(compareTxns);
             when(summaryCalculator.calculate(currentTxns, compareTxns)).thenReturn(summary);
-            when(topCategoriesCalculator.calculate(currentTxns, compareTxns)).thenReturn(topCategories);
+            when(categoryAggregationService.aggregateExpenseComparison(
+                    WALLET_ID, USER_ID,
+                    currentPeriod.startDate(), currentPeriod.endDate(),
+                    comparePeriod.startDate(), comparePeriod.endDate(),
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES))
+                    .thenReturn(List.of(
+                            comparison("Groceries", "1200.00", "60.00", "1000.00"),
+                            comparison("Transport", "800.00", "40.00", "0.00")));
             when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                     .thenReturn(Wallet.builder().id(WALLET_ID).name("Main Wallet").build());
             when(fixedPaymentDashboardService.getFixedPaymentsTileData(currentPeriod, WALLET_ID, USER_ID))
@@ -187,12 +198,14 @@ class DashboardServiceTest {
                             LocalDate.of(2026, 1, 1),
                             LocalDate.of(2026, 1, 31)))
                     .thenReturn(new ResolvedPeriods(customPeriod, comparePeriod));
-            when(transactionService.getTransactionsForWalletAndPeriod(eq(WALLET_ID), any()))
+            when(transactionService.getTransactionsForWalletAndPeriod(eq(WALLET_ID), eq(USER_ID), any()))
                     .thenReturn(Collections.emptyList());
             when(summaryCalculator.calculate(anyList(), anyList()))
                     .thenReturn(summaryDto("0.00", "0.00", "0.00"));
-            when(topCategoriesCalculator.calculate(anyList(), anyList()))
-                    .thenReturn(Collections.emptyList());
+            when(categoryAggregationService.aggregateExpenseComparison(
+                    eq(WALLET_ID), eq(USER_ID), any(), any(), any(), any(),
+                    eq(CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                    .thenReturn(List.of());
             when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                     .thenReturn(Wallet.builder().id(WALLET_ID).name("Main Wallet").build());
             when(fixedPaymentDashboardService.getFixedPaymentsTileData(customPeriod, WALLET_ID, USER_ID))
@@ -239,12 +252,15 @@ class DashboardServiceTest {
 
             when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
                     .thenReturn(new ResolvedPeriods(currentPeriod, null));
-            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, currentPeriod))
+            when(transactionService.getTransactionsForWalletAndPeriod(WALLET_ID, USER_ID, currentPeriod))
                     .thenReturn(currentTxns);
             when(summaryCalculator.calculate(eq(currentTxns), eq(Collections.emptyList())))
                     .thenReturn(summaryDto("3000.00", "0.00", "3000.00"));
-            when(topCategoriesCalculator.calculate(eq(currentTxns), eq(Collections.emptyList())))
-                    .thenReturn(Collections.emptyList());
+            when(categoryAggregationService.aggregateExpenses(
+                    WALLET_ID, USER_ID,
+                    currentPeriod.startDate(), currentPeriod.endDate(),
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES))
+                    .thenReturn(new CategoryAggregationResult(BigDecimal.ZERO, List.of()));
             when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                     .thenReturn(Wallet.builder().id(WALLET_ID).name("Main Wallet").build());
             when(fixedPaymentDashboardService.getFixedPaymentsTileData(currentPeriod, WALLET_ID, USER_ID))
@@ -257,9 +273,8 @@ class DashboardServiceTest {
             // then
             assertThat(result.summary().income()).isEqualByComparingTo("3000.00");
 
-            verify(transactionService, times(1)).getTransactionsForWalletAndPeriod(anyInt(), any());
+            verify(transactionService, times(1)).getTransactionsForWalletAndPeriod(anyInt(), eq(USER_ID), any());
             verify(summaryCalculator).calculate(eq(currentTxns), eq(Collections.emptyList()));
-            verify(topCategoriesCalculator).calculate(eq(currentTxns), eq(Collections.emptyList()));
         }
     }
 
@@ -280,12 +295,14 @@ class DashboardServiceTest {
             when(periodService.resolvePeriods(
                             PeriodType.PAY_CYCLE, specificWalletId, USER_ID, null, null))
                     .thenReturn(new ResolvedPeriods(period, null));
-            when(transactionService.getTransactionsForWalletAndPeriod(eq(specificWalletId), any()))
+            when(transactionService.getTransactionsForWalletAndPeriod(eq(specificWalletId), eq(USER_ID), any()))
                     .thenReturn(Collections.emptyList());
             when(summaryCalculator.calculate(anyList(), anyList()))
                     .thenReturn(summaryDto("0.00", "0.00", "0.00"));
-            when(topCategoriesCalculator.calculate(anyList(), anyList()))
-                    .thenReturn(Collections.emptyList());
+            when(categoryAggregationService.aggregateExpenses(
+                    eq(specificWalletId), eq(USER_ID), any(), any(),
+                    eq(CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                    .thenReturn(new CategoryAggregationResult(BigDecimal.ZERO, List.of()));
             when(walletService.getWalletEntityByIdForUser(specificWalletId, USER_ID))
                     .thenReturn(Wallet.builder().id(specificWalletId).name("Savings").build());
             when(fixedPaymentDashboardService.getFixedPaymentsTileData(period, specificWalletId, USER_ID))
@@ -301,7 +318,7 @@ class DashboardServiceTest {
 
             verify(periodService)
                     .resolvePeriods(PeriodType.PAY_CYCLE, specificWalletId, USER_ID, null, null);
-            verify(transactionService).getTransactionsForWalletAndPeriod(eq(specificWalletId), any());
+            verify(transactionService).getTransactionsForWalletAndPeriod(eq(specificWalletId), eq(USER_ID), any());
             verify(walletService).getWalletEntityByIdForUser(specificWalletId, USER_ID);
             verify(fixedPaymentDashboardService)
                     .getFixedPaymentsTileData(period, specificWalletId, USER_ID);
@@ -327,5 +344,11 @@ class DashboardServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Unsupported period type");
         }
+    }
+
+    private CategoryComparisonAggregation comparison(String name, String amount, String share, String compareAmount) {
+        return new CategoryComparisonAggregation(
+                new CategoryAggregation(1, name, null, new BigDecimal(amount), new BigDecimal(share), 1L),
+                new BigDecimal(compareAmount));
     }
 }

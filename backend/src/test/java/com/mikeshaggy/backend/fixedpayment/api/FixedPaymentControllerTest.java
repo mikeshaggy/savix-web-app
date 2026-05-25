@@ -11,7 +11,7 @@ import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentCrudService;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
 import java.math.BigDecimal;

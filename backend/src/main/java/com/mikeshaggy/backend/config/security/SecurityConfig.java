@@ -1,5 +1,8 @@
 package com.mikeshaggy.backend.config.security;
 
+import com.mikeshaggy.backend.common.security.JwtAuthenticationFilter;
+import com.mikeshaggy.backend.common.security.ProxySecretFilter;
+import com.mikeshaggy.backend.common.security.RequestCorrelationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.boot.actuate.health.HealthEndpoint;

@@ -13,10 +13,10 @@ import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.CreateFixedPaymentRequest;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.dto.UpdateFixedPaymentRequest;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -239,6 +239,52 @@ class FixedPaymentCrudServiceTest {
 
             verify(fixedPaymentRepository, never()).save(any());
         }
+
+        @Test
+        void activeToBeforeActiveFrom_throwsIllegalArgument() {
+            // given
+            CreateFixedPaymentRequest request =
+                    new CreateFixedPaymentRequest(
+                            1,
+                            10,
+                            "Rent",
+                            new BigDecimal("1500.00"),
+                            LocalDate.of(2026, 1, 1),
+                            Cycle.MONTHLY,
+                            LocalDate.of(2026, 3, 10),
+                            LocalDate.of(2026, 3, 9),
+                            null);
+
+            // when
+            // then
+            assertThatThrownBy(() -> fixedPaymentCrudService.createFixedPayment(request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("activeTo must not be before activeFrom");
+            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, generationService);
+        }
+
+        @Test
+        void activeToBeforeAnchorDate_throwsIllegalArgument() {
+            // given
+            CreateFixedPaymentRequest request =
+                    new CreateFixedPaymentRequest(
+                            1,
+                            10,
+                            "Rent",
+                            new BigDecimal("1500.00"),
+                            LocalDate.of(2026, 2, 1),
+                            Cycle.MONTHLY,
+                            LocalDate.of(2026, 1, 1),
+                            LocalDate.of(2026, 1, 31),
+                            null);
+
+            // when
+            // then
+            assertThatThrownBy(() -> fixedPaymentCrudService.createFixedPayment(request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("activeTo must not be before anchorDate");
+            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, generationService);
+        }
     }
 
     @Nested
@@ -387,6 +433,57 @@ class FixedPaymentCrudServiceTest {
             assertThatThrownBy(() -> fixedPaymentCrudService.updateFixedPayment(999, request, USER_ID))
                     .isInstanceOf(EntityNotFoundException.class)
                     .hasMessageContaining("Fixed payment not found");
+        }
+
+        @Test
+        void activeToBeforeExistingActiveFrom_throwsIllegalArgument() {
+            // given
+            FixedPayment existing = buildFixedPayment(1);
+            existing.setActiveFrom(LocalDate.of(2026, 3, 10));
+            UpdateFixedPaymentRequest request =
+                    new UpdateFixedPaymentRequest(
+                            "Rent",
+                            existing.getAmount(),
+                            LocalDate.of(2026, 1, 1),
+                            existing.getCycle(),
+                            null,
+                            LocalDate.of(2026, 3, 9));
+
+            when(fixedPaymentRepository.findByIdAndWalletUserId(1, USER_ID))
+                    .thenReturn(Optional.of(existing));
+
+            // when
+            // then
+            assertThatThrownBy(() -> fixedPaymentCrudService.updateFixedPayment(1, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("activeTo must not be before activeFrom");
+            verify(fixedPaymentRepository, never()).save(any());
+            verifyNoInteractions(occurrenceRepository, generationService);
+        }
+
+        @Test
+        void activeToBeforeUpdatedAnchorDate_throwsIllegalArgument() {
+            // given
+            FixedPayment existing = buildFixedPayment(1);
+            UpdateFixedPaymentRequest request =
+                    new UpdateFixedPaymentRequest(
+                            "Rent",
+                            existing.getAmount(),
+                            LocalDate.of(2026, 2, 1),
+                            existing.getCycle(),
+                            null,
+                            LocalDate.of(2026, 1, 31));
+
+            when(fixedPaymentRepository.findByIdAndWalletUserId(1, USER_ID))
+                    .thenReturn(Optional.of(existing));
+
+            // when
+            // then
+            assertThatThrownBy(() -> fixedPaymentCrudService.updateFixedPayment(1, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("activeTo must not be before anchorDate");
+            verify(fixedPaymentRepository, never()).save(any());
+            verifyNoInteractions(occurrenceRepository, generationService);
         }
     }
 

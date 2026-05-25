@@ -1,5 +1,5 @@
-import AnalyticsPage from '@/components/pages/AnalyticsPage';
+import { redirect } from 'next/navigation';
 
-export default function AnalyticsPageRoute() {
-  return <AnalyticsPage />;
+export default function AnalyticsRootPage() {
+  redirect('/analytics/overview');
 }

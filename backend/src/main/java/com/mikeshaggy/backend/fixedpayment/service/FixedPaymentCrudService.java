@@ -7,8 +7,8 @@ import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.CreateFixedPaymentRequest;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.dto.UpdateFixedPaymentRequest;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
@@ -37,6 +37,8 @@ public class FixedPaymentCrudService {
 
     @Transactional
     public FixedPaymentResponse createFixedPayment(CreateFixedPaymentRequest request, UUID userId) {
+        LocalDate activeFrom = request.activeFrom() != null ? request.activeFrom() : LocalDate.now(clock);
+        validateActiveDates(activeFrom, request.activeTo(), request.anchorDate());
 
         Wallet wallet = walletService.getWalletEntityByIdForUser(request.walletId(), userId);
 
@@ -49,7 +51,7 @@ public class FixedPaymentCrudService {
                 .amount(request.amount())
                 .anchorDate(request.anchorDate())
                 .cycle(request.cycle())
-                .activeFrom(request.activeFrom() != null ? request.activeFrom() : LocalDate.now(clock))
+                .activeFrom(activeFrom)
                 .activeTo(request.activeTo())
                 .notes(request.notes())
                 .build();
@@ -68,6 +70,7 @@ public class FixedPaymentCrudService {
     public FixedPaymentResponse updateFixedPayment(Integer id, UpdateFixedPaymentRequest request, UUID userId) {
 
         FixedPayment fp = getFixedPaymentOrThrowForUser(id, userId);
+        validateActiveDates(fp.getActiveFrom(), request.activeTo(), request.anchorDate());
 
         boolean amountChanged = !fp.getAmount().equals(request.amount());
         boolean cycleChanged = !fp.getCycle().equals(request.cycle());
@@ -122,5 +125,17 @@ public class FixedPaymentCrudService {
         return fixedPaymentRepository.findByIdAndWalletUserId(id, userId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Fixed payment not found with id: " + id));
+    }
+
+    private void validateActiveDates(LocalDate activeFrom, LocalDate activeTo, LocalDate anchorDate) {
+        if (activeTo == null) {
+            return;
+        }
+        if (activeFrom != null && activeTo.isBefore(activeFrom)) {
+            throw new IllegalArgumentException("activeTo must not be before activeFrom");
+        }
+        if (anchorDate != null && activeTo.isBefore(anchorDate)) {
+            throw new IllegalArgumentException("activeTo must not be before anchorDate");
+        }
     }
 }
