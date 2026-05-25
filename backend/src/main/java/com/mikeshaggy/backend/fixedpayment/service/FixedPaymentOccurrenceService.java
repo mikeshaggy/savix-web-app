@@ -33,13 +33,10 @@ public class FixedPaymentOccurrenceService {
 
     @Transactional
     public void markOccurrenceAsPaid(Long occurrenceId, Transaction savedTransaction, UUID userId) {
-        FixedPaymentOccurrence occurrence = occurrenceRepository.findById(occurrenceId)
+        FixedPaymentOccurrence occurrence = occurrenceRepository
+                .findByIdAndFixedPaymentWalletUserId(occurrenceId, userId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Occurrence not found with id: " + occurrenceId));
-
-        if (!occurrence.getFixedPayment().getWallet().getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException("Occurrence does not belong to current user");
-        }
 
         occurrence.setStatus(OccurrenceStatus.PAID);
         occurrence.setPaidAmount(savedTransaction.getAmount());

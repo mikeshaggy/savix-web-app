@@ -9,8 +9,20 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface FixedPaymentOccurrenceRepository extends JpaRepository<FixedPaymentOccurrence, Long> {
+
+    @Query("""
+        SELECT o FROM FixedPaymentOccurrence o
+        JOIN FETCH o.fixedPayment fp
+        JOIN FETCH fp.wallet w
+        WHERE o.id = :id
+        AND w.user.id = :userId
+    """)
+    Optional<FixedPaymentOccurrence> findByIdAndFixedPaymentWalletUserId(
+            @Param("id") Long id,
+            @Param("userId") UUID userId);
 
     @Query("SELECT MAX(o.dueDate) FROM FixedPaymentOccurrence o WHERE o.fixedPayment.id = :fixedPaymentId")
     Optional<LocalDate> findMaxDueDateByFixedPaymentId(@Param("fixedPaymentId") Integer fixedPaymentId);
