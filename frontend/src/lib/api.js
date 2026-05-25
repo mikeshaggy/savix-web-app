@@ -527,6 +527,33 @@ export const analyticsApi = {
     return get(`/wallets/${walletId}/analytics/baseline?${params.toString()}`);
   },
 
+  /**
+   * @param {number|string} walletId
+   * @param {Object} [params]
+   * @param {string|null} [params.asOfDate] yyyy-MM-dd date used as the requested comparison date.
+   * @param {number} [params.baselineCycles]
+   * @param {'ALL'|'INCLUDED_IN_TOP_CATEGORIES'} [params.categoryMode]
+   * @param {number[]} [params.categoryIds]
+   * @param {string[]} [params.importance]
+   */
+  getCycleComparison: (walletId, params = {}) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    const searchParams = new URLSearchParams();
+    if (params.asOfDate) searchParams.set('asOfDate', params.asOfDate);
+    if (params.baselineCycles != null) searchParams.set('baselineCycles', String(params.baselineCycles));
+    if (params.categoryMode) searchParams.set('categoryMode', params.categoryMode);
+    if (Array.isArray(params.categoryIds) && params.categoryIds.length > 0) {
+      params.categoryIds.forEach(id => searchParams.append('categoryIds', String(id)));
+    }
+    if (Array.isArray(params.importance) && params.importance.length > 0) {
+      params.importance.forEach(value => searchParams.append('importance', value));
+    }
+    const qs = searchParams.toString();
+    return get(`/wallets/${walletId}/analytics/cycle-comparison${qs ? `?${qs}` : ''}`);
+  },
+
   getInsights: (walletId, periodType, startDate, endDate) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');

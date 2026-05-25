@@ -1,7 +1,10 @@
 package com.mikeshaggy.backend.analytics.api;
 
 import com.mikeshaggy.backend.analytics.comparison.BaselineComparisonDto;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonResponseDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapResponseDto;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
@@ -20,6 +23,7 @@ import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.transaction.domain.Importance;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -47,6 +52,7 @@ public class AnalyticsController {
     private final ImportanceBreakdownService importanceBreakdownService;
     private final HeatmapService heatmapService;
     private final BaselineService baselineService;
+    private final CycleComparisonService cycleComparisonService;
     private final InsightEngine insightEngine;
     private final CurrentUserProvider currentUserProvider;
 
@@ -140,6 +146,21 @@ public class AnalyticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         UUID userId = currentUserProvider.getCurrentUserId();
         BaselineComparisonDto response = baselineService.getBaseline(walletId, userId, periodType, startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/cycle-comparison")
+    public ResponseEntity<CycleComparisonResponseDto> getCycleComparison(
+            @PathVariable Integer walletId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
+            @RequestParam(required = false) Integer baselineCycles,
+            @RequestParam(required = false) List<Integer> categoryIds,
+            @RequestParam(defaultValue = "ALL") CategoryAggregationMode categoryMode,
+            @RequestParam(defaultValue = "false") boolean includeIncome,
+            @RequestParam(required = false) List<Importance> importance) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        CycleComparisonResponseDto response = cycleComparisonService.getCycleComparison(
+                walletId, userId, asOfDate, baselineCycles, categoryIds, categoryMode, includeIncome, importance);
         return ResponseEntity.ok(response);
     }
 

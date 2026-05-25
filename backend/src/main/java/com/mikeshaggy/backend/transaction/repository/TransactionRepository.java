@@ -50,6 +50,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             Pageable pageable);
 
     @Query("""
+        SELECT t FROM Transaction t
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.category.id = :categoryId
+        AND t.transactionDate <= :asOfDate
+        ORDER BY t.transactionDate DESC
+    """)
+    List<Transaction> findByWalletUserCategoryAndDateLessThanEqualOrderByTransactionDateDesc(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("categoryId") Integer categoryId,
+            @Param("asOfDate") LocalDate asOfDate,
+            Pageable pageable);
+
+    @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         JOIN t.category c
         WHERE t.wallet.id = :walletId
@@ -145,6 +160,37 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("type") CategoryType type);
+
+    @Query("""
+        SELECT t.transactionDate AS date,
+               c.id AS categoryId,
+               c.name AS name,
+               c.emoji AS emoji,
+               COALESCE(SUM(t.amount), 0) AS amount,
+               COUNT(t) AS transactionCount
+        FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = :type
+        AND (:categoryIdsEmpty = true OR c.id IN :categoryIds)
+        AND (:includedOnly = false OR c.excludedFromTopCategories = false)
+        AND (:importanceEmpty = true OR t.importance IN :importance)
+        GROUP BY t.transactionDate, c.id, c.name, c.emoji
+        ORDER BY t.transactionDate ASC, c.name ASC, c.id ASC
+    """)
+    List<DailyCategorySpendProjection> findDailyCategorySpendByWalletUserDateRangeAndType(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("type") CategoryType type,
+            @Param("categoryIds") List<Integer> categoryIds,
+            @Param("categoryIdsEmpty") boolean categoryIdsEmpty,
+            @Param("includedOnly") boolean includedOnly,
+            @Param("importance") List<Importance> importance,
+            @Param("importanceEmpty") boolean importanceEmpty);
 
     @Query("""
         SELECT YEAR(t.transactionDate) AS year,
