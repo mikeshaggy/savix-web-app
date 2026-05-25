@@ -4,7 +4,7 @@ import com.mikeshaggy.backend.transfer.domain.Transfer;
 import com.mikeshaggy.backend.transfer.dto.TransferCreateRequest;
 import com.mikeshaggy.backend.transfer.dto.TransferResponse;
 import com.mikeshaggy.backend.transfer.dto.TransferUpdateRequest;
-import com.mikeshaggy.backend.transfer.repo.TransferRepository;
+import com.mikeshaggy.backend.transfer.repository.TransferRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
 import com.mikeshaggy.backend.wallet.service.WalletService;

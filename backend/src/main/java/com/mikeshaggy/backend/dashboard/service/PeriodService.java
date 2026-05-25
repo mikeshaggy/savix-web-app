@@ -1,12 +1,12 @@
 package com.mikeshaggy.backend.dashboard.service;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.category.repo.CategoryRepository;
+import com.mikeshaggy.backend.category.repository.CategoryRepository;
 import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.PeriodType;
 import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
-import com.mikeshaggy.backend.dashboard.service.period.ComparePeriodResolver;
-import com.mikeshaggy.backend.dashboard.service.period.PeriodResolver;
+import com.mikeshaggy.backend.dashboard.period.ComparePeriodResolver;
+import com.mikeshaggy.backend.dashboard.period.PeriodResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

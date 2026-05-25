@@ -14,6 +14,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -74,6 +76,22 @@ public class GlobalExceptionHandler {
         log.warn("Validation failed: fieldErrorCount={}", errors.size());
 
         return buildErrorResponse(HttpStatus.BAD_REQUEST, "Validation Failed", "Input validation failed", errors);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex) {
+        String message = "Required parameter '%s' is missing".formatted(ex.getParameterName());
+        log.warn("Missing required parameter: parameter={}", ex.getParameterName());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", message);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex) {
+        String message = "Invalid value for parameter '%s'".formatted(ex.getName());
+        log.warn("Invalid request parameter: parameter={}, value={}", ex.getName(), ex.getValue());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Bad Request", message);
     }
 
     @ExceptionHandler(AuthenticationException.class)

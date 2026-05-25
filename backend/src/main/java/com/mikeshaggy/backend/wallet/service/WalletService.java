@@ -9,7 +9,7 @@ import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.dto.WalletCreateRequest;
 import com.mikeshaggy.backend.wallet.dto.WalletResponse;
 import com.mikeshaggy.backend.wallet.dto.WalletUpdateRequest;
-import com.mikeshaggy.backend.wallet.repo.WalletRepository;
+import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

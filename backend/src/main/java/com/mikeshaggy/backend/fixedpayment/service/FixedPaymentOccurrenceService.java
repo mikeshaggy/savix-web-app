@@ -1,8 +1,8 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;

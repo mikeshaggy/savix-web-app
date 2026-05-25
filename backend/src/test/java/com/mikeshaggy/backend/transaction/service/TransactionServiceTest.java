@@ -17,7 +17,7 @@ import com.mikeshaggy.backend.transaction.dto.TransactionFilterParams;
 import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
-import com.mikeshaggy.backend.transaction.repo.TransactionRepository;
+import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletBalanceService;
@@ -446,6 +446,36 @@ class TransactionServiceTest {
                             eq(CategoryType.INCOME),
                             eq(100L),
                             eq(DATE));
+        }
+
+        @Test
+        void updateExpenseWithoutImportance_throws() {
+            // given
+            Transaction existing =
+                    Transaction.builder()
+                            .id(100L)
+                            .title("Old")
+                            .amount(new BigDecimal("50.00"))
+                            .wallet(wallet)
+                            .category(expenseCategory)
+                            .transactionDate(DATE)
+                            .importance(Importance.ESSENTIAL)
+                            .build();
+
+            TransactionUpdateRequest request =
+                    new TransactionUpdateRequest(
+                            1, 1, "Updated", new BigDecimal("75.00"), DATE, null, null);
+
+            when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
+                    .thenReturn(Optional.of(existing));
+
+            // when
+            // then
+            assertThatThrownBy(() -> transactionService.updateTransaction(100L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Importance is required for EXPENSE");
+            verify(transactionRepository, never()).save(any(Transaction.class));
+            verifyNoInteractions(walletBalanceService);
         }
 
         @Test

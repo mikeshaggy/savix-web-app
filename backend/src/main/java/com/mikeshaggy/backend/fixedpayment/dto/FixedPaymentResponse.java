@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.dto;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -6,10 +6,10 @@ import static org.mockito.Mockito.*;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -46,7 +46,11 @@ class FixedPaymentOccurrenceGenerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        Instant fixedInstant = TODAY.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        setClockDate(TODAY);
+    }
+
+    private void setClockDate(LocalDate date) {
+        Instant fixedInstant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         lenient().when(clock.instant()).thenReturn(fixedInstant);
         lenient().when(clock.getZone()).thenReturn(ZoneId.systemDefault());
     }
@@ -321,6 +325,112 @@ class FixedPaymentOccurrenceGenerationServiceTest {
                                 assertThat(occ.getExpectedAmount()).isEqualByComparingTo("100.00");
                                 assertThat(occ.getStatus()).isEqualTo(OccurrenceStatus.PENDING);
                             });
+        }
+
+        @Test
+        void activeToIsInclusiveAndPreventsOccurrencesAfterEndDate() {
+            // given
+            setClockDate(LocalDate.of(2026, 5, 24));
+            UUID userId = UUID.randomUUID();
+            FixedPayment fp =
+                    FixedPayment.builder()
+                            .id(1)
+                            .anchorDate(LocalDate.of(2026, 3, 23))
+                            .cycle(Cycle.MONTHLY)
+                            .activeTo(LocalDate.of(2026, 6, 23))
+                            .amount(new BigDecimal("100.00"))
+                            .build();
+
+            when(fixedPaymentRepository.findAllActiveByUserId(eq(userId), any(LocalDate.class)))
+                    .thenReturn(List.of(fp));
+            when(occurrenceRepository.findMaxDueDateByFixedPaymentId(1))
+                    .thenReturn(Optional.of(fp.getAnchorDate().minusDays(1)));
+            when(occurrenceRepository.findDueDatesByFixedPaymentIdAndDueDateBetween(
+                            anyInt(), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(List.of());
+
+            service.ensureOccurrencesGenerated(userId);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FixedPaymentOccurrence>> captor = ArgumentCaptor.forClass(List.class);
+            verify(occurrenceRepository).saveAll(captor.capture());
+
+            // when
+            List<LocalDate> dueDates = captor.getValue().stream()
+                    .map(FixedPaymentOccurrence::getDueDate)
+                    .toList();
+            // then
+            assertThat(dueDates)
+                    .containsExactly(
+                            LocalDate.of(2026, 3, 23),
+                            LocalDate.of(2026, 4, 23),
+                            LocalDate.of(2026, 5, 23),
+                            LocalDate.of(2026, 6, 23));
+            assertThat(dueDates).doesNotContain(LocalDate.of(2026, 7, 23));
+        }
+
+        @Test
+        void nullActiveToContinuesGeneratingNormally() {
+            // given
+            UUID userId = UUID.randomUUID();
+            FixedPayment fp =
+                    FixedPayment.builder()
+                            .id(1)
+                            .anchorDate(TODAY)
+                            .cycle(Cycle.MONTHLY)
+                            .activeTo(null)
+                            .amount(new BigDecimal("100.00"))
+                            .build();
+
+            when(fixedPaymentRepository.findAllActiveByUserId(eq(userId), any(LocalDate.class)))
+                    .thenReturn(List.of(fp));
+            when(occurrenceRepository.findMaxDueDateByFixedPaymentId(1)).thenReturn(Optional.empty());
+            when(occurrenceRepository.findDueDatesByFixedPaymentIdAndDueDateBetween(
+                            anyInt(), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(List.of());
+
+            service.ensureOccurrencesGenerated(userId);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FixedPaymentOccurrence>> captor = ArgumentCaptor.forClass(List.class);
+            verify(occurrenceRepository).saveAll(captor.capture());
+
+            // when
+            List<LocalDate> dueDates = captor.getValue().stream()
+                    .map(FixedPaymentOccurrence::getDueDate)
+                    .toList();
+            // then
+            assertThat(dueDates)
+                    .containsExactly(TODAY, TODAY.plusMonths(1), TODAY.plusMonths(2));
+        }
+
+        @Test
+        void activeToBeforeNextGeneratedDueDateCreatesNoFutureOccurrence() {
+            // given
+            setClockDate(LocalDate.of(2026, 5, 24));
+            UUID userId = UUID.randomUUID();
+            FixedPayment fp =
+                    FixedPayment.builder()
+                            .id(1)
+                            .anchorDate(LocalDate.of(2026, 3, 23))
+                            .cycle(Cycle.MONTHLY)
+                            .activeTo(LocalDate.of(2026, 6, 23))
+                            .amount(new BigDecimal("100.00"))
+                            .build();
+
+            when(fixedPaymentRepository.findAllActiveByUserId(eq(userId), any(LocalDate.class)))
+                    .thenReturn(List.of(fp));
+            when(occurrenceRepository.findMaxDueDateByFixedPaymentId(1))
+                    .thenReturn(Optional.of(LocalDate.of(2026, 6, 23)));
+            when(occurrenceRepository.findDueDatesByFixedPaymentIdAndDueDateBetween(
+                            anyInt(), any(LocalDate.class), any(LocalDate.class)))
+                    .thenReturn(List.of());
+
+            service.ensureOccurrencesGenerated(userId);
+
+            // when
+            // then
+            verify(occurrenceRepository, never()).saveAll(any());
         }
 
         @Test

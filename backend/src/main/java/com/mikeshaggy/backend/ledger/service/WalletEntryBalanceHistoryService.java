@@ -1,9 +1,9 @@
 package com.mikeshaggy.backend.ledger.service;
 
 import com.mikeshaggy.backend.ledger.domain.WalletEntry;
-import com.mikeshaggy.backend.ledger.repo.WalletEntryRepository;
+import com.mikeshaggy.backend.ledger.repository.WalletEntryRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
-import com.mikeshaggy.backend.wallet.repo.WalletRepository;
+import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

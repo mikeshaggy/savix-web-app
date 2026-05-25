@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.mikeshaggy.backend.auth.domain.ratelimit.RateLimitEntry;
-import com.mikeshaggy.backend.auth.repo.RateLimitRepository;
+import com.mikeshaggy.backend.auth.repository.RateLimitRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

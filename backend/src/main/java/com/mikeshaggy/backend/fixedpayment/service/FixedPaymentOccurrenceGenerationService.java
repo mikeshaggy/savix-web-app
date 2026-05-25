@@ -2,10 +2,10 @@ package com.mikeshaggy.backend.fixedpayment.service;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.Cycle;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentOccurrenceRepository;
-import com.mikeshaggy.backend.fixedpayment.repo.FixedPaymentRepository;
+import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -92,7 +92,12 @@ public class FixedPaymentOccurrenceGenerationService {
                 occurrenceRepository.findDueDatesByFixedPaymentIdAndDueDateBetween(fp.getId(), from, to));
 
         List<FixedPaymentOccurrence> toSave = new ArrayList<>();
+        LocalDate activeTo = fp.getActiveTo();
         for (LocalDate dueDate : dueDates) {
+            if (activeTo != null && dueDate.isAfter(activeTo)) {
+                break;
+            }
+
             if (!existingDueDates.contains(dueDate)) {
                 FixedPaymentOccurrence occurrence = FixedPaymentOccurrence.builder()
                         .fixedPayment(fp)

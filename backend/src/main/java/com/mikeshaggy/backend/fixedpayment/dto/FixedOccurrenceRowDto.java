@@ -1,7 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.dto;
 
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
-import com.mikeshaggy.backend.fixedpayment.enums.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
