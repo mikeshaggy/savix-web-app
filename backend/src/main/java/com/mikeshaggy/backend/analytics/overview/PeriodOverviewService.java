@@ -43,11 +43,11 @@ public class PeriodOverviewService {
             throw new IllegalArgumentException("period must not be in the future");
         }
 
-        BigDecimal income = zeroIfNull(transactionRepository.sumByWalletDateRangeAndType(
-                walletId, from, to, CategoryType.INCOME)).setScale(SCALE, ROUNDING);
-        BigDecimal expenses = zeroIfNull(transactionRepository.sumByWalletDateRangeAndType(
-                walletId, from, to, CategoryType.EXPENSE)).setScale(SCALE, ROUNDING);
-        long transactionCount = transactionRepository.countByWalletDateRange(walletId, from, to);
+        BigDecimal income = zeroIfNull(transactionRepository.sumByWalletUserDateRangeAndType(
+                walletId, userId, from, to, CategoryType.INCOME)).setScale(SCALE, ROUNDING);
+        BigDecimal expenses = zeroIfNull(transactionRepository.sumByWalletUserDateRangeAndType(
+                walletId, userId, from, to, CategoryType.EXPENSE)).setScale(SCALE, ROUNDING);
+        long transactionCount = transactionRepository.countByWalletUserDateRange(walletId, userId, from, to);
 
         BigDecimal balance = income.subtract(expenses).setScale(SCALE, ROUNDING);
         BigDecimal savingsRate = calculateSavingsRate(balance, income);

@@ -193,7 +193,7 @@ class FixedPaymentDashboardServiceTest {
                             eq(List.of(1, 2)), eq(OccurrenceStatus.OVERDUE)))
                     .thenReturn(overdueOccurrences);
             when(transactionService.sumIncomeByWalletIdAndDateRange(
-                            eq(1), eq(period.startDate()), eq(period.endDate())))
+                            eq(1), eq(USER_ID), eq(period.startDate()), eq(period.endDate())))
                     .thenReturn(new BigDecimal("4000.00"));
 
             FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);

@@ -43,7 +43,7 @@ public class HeatmapService {
         LocalDate to = period.endDate();
 
         List<HeatmapProjection> rows = transactionRepository.findHeatmapByWalletDateRangeAndType(
-                walletId, from, to, CategoryType.EXPENSE);
+                walletId, userId, from, to, CategoryType.EXPENSE);
         Map<LocalDate, List<HeatmapProjection>> rowsByDate = rows.stream()
                 .collect(Collectors.groupingBy(HeatmapProjection::getDate));
 

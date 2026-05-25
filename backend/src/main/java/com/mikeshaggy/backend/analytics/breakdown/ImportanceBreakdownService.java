@@ -55,7 +55,7 @@ public class ImportanceBreakdownService {
 
         List<ImportanceBreakdownProjection> rows = transactionRepository
                 .findImportanceBreakdownByWalletDateRangeAndType(
-                        walletId, period.startDate(), period.endDate(), CategoryType.EXPENSE);
+                        walletId, userId, period.startDate(), period.endDate(), CategoryType.EXPENSE);
         // Defensive only: by domain rule, null importance is allowed for income transactions,
         // while expense transactions must have non-null importance.
         List<ImportanceBreakdownProjection> nonNullRows = rows.stream()

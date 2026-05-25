@@ -298,12 +298,14 @@ public class TransactionService {
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
     }
 
-    public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, PeriodDto period) {
+    public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, UUID userId, PeriodDto period) {
         return transactionRepository
-                .findByWalletIdAndTransactionDateBetween(walletId, period.startDate(), period.endDate());
+                .findByWalletIdAndWalletUserIdAndTransactionDateBetween(
+                        walletId, userId, period.startDate(), period.endDate());
     }
 
-    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, LocalDate from, LocalDate to) {
-        return transactionRepository.sumIncomeByWalletIdAndDateRange(walletId, from, to);
+    public BigDecimal sumIncomeByWalletIdAndDateRange(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        return transactionRepository.sumByWalletUserDateRangeAndType(
+                walletId, userId, from, to, CategoryType.INCOME);
     }
 }

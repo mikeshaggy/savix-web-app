@@ -56,7 +56,7 @@ class ImportanceBreakdownServiceTest {
     void emptyPeriodReturnsZeroAndEmptyBreakdown() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         ImportanceBreakdownDto result = service.getImportanceBreakdown(WALLET_ID, USER_ID,
                 PeriodType.CUSTOM, START, END);
@@ -69,7 +69,7 @@ class ImportanceBreakdownServiceTest {
     void incomeWithNullImportanceIsExcludedFromImportanceBreakdown() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(row(Importance.ESSENTIAL, "75.00", 2L)));
 
         ImportanceBreakdownDto result = service.getImportanceBreakdown(WALLET_ID, USER_ID,
@@ -87,7 +87,7 @@ class ImportanceBreakdownServiceTest {
     void invalidExpenseWithNullImportanceIsIgnoredDefensively() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(null, "25.00", 1L),
                         row(Importance.ESSENTIAL, "75.00", 2L)));
@@ -106,7 +106,7 @@ class ImportanceBreakdownServiceTest {
     void allExpenseRowsHaveImportanceAndSharesSumTo100() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(Importance.NICE_TO_HAVE, "600.00", 18L),
                         row(Importance.ESSENTIAL, "1200.00", 5L),
@@ -137,19 +137,19 @@ class ImportanceBreakdownServiceTest {
     void expenseBreakdownUsesOnlyExpenseTransactions() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         service.getImportanceBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
         verify(transactionRepository).findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE);
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE);
     }
 
     @Test
     void orderIsStableEvenWhenRepositoryReturnsDifferentOrder() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(Importance.INVESTMENT, "10.00", 1L),
                         row(Importance.NICE_TO_HAVE, "10.00", 1L),
@@ -168,13 +168,13 @@ class ImportanceBreakdownServiceTest {
     void dateRangeFilteringUsesResolvedDates() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE)).thenReturn(List.of());
 
         service.getImportanceBreakdown(WALLET_ID, USER_ID, PeriodType.CUSTOM, START, END);
 
         verify(periodService).resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, START, END);
         verify(transactionRepository).findImportanceBreakdownByWalletDateRangeAndType(
-                WALLET_ID, START, END, CategoryType.EXPENSE);
+                WALLET_ID, USER_ID, START, END, CategoryType.EXPENSE);
     }
 
     private void resolvedPeriod() {

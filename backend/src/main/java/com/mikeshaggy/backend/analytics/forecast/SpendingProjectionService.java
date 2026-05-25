@@ -56,9 +56,9 @@ public class SpendingProjectionService {
                 : Math.max(0, inclusiveDays(today.plusDays(1), period.endDate()));
 
         LocalDate toDate = today.isBefore(period.endDate()) ? today : period.endDate();
-        BigDecimal incomeToDate = sum(walletId, period.startDate(), toDate, CategoryType.INCOME);
-        BigDecimal incomeForPeriod = sum(walletId, period.startDate(), period.endDate(), CategoryType.INCOME);
-        BigDecimal expensesToDate = sum(walletId, period.startDate(), toDate, CategoryType.EXPENSE);
+        BigDecimal incomeToDate = sum(walletId, userId, period.startDate(), toDate, CategoryType.INCOME);
+        BigDecimal incomeForPeriod = sum(walletId, userId, period.startDate(), period.endDate(), CategoryType.INCOME);
+        BigDecimal expensesToDate = sum(walletId, userId, period.startDate(), toDate, CategoryType.EXPENSE);
         BigDecimal dailyBurnRate = daysElapsed == 0
                 ? money(BigDecimal.ZERO)
                 : expensesToDate.divide(BigDecimal.valueOf(daysElapsed), SCALE, ROUNDING);
@@ -126,8 +126,8 @@ public class SpendingProjectionService {
         return money(tile.summary().remainingAmount());
     }
 
-    private BigDecimal sum(Integer walletId, LocalDate from, LocalDate to, CategoryType type) {
-        return money(transactionRepository.sumByWalletDateRangeAndType(walletId, from, to, type));
+    private BigDecimal sum(Integer walletId, UUID userId, LocalDate from, LocalDate to, CategoryType type) {
+        return money(transactionRepository.sumByWalletUserDateRangeAndType(walletId, userId, from, to, type));
     }
 
     private BigDecimal money(BigDecimal value) {

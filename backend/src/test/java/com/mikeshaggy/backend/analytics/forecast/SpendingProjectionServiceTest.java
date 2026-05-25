@@ -398,11 +398,11 @@ class SpendingProjectionServiceTest {
     }
 
     private void sums(BigDecimal incomeToDate, BigDecimal incomeForPeriod, BigDecimal expensesToDate) {
-        lenient().when(transactionRepository.sumByWalletDateRangeAndType(
-                        eq(WALLET_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.INCOME)))
+        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+                        eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.INCOME)))
                 .thenReturn(incomeToDate, incomeForPeriod);
-        lenient().when(transactionRepository.sumByWalletDateRangeAndType(
-                        eq(WALLET_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE)))
+        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+                        eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE)))
                 .thenReturn(expensesToDate);
     }
 

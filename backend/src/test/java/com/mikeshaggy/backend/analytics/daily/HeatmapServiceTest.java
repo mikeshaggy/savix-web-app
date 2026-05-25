@@ -73,7 +73,7 @@ class HeatmapServiceTest {
         LocalDate from = LocalDate.of(2026, 3, 1);
         LocalDate to = LocalDate.of(2026, 3, 31);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
 
         HeatmapResponseDto result = runHeatmap(from, to);
 
@@ -97,7 +97,7 @@ class HeatmapServiceTest {
         LocalDate to = LocalDate.of(2026, 3, 31);
         LocalDate targetDate = LocalDate.of(2026, 3, 12);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(targetDate, 1, "groceries", "45.50", 2L),
                         row(targetDate, 2, "transport", "10.00", 1L)));
@@ -121,7 +121,7 @@ class HeatmapServiceTest {
         LocalDate from = LocalDate.of(2026, 2, 1);
         LocalDate to = LocalDate.of(2026, 2, 28);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
 
         HeatmapResponseDto result = runHeatmap(from, to);
 
@@ -134,7 +134,7 @@ class HeatmapServiceTest {
         LocalDate from = LocalDate.of(2024, 2, 1);
         LocalDate to = LocalDate.of(2024, 2, 29);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
 
         HeatmapResponseDto result = runHeatmap(from, to);
 
@@ -147,7 +147,7 @@ class HeatmapServiceTest {
         LocalDate from = LocalDate.of(2026, 3, 1);
         LocalDate to = LocalDate.of(2026, 3, 31);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE))
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE))
                 .thenReturn(List.of(
                         row(LocalDate.of(2026, 3, 1), 1, "rent",      "200.00", 1L),
                         row(LocalDate.of(2026, 3, 5), 2, "groceries",  "90.00", 3L),
@@ -167,7 +167,7 @@ class HeatmapServiceTest {
         LocalDate from = LocalDate.of(2026, 3, 15);
         LocalDate to = LocalDate.of(2026, 4, 13);
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
-                WALLET_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
+                WALLET_ID, USER_ID, from, to, CategoryType.EXPENSE)).thenReturn(List.of());
 
         HeatmapResponseDto result = runHeatmap(from, to);
 

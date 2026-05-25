@@ -58,7 +58,7 @@ public class FixedPaymentDashboardService {
                 .findByFixedPaymentIdsAndStatus(fixedPaymentIds, OccurrenceStatus.OVERDUE);
 
         BigDecimal totalIncome = transactionService.sumIncomeByWalletIdAndDateRange(
-                walletId, period.startDate(), period.endDate());
+                walletId, userId, period.startDate(), period.endDate());
 
         return tileAssembler.assemble(
                 period, allInPeriod, overdueAll,

@@ -880,15 +880,15 @@ class TransactionServiceTest {
                             .category(expenseCategory)
                             .transactionDate(DATE)
                             .build();
-            when(transactionRepository.findByWalletIdAndTransactionDateBetween(1, start, end))
+            when(transactionRepository.findByWalletIdAndWalletUserIdAndTransactionDateBetween(1, USER_ID, start, end))
                     .thenReturn(List.of(t));
 
             // when
-            List<Transaction> result = transactionService.getTransactionsForWalletAndPeriod(1, period);
+            List<Transaction> result = transactionService.getTransactionsForWalletAndPeriod(1, USER_ID, period);
 
             // then
             assertThat(result).hasSize(1);
-            verify(transactionRepository).findByWalletIdAndTransactionDateBetween(1, start, end);
+            verify(transactionRepository).findByWalletIdAndWalletUserIdAndTransactionDateBetween(1, USER_ID, start, end);
         }
     }
 }
