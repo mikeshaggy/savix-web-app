@@ -69,6 +69,13 @@ public final class TransactionSpecifications {
         };
     }
 
+    public static Specification<Transaction> hasTransactionDates(List<LocalDate> dates) {
+        if (dates == null || dates.isEmpty()) {
+            return null;
+        }
+        return (root, query, cb) -> root.get("transactionDate").in(dates);
+    }
+
     public static Specification<Transaction> searchQuery(String q) {
         if (q == null || q.isBlank()) {
             return null;
@@ -104,5 +111,20 @@ public final class TransactionSpecifications {
                 .filter(Objects::nonNull)
                 .reduce(Specification::and)
                 .orElseThrow();
+    }
+
+    public static Specification<Transaction> buildSpecificationForDates(
+            UUID userId,
+            Integer walletId,
+            List<CategoryType> types,
+            List<Integer> categoryIds,
+            List<Importance> importances,
+            LocalDate startDate,
+            LocalDate endDate,
+            String q,
+            List<LocalDate> dates
+    ) {
+        return buildSpecification(userId, walletId, types, categoryIds, importances, startDate, endDate, q)
+                .and(hasTransactionDates(dates));
     }
 }

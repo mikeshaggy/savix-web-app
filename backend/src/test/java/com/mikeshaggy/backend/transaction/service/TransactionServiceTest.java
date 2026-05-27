@@ -8,15 +8,17 @@ import static org.mockito.Mockito.*;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
+import com.mikeshaggy.backend.transaction.dto.TransactionDateGroupResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionFilterParams;
 import com.mikeshaggy.backend.transaction.dto.TransactionPageResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.dto.TransactionUpdateRequest;
+import com.mikeshaggy.backend.transaction.repository.TransactionDateCountProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -27,6 +29,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -313,7 +316,49 @@ class TransactionServiceTest {
                             eq(new BigDecimal("75.00")),
                             eq(CategoryType.EXPENSE),
                             eq(100L),
+                            eq(DATE),
                             eq(DATE));
+        }
+
+        @Test
+        void updateDateOnlyPassesOldAndNewDatesToLedgerAdjustment() {
+            // given
+            LocalDate newDate = DATE.plusDays(5);
+            Transaction existing =
+                    Transaction.builder()
+                            .id(100L)
+                            .title("Old")
+                            .amount(new BigDecimal("50.00"))
+                            .wallet(wallet)
+                            .category(expenseCategory)
+                            .transactionDate(DATE)
+                            .importance(Importance.ESSENTIAL)
+                            .build();
+
+            TransactionUpdateRequest request =
+                    new TransactionUpdateRequest(
+                            1, 1, "Old", new BigDecimal("50.00"), newDate, null, Importance.ESSENTIAL);
+
+            when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
+                    .thenReturn(Optional.of(existing));
+            when(transactionRepository.save(any(Transaction.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            transactionService.updateTransaction(100L, request, USER_ID);
+
+            // then
+            verify(walletBalanceService)
+                    .adjustForTransactionEdit(
+                            eq(wallet),
+                            eq(new BigDecimal("50.00")),
+                            eq(CategoryType.EXPENSE),
+                            eq(wallet),
+                            eq(new BigDecimal("50.00")),
+                            eq(CategoryType.EXPENSE),
+                            eq(100L),
+                            eq(DATE),
+                            eq(newDate));
         }
 
         @Test
@@ -356,6 +401,7 @@ class TransactionServiceTest {
                             eq(new BigDecimal("50.00")),
                             eq(CategoryType.EXPENSE),
                             eq(100L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -396,6 +442,7 @@ class TransactionServiceTest {
                             eq(new BigDecimal("200.00")),
                             eq(CategoryType.INCOME),
                             eq(100L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -445,6 +492,7 @@ class TransactionServiceTest {
                             eq(new BigDecimal("3000.00")),
                             eq(CategoryType.INCOME),
                             eq(100L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -632,10 +680,37 @@ class TransactionServiceTest {
                     .build();
         }
 
-        @SuppressWarnings("unchecked")
         private void stubListResult(List<Transaction> content) {
-            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+            Map<LocalDate, Long> counts = content.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(
+                            Transaction::getTransactionDate,
+                            java.util.LinkedHashMap::new,
+                            java.util.stream.Collectors.counting()));
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class),
+                    any(),
+                    anyList(),
+                    anyBoolean(),
+                    anyList(),
+                    anyBoolean(),
+                    anyList(),
+                    anyBoolean(),
+                    any(),
+                    any(),
+                    anyString(),
+                    anyBoolean()))
+                    .thenReturn(counts.entrySet().stream()
+                            .map(entry -> dateCount(entry.getKey(), entry.getValue()))
+                            .toList());
+            lenient().when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
                     .thenReturn(content);
+        }
+
+        private TransactionDateCountProjection dateCount(LocalDate date, Long count) {
+            return new TransactionDateCountProjection() {
+                @Override public LocalDate getDate() { return date; }
+                @Override public Long getTransactionCount() { return count; }
+            };
         }
 
         @Test
@@ -663,7 +738,7 @@ class TransactionServiceTest {
         @Test
         void validSort_withAscDirection() {
             // given
-            stubListResult(List.of());
+            stubListResult(List.of(txOnDate(1L, DATE)));
 
             TransactionFilterParams filter =
                     new TransactionFilterParams(
@@ -684,7 +759,7 @@ class TransactionServiceTest {
         @Test
         void invalidSortField_fallsBackToDefault() {
             // given
-            stubListResult(List.of());
+            stubListResult(List.of(txOnDate(1L, DATE)));
 
             TransactionFilterParams filter =
                     new TransactionFilterParams(
@@ -797,7 +872,15 @@ class TransactionServiceTest {
             for (int i = 4; i <= 7; i++) content.add(txOnDate((long) i, mar4));
             for (int i = 8; i <= 13; i++) content.add(txOnDate((long) i, mar3));
 
-            stubListResult(content);
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
+                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(
+                            dateCount(mar5, 3L),
+                            dateCount(mar4, 4L),
+                            dateCount(mar3, 6L)));
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(content.subList(0, 7));
             // when
             TransactionPageResponse page0 =
                     transactionService.getTransactionsForUser(
@@ -815,7 +898,8 @@ class TransactionServiceTest {
             assertThat(page0.hasNext()).isTrue();
             assertThat(page0.hasPrevious()).isFalse();
 
-            stubListResult(content);
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(content.subList(7, 13));
             TransactionPageResponse page1 =
                     transactionService.getTransactionsForUser(
                             new TransactionFilterParams(
@@ -828,6 +912,134 @@ class TransactionServiceTest {
             assertThat(page1.totalPages()).isEqualTo(2);
             assertThat(page1.hasNext()).isFalse();
             assertThat(page1.hasPrevious()).isTrue();
+        }
+
+        @Test
+        void requestedPageSizeLimitsHydratedTransactionsToSelectedDateBuckets() {
+            List<Transaction> content = new ArrayList<>();
+            LocalDate date = LocalDate.of(2026, 3, 10);
+            for (int i = 1; i <= 150; i++) {
+                content.add(txOnDate((long) i, date.minusDays((i - 1) / 10)));
+            }
+            List<TransactionDateCountProjection> dateCounts = new ArrayList<>();
+            for (int day = 0; day < 15; day++) {
+                dateCounts.add(dateCount(date.minusDays(day), 10L));
+            }
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
+                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+                    .thenReturn(dateCounts);
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(content.subList(0, 20));
+
+            TransactionPageResponse response =
+                    transactionService.getTransactionsForUser(
+                            new TransactionFilterParams(
+                                    USER_ID, null, 0, 20, null, null, null, null, null, null, null));
+
+            assertThat(response.size()).isEqualTo(20);
+            assertThat(response.totalElements()).isEqualTo(150);
+            assertThat(response.groups()).hasSize(2);
+            assertThat(response.groups()).allSatisfy(group -> assertThat(group.transactions()).hasSize(10));
+            verify(transactionRepository).findTransactionDateCounts(
+                    eq(USER_ID), isNull(), anyList(), eq(true), anyList(), eq(true),
+                    anyList(), eq(true), isNull(), isNull(), eq(""), eq(true));
+            verify(transactionRepository).findAll(any(Specification.class), any(Sort.class));
+            verify(transactionRepository, never()).findAll(any(Specification.class), any(org.springframework.data.domain.Pageable.class));
+        }
+
+        @Test
+        void fetchesOnlySelectedDateBucketsAfterCountingMatchingDates() {
+            LocalDate mar5 = LocalDate.of(2026, 3, 5);
+            LocalDate mar4 = LocalDate.of(2026, 3, 4);
+            LocalDate mar3 = LocalDate.of(2026, 3, 3);
+            List<Transaction> selectedPageRows = List.of(
+                    txOnDate(1L, mar5),
+                    txOnDate(2L, mar5),
+                    txOnDate(3L, mar4));
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
+                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(
+                            dateCount(mar5, 2L),
+                            dateCount(mar4, 1L),
+                            dateCount(mar3, 50L)));
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(selectedPageRows);
+
+            TransactionPageResponse response =
+                    transactionService.getTransactionsForUser(
+                            new TransactionFilterParams(
+                                    USER_ID, null, 0, 10, null, null, null, null, null, null, null));
+
+            assertThat(response.totalElements()).isEqualTo(53);
+            assertThat(response.totalPages()).isEqualTo(2);
+            assertThat(response.groups()).hasSize(2);
+            assertThat(response.groups().get(0).date()).isEqualTo(mar5);
+            assertThat(response.groups().get(1).date()).isEqualTo(mar4);
+            verify(transactionRepository).findAll(any(Specification.class), any(Sort.class));
+        }
+
+        @Test
+        void filtersArePassedToDateCountQueryBeforeFetchingPageRows() {
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
+                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(dateCount(DATE, 1L)));
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(List.of(txOnDate(1L, DATE)));
+
+            transactionService.getTransactionsForUser(
+                    new TransactionFilterParams(
+                            USER_ID,
+                            1,
+                            0,
+                            20,
+                            List.of(CategoryType.EXPENSE),
+                            List.of(1),
+                            List.of(Importance.ESSENTIAL),
+                            LocalDate.of(2026, 3, 1),
+                            LocalDate.of(2026, 3, 31),
+                            "gro",
+                            null));
+
+            verify(transactionRepository).findTransactionDateCounts(
+                    eq(USER_ID),
+                    eq(1),
+                    eq(List.of(CategoryType.EXPENSE)),
+                    eq(false),
+                    eq(List.of(1)),
+                    eq(false),
+                    eq(List.of(Importance.ESSENTIAL)),
+                    eq(false),
+                    eq(LocalDate.of(2026, 3, 1)),
+                    eq(LocalDate.of(2026, 3, 31)),
+                    eq("%gro%"),
+                    eq(false));
+        }
+
+        @Test
+        void transactionDateAscendingSortOrdersDateBucketsAscendingAndRowsAscending() {
+            LocalDate mar1 = LocalDate.of(2026, 3, 1);
+            LocalDate mar2 = LocalDate.of(2026, 3, 2);
+            when(transactionRepository.findTransactionDateCounts(
+                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
+                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+                    .thenReturn(List.of(dateCount(mar2, 1L), dateCount(mar1, 1L)));
+            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+                    .thenReturn(List.of(txOnDate(1L, mar1), txOnDate(2L, mar2)));
+
+            TransactionPageResponse response =
+                    transactionService.getTransactionsForUser(
+                            new TransactionFilterParams(
+                                    USER_ID, null, 0, 20, null, null, null, null, null, null, "transactionDate,asc"));
+
+            assertThat(response.groups()).extracting(TransactionDateGroupResponse::date)
+                    .containsExactly(mar1, mar2);
+            ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
+            verify(transactionRepository).findAll(any(Specification.class), sortCaptor.capture());
+            assertThat(sortCaptor.getValue().getOrderFor("transactionDate").getDirection())
+                    .isEqualTo(Sort.Direction.ASC);
         }
     }
 
