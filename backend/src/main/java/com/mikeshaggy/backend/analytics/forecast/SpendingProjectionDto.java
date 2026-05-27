@@ -1,6 +1,6 @@
 package com.mikeshaggy.backend.analytics.forecast;
 
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

@@ -2,11 +2,13 @@ package com.mikeshaggy.backend.analytics.insight;
 
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.PeriodTotals;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.ResolvedPeriods;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.repository.CategoryBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
@@ -46,6 +48,7 @@ class InsightEngineTest {
     private static final LocalDate COMPARE_END   = LocalDate.of(2026, 2, 28);
 
     @Mock private TransactionRepository transactionRepository;
+    @Mock private AnalyticsTransactionQueryService transactionQueryService;
     @Mock private WalletService walletService;
     @Mock private SpendingProjectionService spendingProjectionService;
     @Mock private PeriodService periodService;
@@ -64,7 +67,10 @@ class InsightEngineTest {
                         new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM),
                         new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
         // Default: zero income/expenses for all date-range sum queries
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+        lenient().when(transactionQueryService.totals(
+                        eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(new PeriodTotals(BigDecimal.ZERO, BigDecimal.ZERO));
+        lenient().when(transactionQueryService.sum(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), any()))
                 .thenReturn(BigDecimal.ZERO);
         // Default: no category data
@@ -72,13 +78,14 @@ class InsightEngineTest {
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), any()))
                 .thenReturn(List.of());
         // Default: no impulse spend
-        lenient().when(transactionRepository.sumByWalletUserDateRangeTypeAndImportance(
+        lenient().when(transactionQueryService.expenseByImportance(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class),
-                        eq(CategoryType.EXPENSE), eq(Importance.SHOULDNT_HAVE)))
+                        eq(Importance.SHOULDNT_HAVE)))
                 .thenReturn(BigDecimal.ZERO);
         // Default: positive safe-to-spend (no alert)
         lenient().when(spendingProjectionService.getSpendingProjection(
-                        eq(WALLET_ID), eq(USER_ID), eq(PeriodType.CUSTOM), any(LocalDate.class), any(LocalDate.class)))
+                        eq(WALLET_ID), eq(USER_ID), eq(PeriodType.CUSTOM),
+                        any(LocalDate.class), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(projection("250.00"));
     }
 
@@ -126,8 +133,8 @@ class InsightEngineTest {
     @Test
     void highImpulseSpendingGeneratedWhenShouldntHaveShareIsAboveTwentyPercent() {
         stubPrimaryTotals("2000.00", "1000.00");
-        when(transactionRepository.sumByWalletUserDateRangeTypeAndImportance(
-                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE, Importance.SHOULDNT_HAVE))
+        when(transactionQueryService.expenseByImportance(
+                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, Importance.SHOULDNT_HAVE))
                 .thenReturn(new BigDecimal("250.00")); // 25% of 1000
 
         InsightResponseDto result = getInsights();
@@ -148,7 +155,7 @@ class InsightEngineTest {
         stubPrimaryTotals("10000.00", "4000.00");
         stubCompareExpenses("2800.00");
         // pace query: primary start to primary end (today = Apr 15 > Mar 31)
-        when(transactionRepository.sumByWalletUserDateRangeAndType(
+        when(transactionQueryService.sum(
                 WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
                 .thenReturn(new BigDecimal("4000.00"));
 
@@ -202,7 +209,7 @@ class InsightEngineTest {
     void safeToSpendWarningGeneratedWhenProjectionIsNegativeAndTodayIsInPeriod() {
         insightEngine = engineAt("2026-03-15T10:00:00Z");
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.CUSTOM, PRIMARY_START, PRIMARY_END))
+                WALLET_ID, USER_ID, PeriodType.CUSTOM, PRIMARY_START, PRIMARY_END, LocalDate.of(2026, 3, 15)))
                 .thenReturn(projection("-75.00"));
 
         InsightResponseDto result = getInsights();
@@ -268,7 +275,7 @@ class InsightEngineTest {
         stubPrimaryTotals("2000.00", "1000.00");
         stubCompareExpenses("1000.00");
         // pace sum for primary
-        when(transactionRepository.sumByWalletUserDateRangeAndType(
+        when(transactionQueryService.sum(
                 WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
                 .thenReturn(new BigDecimal("1000.00"));
 
@@ -279,6 +286,38 @@ class InsightEngineTest {
         assertThat(result.insights()).isEmpty();
     }
 
+    @Test
+    void dashboardWindowUsesExplicitCutoffDatesAndAsOfDate() {
+        PeriodDto primaryWindow = new PeriodDto(
+                PRIMARY_START, LocalDate.of(2026, 3, 10), LocalDate.of(2026, 3, 10), PeriodType.CUSTOM);
+        PeriodDto compareWindow = new PeriodDto(
+                COMPARE_START, LocalDate.of(2026, 2, 10), LocalDate.of(2026, 2, 10), PeriodType.CUSTOM);
+        LocalDate asOfDate = LocalDate.of(2026, 3, 10);
+        SpendingProjectionDto precomputedProjection = projection("250.00");
+
+        when(transactionQueryService.totals(WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10)))
+                .thenReturn(new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")));
+        when(transactionQueryService.sum(WALLET_ID, USER_ID,
+                COMPARE_START, LocalDate.of(2026, 2, 10), CategoryType.EXPENSE))
+                .thenReturn(new BigDecimal("300.00"));
+
+        Wallet wallet = Wallet.builder().id(WALLET_ID).build();
+        InsightResponseDto result = insightEngine.getInsightsForWindow(
+                wallet, USER_ID, primaryWindow, compareWindow, asOfDate, precomputedProjection);
+
+        assertThat(result.periodStart()).isEqualTo(PRIMARY_START);
+        assertThat(result.periodEnd()).isEqualTo(LocalDate.of(2026, 3, 10));
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10), CategoryType.EXPENSE);
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, COMPARE_START, LocalDate.of(2026, 2, 10), CategoryType.EXPENSE);
+        verify(transactionQueryService).expenseByImportance(
+                WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10), Importance.SHOULDNT_HAVE);
+        // SpendingProjectionService must NOT be called — projection was supplied by the caller
+        org.mockito.Mockito.verify(spendingProjectionService, org.mockito.Mockito.never())
+                .getSpendingProjection(any(), any(), any(), any(), any(), any());
+    }
+
     // ─── helpers ─────────────────────────────────────────────────────────────────
 
     private InsightResponseDto getInsights() {
@@ -286,16 +325,12 @@ class InsightEngineTest {
     }
 
     private void stubPrimaryTotals(String income, String expenses) {
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
-                        WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.INCOME))
-                .thenReturn(new BigDecimal(income));
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
-                        WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
-                .thenReturn(new BigDecimal(expenses));
+        lenient().when(transactionQueryService.totals(WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END))
+                .thenReturn(new PeriodTotals(new BigDecimal(income), new BigDecimal(expenses)));
     }
 
     private void stubCompareExpenses(String amount) {
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+        lenient().when(transactionQueryService.sum(
                         WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
                 .thenReturn(new BigDecimal(amount));
     }
@@ -303,7 +338,7 @@ class InsightEngineTest {
     private InsightEngine engineAt(String instant) {
         Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
         return new InsightEngine(
-                transactionRepository, walletService, spendingProjectionService,
+                transactionQueryService, walletService, spendingProjectionService,
                 InsightThresholds.defaults(), clock, periodService,
                 new com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService(transactionRepository));
     }

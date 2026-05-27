@@ -2,9 +2,9 @@ package com.mikeshaggy.backend.analytics.breakdown;
 
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.repository.ImportanceBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;

@@ -6,13 +6,14 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.DailyExpenseStats;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.dto.ResolvedPeriods;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
-import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
-import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
+import com.mikeshaggy.backend.common.calculation.DeltaCalculator;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.ResolvedPeriods;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,15 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.HUNDRED;
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.DeltaCalculator.ZeroBaselineMode.NULL_ON_ZERO_BASELINE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.common.calculation.SavingsRateCalculator.fromIncomeAndExpenses;
 
 @Service
 @RequiredArgsConstructor
@@ -37,9 +34,10 @@ public class AnalyticsSummaryService {
 
     private final SpendingProjectionService spendingProjectionService;
     private final PeriodService periodService;
-    private final TransactionRepository transactionRepository;
+    private final AnalyticsTransactionQueryService transactionQueryService;
     private final WalletService walletService;
     private final CategoryAggregationService categoryAggregationService;
+    private final OverviewStatusCalculator statusCalculator;
 
     public AnalyticsSummaryDto getSummary(Integer walletId, UUID userId,
                                           PeriodType periodType,
@@ -57,26 +55,8 @@ public class AnalyticsSummaryService {
         CategoryAggregation topCat = categoryResult.categories().isEmpty() ? null : categoryResult.categories().getFirst();
 
         // ── 3. Daily stats from heatmap rows ──────────────────────────────────
-        List<HeatmapProjection> heatmapRows = transactionRepository
-                .findHeatmapByWalletDateRangeAndType(
-                        walletId, userId, proj.startDate(), proj.endDate(), CategoryType.EXPENSE);
-
-        Map<LocalDate, BigDecimal> dailyTotals = heatmapRows.stream()
-                .collect(Collectors.groupingBy(
-                        HeatmapProjection::getDate,
-                        Collectors.reducing(BigDecimal.ZERO,
-                                HeatmapProjection::getAmount, BigDecimal::add)));
-
-        LocalDate highestSpendingDay = null;
-        BigDecimal highestSpendingDayAmount = null;
-        if (!dailyTotals.isEmpty()) {
-            Map.Entry<LocalDate, BigDecimal> peak = dailyTotals.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .orElseThrow();
-            highestSpendingDay = peak.getKey();
-            highestSpendingDayAmount = money(peak.getValue());
-        }
-        int activeDays = dailyTotals.size();
+        DailyExpenseStats dailyStats = transactionQueryService.dailyExpenseStats(
+                walletId, userId, proj.startDate(), proj.endDate());
 
         // ── 4. Comparison (vs previous equivalent period) ─────────────────────
         ResolvedPeriods resolvedPeriods = periodService.resolvePeriods(
@@ -85,28 +65,23 @@ public class AnalyticsSummaryService {
 
         BigDecimal compareExpenses = compare == null
                 ? money(BigDecimal.ZERO)
-                : money(transactionRepository.sumByWalletUserDateRangeAndType(
-                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE));
+                : transactionQueryService.sum(
+                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
         boolean comparisonAvailable = compareExpenses.compareTo(BigDecimal.ZERO) > 0;
         BigDecimal expensesDeltaPercent = null;
         if (comparisonAvailable) {
-            expensesDeltaPercent = proj.expensesToDate()
-                    .subtract(compareExpenses)
-                    .multiply(HUNDRED)
-                    .divide(compareExpenses, SCALE, ROUNDING);
+            expensesDeltaPercent = DeltaCalculator.percent(
+                    proj.expensesToDate(), compareExpenses, NULL_ON_ZERO_BASELINE);
         }
 
         // ── 5. Savings rate (projected) ───────────────────────────────────────
         BigDecimal savingsRate = null;
         if (proj.incomeForPeriod().compareTo(BigDecimal.ZERO) > 0) {
-            savingsRate = proj.incomeForPeriod()
-                    .subtract(proj.projectedPeriodExpenses())
-                    .multiply(HUNDRED)
-                    .divide(proj.incomeForPeriod(), SCALE, ROUNDING);
+            savingsRate = fromIncomeAndExpenses(proj.incomeForPeriod(), proj.projectedPeriodExpenses());
         }
 
         // ── 6. Status ─────────────────────────────────────────────────────────
-        OverviewStatus status = computeStatus(proj);
+        OverviewStatus status = statusCalculator.compute(proj);
 
         return new AnalyticsSummaryDto(
                 status,
@@ -126,36 +101,11 @@ public class AnalyticsSummaryService {
                 topCat != null ? topCat.name() : null,
                 topCat != null ? topCat.emoji() : null,
                 topCat != null ? topCat.amount() : null,
-                highestSpendingDay,
-                highestSpendingDayAmount,
-                activeDays,
+                dailyStats.highestSpendingDay(),
+                dailyStats.highestSpendingDayAmount(),
+                dailyStats.activeDays(),
                 expensesDeltaPercent,
                 comparisonAvailable);
     }
 
-    // ── Status logic ──────────────────────────────────────────────────────────
-
-    private OverviewStatus computeStatus(SpendingProjectionDto proj) {
-        if (!proj.projectionAvailable()) {
-            return OverviewStatus.NEUTRAL;
-        }
-        if (proj.projectedEndBalance().compareTo(BigDecimal.ZERO) < 0
-                || proj.safeToSpendToday().compareTo(BigDecimal.ZERO) < 0) {
-            return OverviewStatus.CRITICAL;
-        }
-        if (proj.incomeForPeriod().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal ninetyPct = proj.incomeForPeriod()
-                    .multiply(new BigDecimal("0.90"));
-            if (proj.projectedPeriodExpenses().compareTo(ninetyPct) > 0) {
-                return OverviewStatus.WARNING;
-            }
-        }
-        return OverviewStatus.GOOD;
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
-    }
 }

@@ -3,9 +3,9 @@ package com.mikeshaggy.backend.analytics.breakdown;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownItemDto;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.repository.ImportanceBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
@@ -25,6 +25,8 @@ import java.util.UUID;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.HUNDRED;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.zero;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +65,7 @@ public class ImportanceBreakdownService {
                 .toList();
         BigDecimal totalExpenses = nonNullRows.stream()
                 .map(row -> money(row.getAmount()))
-                .reduce(BigDecimal.ZERO.setScale(SCALE, ROUNDING), BigDecimal::add)
+                .reduce(zero(), BigDecimal::add)
                 .setScale(SCALE, ROUNDING);
 
         List<ImportanceBreakdownItemDto> breakdown = nonNullRows.stream()
@@ -82,12 +84,8 @@ public class ImportanceBreakdownService {
 
     private BigDecimal share(BigDecimal amount, BigDecimal totalExpenses) {
         if (totalExpenses.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO.setScale(SCALE, ROUNDING);
+            return zero();
         }
         return money(amount).multiply(HUNDRED).divide(totalExpenses, SCALE, ROUNDING);
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
     }
 }
