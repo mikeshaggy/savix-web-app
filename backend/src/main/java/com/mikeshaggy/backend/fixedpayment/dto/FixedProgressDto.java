@@ -6,7 +6,7 @@ import java.time.LocalDate;
 public record FixedProgressDto(
         int paidCount,
         int totalCount,
-        double paidPct,
+        BigDecimal paidPct,
         LocalDate nextDueDate,
         String nextDueName,
         String biggestUpcomingTitle,

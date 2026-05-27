@@ -11,5 +11,5 @@ public record FixedSummaryDto(
         int remainingCount,
         BigDecimal overdueAmount,
         int overdueCount,
-        double fixedRatio
+        BigDecimal fixedRatio
 ) {}

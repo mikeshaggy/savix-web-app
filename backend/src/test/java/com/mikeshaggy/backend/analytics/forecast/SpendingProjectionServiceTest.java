@@ -1,16 +1,15 @@
 package com.mikeshaggy.backend.analytics.forecast;
 
-import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedProgressDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.dto.RiskIndicatorDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
-import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +44,7 @@ class SpendingProjectionServiceTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 5, 19);
 
     @Mock
-    private TransactionRepository transactionRepository;
+    private AnalyticsTransactionQueryService transactionQueryService;
 
     @Mock
     private WalletService walletService;
@@ -62,10 +61,12 @@ class SpendingProjectionServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T10:00:00Z"), ZoneOffset.UTC);
         service = new SpendingProjectionService(
-                transactionRepository, walletService, periodService, fixedPaymentDashboardService, clock);
+                transactionQueryService, walletService, periodService,
+                fixedPaymentDashboardService, new SpendingProjectionCalculator(), clock);
         Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("1000.00")).build();
         lenient().when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID)).thenReturn(wallet);
-        lenient().when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), eq(WALLET_ID), eq(USER_ID)))
+        lenient().when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                        any(), any(Wallet.class), eq(USER_ID), any(LocalDate.class)))
                 .thenReturn(fixedTile(new BigDecimal("0.00")));
     }
 
@@ -75,7 +76,8 @@ class SpendingProjectionServiceTest {
                 .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 10), TODAY,
                         LocalDate.of(2026, 6, 10), PeriodType.PAY_CYCLE));
         sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"), new BigDecimal("1850.00"));
-        when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), eq(WALLET_ID), eq(USER_ID)))
+        when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                        any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(fixedTile(new BigDecimal("350.00")));
 
         SpendingProjectionDto result = service.getSpendingProjection(
@@ -130,7 +132,8 @@ class SpendingProjectionServiceTest {
         assertThat(result.projectedEndBalance()).isEqualByComparingTo("1500.00");
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("0.00");
         assertThat(result.safeToSpendToday()).isEqualByComparingTo("0.00");
-        verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(any(), any(), any());
+        verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(
+                any(), any(Wallet.class), any(), any(LocalDate.class));
     }
 
     @Test
@@ -357,7 +360,8 @@ class SpendingProjectionServiceTest {
                 .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("1900.00"));
-        when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), eq(WALLET_ID), eq(USER_ID)))
+        when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                        any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(fixedTile(new BigDecimal("200.00")));
 
         SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
@@ -386,22 +390,44 @@ class SpendingProjectionServiceTest {
                 .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("190.00"));
-        when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), eq(WALLET_ID), eq(USER_ID)))
+        when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                        any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(fixedTile(new BigDecimal("350.00")));
 
         SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
 
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("350.00");
         ArgumentCaptor<PeriodDto> captor = ArgumentCaptor.forClass(PeriodDto.class);
-        verify(fixedPaymentDashboardService).getFixedPaymentsTileData(captor.capture(), eq(WALLET_ID), eq(USER_ID));
+        verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
+                captor.capture(), any(Wallet.class), eq(USER_ID), eq(TODAY));
         assertThat(captor.getValue().billingEndDate()).isEqualTo(LocalDate.of(2026, 5, 31));
     }
 
+    @Test
+    void asOfDateIsPassedToRemainingFixedPaymentsCalculation() {
+        LocalDate asOfDate = LocalDate.of(2026, 5, 10);
+        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("100.00"));
+        when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                any(), any(Wallet.class), eq(USER_ID), eq(asOfDate)))
+                .thenReturn(fixedTile(new BigDecimal("250.00")));
+
+        SpendingProjectionDto result = service.getSpendingProjection(
+                WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null, asOfDate);
+
+        assertThat(result.daysElapsed()).isEqualTo(10);
+        assertThat(result.remainingFixedPayments()).isEqualByComparingTo("250.00");
+        verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
+                any(), any(Wallet.class), eq(USER_ID), eq(asOfDate));
+    }
+
     private void sums(BigDecimal incomeToDate, BigDecimal incomeForPeriod, BigDecimal expensesToDate) {
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+        lenient().when(transactionQueryService.sum(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.INCOME)))
                 .thenReturn(incomeToDate, incomeForPeriod);
-        lenient().when(transactionRepository.sumByWalletUserDateRangeAndType(
+        lenient().when(transactionQueryService.sum(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE)))
                 .thenReturn(expensesToDate);
     }
@@ -409,7 +435,8 @@ class SpendingProjectionServiceTest {
     private SpendingProjectionService serviceWithDate(LocalDate date) {
         Clock clock = Clock.fixed(date.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
         return new SpendingProjectionService(
-                transactionRepository, walletService, periodService, fixedPaymentDashboardService, clock);
+                transactionQueryService, walletService, periodService,
+                fixedPaymentDashboardService, new SpendingProjectionCalculator(), clock);
     }
 
     private FixedTransactionsTileDto fixedTile(BigDecimal remainingAmount) {
@@ -418,9 +445,9 @@ class SpendingProjectionServiceTest {
                 BigDecimal.ZERO, 0,
                 remainingAmount, 1,
                 BigDecimal.ZERO, 0,
-                0.0);
+                BigDecimal.ZERO);
         FixedProgressDto progress = new FixedProgressDto(
-                0, 1, 0.0,
+                0, 1, BigDecimal.ZERO,
                 null, null, null, null, 1);
         return new FixedTransactionsTileDto(
                 TODAY, TODAY, TODAY,

@@ -1,6 +1,6 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.*;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
@@ -29,19 +29,30 @@ class FixedPaymentTileAssembler {
             int activeFixedCount
     ) {
         LocalDate today = LocalDate.now(clock);
+        return assemble(period, allInPeriod, overdueAll, totalIncome, currentBalance, activeFixedCount, today);
+    }
 
+    FixedTransactionsTileDto assemble(
+            PeriodDto period,
+            List<FixedPaymentOccurrence> allInPeriod,
+            List<FixedPaymentOccurrence> overdueAll,
+            BigDecimal totalIncome,
+            BigDecimal currentBalance,
+            int activeFixedCount,
+            LocalDate asOfDate
+    ) {
         List<FixedPaymentOccurrence> paidInPeriod = allInPeriod.stream()
                 .filter(o -> o.getStatus() == OccurrenceStatus.PAID)
                 .toList();
 
         List<FixedPaymentOccurrence> pendingInPeriod = allInPeriod.stream()
                 .filter(o -> o.getStatus() == OccurrenceStatus.PENDING
-                        && !o.getDueDate().isBefore(today))
+                        && !o.getDueDate().isBefore(asOfDate))
                 .toList();
 
         List<FixedPaymentOccurrence> upcomingInPeriod = allInPeriod.stream()
                 .filter(o -> o.getStatus() == OccurrenceStatus.PENDING
-                        && !o.getDueDate().isBefore(today)
+                        && !o.getDueDate().isBefore(asOfDate)
                         && !o.getDueDate().isAfter(period.billingEndDate()))
                 .sorted(Comparator.comparing(FixedPaymentOccurrence::getDueDate))
                 .toList();
@@ -54,11 +65,11 @@ class FixedPaymentTileAssembler {
         BigDecimal balanceAfterFixed = currentBalance.subtract(unpaidTotal);
 
         List<FixedOccurrenceRowDto> overdueRows = overdueAll.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, today)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
         List<FixedOccurrenceRowDto> upcomingRows = upcomingInPeriod.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, today)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
         List<FixedOccurrenceRowDto> paidRows = paidInPeriod.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, today)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
 
         return new FixedTransactionsTileDto(
                 period.startDate(),
@@ -81,11 +92,11 @@ class FixedPaymentTileAssembler {
                 BigDecimal.ZERO, 0,
                 BigDecimal.ZERO, 0,
                 BigDecimal.ZERO, 0,
-                0.0
+                BigDecimal.ZERO
         );
 
         FixedProgressDto progress = new FixedProgressDto(
-                0, 0, 0.0,
+                0, 0, BigDecimal.ZERO,
                 null, null,
                 null, null,
                 0
@@ -117,11 +128,10 @@ class FixedPaymentTileAssembler {
     ) {
         BigDecimal plannedAmount = sumExpectedAmount(allInPeriod);
 
-        double fixedRatio = BigDecimal.ZERO.compareTo(totalIncome) == 0
-                ? 0.0
+        BigDecimal fixedRatio = BigDecimal.ZERO.compareTo(totalIncome) == 0
+                ? BigDecimal.ZERO
                 : plannedAmount.multiply(BigDecimal.valueOf(100))
-                        .divide(totalIncome, 2, RoundingMode.HALF_UP)
-                        .doubleValue();
+                        .divide(totalIncome, 2, RoundingMode.HALF_UP);
 
         return new FixedSummaryDto(
                 plannedAmount,
@@ -157,12 +167,11 @@ class FixedPaymentTileAssembler {
                 .max(Comparator.comparing(FixedPaymentOccurrence::getExpectedAmount))
                 .orElse(null);
 
-        double paidPct = allInPeriod.isEmpty()
-                ? 0.0
+        BigDecimal paidPct = allInPeriod.isEmpty()
+                ? BigDecimal.ZERO
                 : BigDecimal.valueOf(paidInPeriod.size())
                         .multiply(BigDecimal.valueOf(100))
-                        .divide(BigDecimal.valueOf(allInPeriod.size()), 2, RoundingMode.HALF_UP)
-                        .doubleValue();
+                        .divide(BigDecimal.valueOf(allInPeriod.size()), 2, RoundingMode.HALF_UP);
 
         return new FixedProgressDto(
                 paidInPeriod.size(),
