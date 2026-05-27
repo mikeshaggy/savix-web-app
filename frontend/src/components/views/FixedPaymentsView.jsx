@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, RefreshCw, Loader2, AlertCircle, Check, X, ArrowRight,
-  Edit3, Trash2, Calendar, Clock, Eye, EyeOff, CheckCircle2, AlertTriangle,
+  Calendar, Trash2, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
@@ -14,6 +14,7 @@ import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
 import FixedPaymentModal from '@/components/modals/FixedPaymentModal';
 import TransactionModal from '@/components/modals/TransactionModal';
+import FixedPaymentEventsStrip from './FixedPaymentEventsStrip';
 
 const TABS = ['schedule', 'attention', 'paid', 'history'];
 
@@ -61,7 +62,6 @@ export default function FixedPaymentsView() {
   const [deactivateError, setDeactivateError] = useState('');
   const [actionFeedback, setActionFeedback] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showInactive, setShowInactive] = useState(false);
 
   const [markPaidOccurrence, setMarkPaidOccurrence] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -323,16 +323,6 @@ export default function FixedPaymentsView() {
     }];
   }, [activeTab, tabOccurrences, t]);
 
-  const activeTemplates = useMemo(() => {
-    return (fixedPayments || []).filter(fp => !fp.activeTo || new Date(fp.activeTo) >= new Date());
-  }, [fixedPayments]);
-
-  const inactiveTemplates = useMemo(() => {
-    return (fixedPayments || []).filter(fp => fp.activeTo && new Date(fp.activeTo) < new Date());
-  }, [fixedPayments]);
-
-  const displayTemplates = showInactive ? [...activeTemplates, ...inactiveTemplates] : activeTemplates;
-
   const summary = tileData?.summary;
   const progress = tileData?.progress;
   const riskIndicator = tileData?.riskIndicator;
@@ -472,6 +462,20 @@ export default function FixedPaymentsView() {
         </div>
       )}
 
+      {/* Payment Events strip */}
+      {tileData && (
+        <FixedPaymentEventsStrip
+          tileData={tileData}
+          fixedPayments={fixedPayments}
+          lang={lang}
+          onEditPayment={(fp) => {
+            setEditingPayment(fp);
+            setShowPaymentModal(true);
+          }}
+          activeFixedPaymentId={editingPayment?.id ?? null}
+        />
+      )}
+
       {/* Risk banner */}
       {riskIndicator?.atRisk && (
         <div className="flex items-center gap-2.5 px-5 py-3 bg-red-500/[0.07] border border-red-500/[0.15] rounded-[14px] text-[13px] text-red-400">
@@ -481,133 +485,6 @@ export default function FixedPaymentsView() {
           </span>
         </div>
       )}
-
-      {/* Templates section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a]">
-            {t('fixedPayments.templates')} ({activeTemplates.length})
-          </div>
-          {inactiveTemplates.length > 0 && (
-            <button
-              onClick={() => setShowInactive(!showInactive)}
-              className="flex items-center gap-1.5 text-[11px] text-[#6b6b8a] hover:text-white/60 transition-colors cursor-pointer border-none bg-transparent"
-            >
-              {showInactive ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-              {showInactive ? t('fixedPayments.hideInactive') : t('fixedPayments.showInactive', { count: inactiveTemplates.length })}
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[14px]">
-          {displayTemplates.map((fp) => {
-            const isInactive = fp.activeTo && new Date(fp.activeTo) < new Date();
-            const cat = (categories || []).find(c => c.id === fp.categoryId);
-            return (
-              <div
-                key={fp.id}
-                className={`group relative bg-[#13131f] border rounded-[14px] p-5 transition-all overflow-hidden ${
-                  isInactive
-                    ? 'border-white/[0.03] opacity-50'
-                    : 'border-white/[0.06] hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[2px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
-                }`}
-              >
-                {/* Top line */}
-                <div className={`absolute top-0 left-0 right-0 h-[2px] ${
-                  isInactive ? 'bg-white/10' : 'bg-purple-400'
-                }`} />
-
-                {/* Card top */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-[38px] h-[38px] bg-[#1a1a2a] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
-                      {cat?.emoji || '🔁'}
-                    </div>
-                    <div>
-                      <div className="text-[14px] font-semibold text-white">{fp.title}</div>
-                      <div className="text-[11px] text-[#6b6b8a] flex items-center gap-1.5 mt-0.5">
-                        <span>{cat?.name || '—'}</span>
-                        <span>·</span>
-                        <span>{currentWallet?.name || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  {!isInactive && (
-                    <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-150">
-                      <button
-                        onClick={() => {
-                          setEditingPayment(fp);
-                          setShowPaymentModal(true);
-                        }}
-                        className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-white/[0.08] hover:text-white"
-                        title={t('fixedPayments.editPayment')}
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => openDeactivateConfirmation(fp)}
-                        className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-[rgba(244,63,94,0.15)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.3)]"
-                        title={t('fixedPayments.deactivate')}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="h-px bg-white/[0.06] mb-3" />
-
-                {/* Details */}
-                <div className="flex items-end justify-between">
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-[11px] text-[#6b6b8a]">
-                      <Calendar className="w-3 h-3" />
-                      <span>{getCycleLabel(fp.cycle)}</span>
-                      <span>·</span>
-                      <span>{t('fixedPayments.anchorShort')}: {fp.anchorDate}</span>
-                    </div>
-                    {fp.activeTo && (
-                      <div className="flex items-center gap-2 text-[11px] text-[#6b6b8a]">
-                        <Clock className="w-3 h-3" />
-                        <span>{t('fixedPayments.endsOn')}: {fp.activeTo}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono text-[20px] font-bold text-purple-400 tracking-[-0.3px]">
-                      {formatCurrency(fp.amount, lang)}
-                    </div>
-                    <div className="text-[10px] text-white/25 mt-0.5">/ {getCycleLabel(fp.cycle)}</div>
-                  </div>
-                </div>
-
-                {/* Inactive badge */}
-                {isInactive && (
-                  <div className="absolute top-3 right-3 text-[9px] tracking-[0.08em] uppercase px-2 py-0.5 rounded bg-white/[0.04] text-white/25 border border-white/[0.06]">
-                    {t('fixedPayments.inactive')}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Add template card */}
-          <div
-            onClick={() => {
-              setEditingPayment(null);
-              setShowPaymentModal(true);
-            }}
-            className="bg-transparent border border-dashed border-white/10 rounded-[14px] p-5 cursor-pointer transition-all flex items-center justify-center gap-[10px] min-h-[130px] text-[#6b6b8a] text-[13.5px] hover:border-[rgba(124,58,237,0.3)] hover:bg-[rgba(124,58,237,0.05)] hover:text-[#a855f7] group/add"
-          >
-            <div className="w-8 h-8 rounded-[8px] bg-white/[0.05] border border-white/[0.08] flex items-center justify-center transition-all group-hover/add:bg-[rgba(124,58,237,0.2)] group-hover/add:border-[rgba(124,58,237,0.3)]">
-              <Plus className="w-[15px] h-[15px]" strokeWidth={2.5} />
-            </div>
-            {t('fixedPayments.addPayment')}
-          </div>
-        </div>
-      </div>
 
       {/* Tabs + filter bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
