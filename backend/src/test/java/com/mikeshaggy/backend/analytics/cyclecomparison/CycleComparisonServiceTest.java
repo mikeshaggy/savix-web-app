@@ -75,7 +75,7 @@ class CycleComparisonServiceTest {
                 row(LocalDate.of(2026, 2, 17), 1, "Groceries", "G", "260.00", 1L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 5, 1));
         assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 5, 31));
@@ -109,7 +109,7 @@ class CycleComparisonServiceTest {
         givenRows(List.of(row(LocalDate.of(2026, 5, 1), 1, "Groceries", "G", "42.00", 1L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.baseline().available()).isFalse();
         assertThat(result.baseline().cyclesUsed()).isZero();
@@ -129,7 +129,7 @@ class CycleComparisonServiceTest {
 
         CycleComparisonResponseDto result = service.getCycleComparison(
                 WALLET_ID, USER_ID, LocalDate.of(2026, 3, 17), 1,
-                null, CategoryAggregationMode.ALL, false, null);
+                null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 3, 1));
         assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 3, 31));
@@ -148,7 +148,7 @@ class CycleComparisonServiceTest {
 
         CycleComparisonResponseDto result = service.getCycleComparison(
                 WALLET_ID, USER_ID, LocalDate.of(2026, 3, 31), 1,
-                null, CategoryAggregationMode.ALL, false, null);
+                null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.currentCycle().dayIndex()).isEqualTo(31);
         assertThat(result.baseline().cycles().getFirst().cutoffDate()).isEqualTo(LocalDate.of(2026, 2, 28));
@@ -170,7 +170,7 @@ class CycleComparisonServiceTest {
                 row(LocalDate.of(2026, 4, 30), 1, "Groceries", "G", "25.00", 1L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, requestedAsOfDate, 1, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, requestedAsOfDate, 1, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.asOfDate()).isEqualTo(requestedAsOfDate);
         assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 5, 31));
@@ -198,7 +198,7 @@ class CycleComparisonServiceTest {
         givenRows(List.of(row(LocalDate.of(2026, 5, 10), 7, "Games", "G", "64.00", 1L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.summary().baselineAverageExpenses()).isEqualByComparingTo("0.00");
         assertThat(result.summary().deltaAmount()).isEqualByComparingTo("64.00");
@@ -217,7 +217,7 @@ class CycleComparisonServiceTest {
                 row(LocalDate.of(2026, 4, 10), 1, "Groceries", "G", "100.00", 1L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.summary().deltaPercent()).isEqualByComparingTo("4.00");
         assertThat(result.summary().status()).isEqualTo(CycleComparisonStatus.IN_LINE);
@@ -236,7 +236,7 @@ class CycleComparisonServiceTest {
                 row(LocalDate.of(2026, 4, 10), 5, "Books", "B", "90.00", 3L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, null);
 
         CycleComparisonCategoryDto books = result.categories().getFirst();
         assertThat(books.baselineAverageAmount()).isEqualByComparingTo("30.00");
@@ -249,7 +249,7 @@ class CycleComparisonServiceTest {
         givenRows(List.of(row(LocalDate.of(2026, 4, 10), 6, "Restaurants", "R", "92.00", 2L)));
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.categories()).hasSize(1);
         CycleComparisonCategoryDto restaurants = result.categories().getFirst();
@@ -266,7 +266,7 @@ class CycleComparisonServiceTest {
         givenRows(List.of());
 
         CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, false, null);
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
 
         assertThat(result.summary().currentExpenses()).isEqualByComparingTo("0.00");
         assertThat(result.summary().baselineAverageExpenses()).isEqualByComparingTo("0.00");
@@ -290,7 +290,6 @@ class CycleComparisonServiceTest {
                 1,
                 List.of(10, 11),
                 CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES,
-                false,
                 List.of(Importance.SHOULDNT_HAVE));
 
         verify(transactionRepository).findDailyCategorySpendByWalletUserDateRangeAndType(
@@ -309,17 +308,9 @@ class CycleComparisonServiceTest {
     @Test
     void invalidBaselineCyclesIsRejected() {
         assertThatThrownBy(() -> service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 13, null, CategoryAggregationMode.ALL, false, null))
+                WALLET_ID, USER_ID, AS_OF, 13, null, CategoryAggregationMode.ALL, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("baselineCycles must be between 1 and 12");
-    }
-
-    @Test
-    void includeIncomeTrueIsRejectedBecauseEndpointComparesSpendingPace() {
-        assertThatThrownBy(() -> service.getCycleComparison(
-                WALLET_ID, USER_ID, AS_OF, 3, null, CategoryAggregationMode.ALL, true, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("includeIncome=true is not supported by cycle-comparison because this endpoint compares expense spending pace only");
     }
 
     @Test
@@ -332,7 +323,7 @@ class CycleComparisonServiceTest {
                 .thenReturn(StreamFactory.transactions(LocalDate.of(2026, 5, 1)));
 
         assertThatThrownBy(() -> service.getCycleComparison(
-                WALLET_ID, USER_ID, requestedAsOfDate, 1, null, CategoryAggregationMode.ALL, false, null))
+                WALLET_ID, USER_ID, requestedAsOfDate, 1, null, CategoryAggregationMode.ALL, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("asOfDate must not be before the current cycle start date");
     }

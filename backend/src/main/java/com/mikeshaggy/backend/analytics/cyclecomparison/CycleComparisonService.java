@@ -5,6 +5,8 @@ import com.mikeshaggy.backend.analytics.insight.InsightDto;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.repository.CategoryRepository;
+import com.mikeshaggy.backend.common.calculation.DeltaCalculator;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.repository.DailyCategorySpendProjection;
@@ -24,15 +26,17 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.HUNDRED;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.DeltaCalculator.ZeroBaselineMode.NULL_ON_ZERO_BASELINE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.average;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.zero;
 
 @Service
 @RequiredArgsConstructor
@@ -56,14 +60,8 @@ public class CycleComparisonService {
             Integer requestedBaselineCycles,
             List<Integer> categoryIds,
             CategoryAggregationMode categoryMode,
-            boolean includeIncome,
             List<Importance> importance) {
         walletService.getWalletEntityByIdForUser(walletId, userId);
-
-        if (includeIncome) {
-            throw new IllegalArgumentException(
-                    "includeIncome=true is not supported by cycle-comparison because this endpoint compares expense spending pace only");
-        }
 
         int baselineCycles = normalizeBaselineCycles(requestedBaselineCycles);
         LocalDate asOfDate = requestedAsOfDate == null ? LocalDate.now(clock) : requestedAsOfDate;
@@ -75,7 +73,7 @@ public class CycleComparisonService {
         }
 
         CycleWindow current = cyclePlan.current().withCutoff(asOfDate);
-        int dayIndex = inclusiveDays(current.startDate(), current.cutoffDate());
+        int dayIndex = InclusiveDateRange.daysBetween(current.startDate(), current.cutoffDate());
 
         List<CycleWindow> baselineWindows = cyclePlan.baseline().stream()
                 .map(cycle -> cycle.withCutoff(cycle.startDate().plusDays(dayIndex - 1)))
@@ -119,8 +117,8 @@ public class CycleComparisonService {
                     cycle.startDate(),
                     cycle.endDate(),
                     cycle.cutoffDate(),
-                    inclusiveDays(cycle.startDate(), cycle.endDate()),
-                    inclusiveDays(cycle.startDate(), cycle.cutoffDate()),
+                    InclusiveDateRange.daysBetween(cycle.startDate(), cycle.endDate()),
+                    InclusiveDateRange.daysBetween(cycle.startDate(), cycle.cutoffDate()),
                     aggregation.total()));
         }
 
@@ -136,7 +134,7 @@ public class CycleComparisonService {
                         current.cutoffDate(),
                         dayIndex,
                         dayIndex,
-                        inclusiveDays(current.startDate(), current.endDate())),
+                        InclusiveDateRange.daysBetween(current.startDate(), current.endDate())),
                 new CycleComparisonBaselineDto(
                         baselineCycles,
                         baselineAggregations.size(),
@@ -257,19 +255,19 @@ public class CycleComparisonService {
                                     .map(row -> BigDecimal.valueOf(row.transactionCount()))
                                     .toList(),
                             baselineCount);
-                    BigDecimal deltaAmount = money(currentAmount.subtract(baselineAmount));
-                    BigDecimal deltaPercent = deltaPercent(deltaAmount, baselineAmount);
+                    DeltaCalculator.Delta delta = DeltaCalculator.amountAndPercent(
+                            currentAmount, baselineAmount, NULL_ON_ZERO_BASELINE);
                     return new CycleComparisonCategoryDto(
                             category.categoryId(),
                             category.name(),
                             category.emoji(),
                             currentAmount,
                             baselineAmount,
-                            deltaAmount,
-                            deltaPercent,
+                            delta.amount(),
+                            delta.percent(),
                             currentCount,
                             baselineTransactions,
-                            status(currentAmount, baselineAmount, deltaPercent, baselineCount));
+                            status(currentAmount, baselineAmount, delta.percent(), baselineCount));
                 })
                 .filter(category -> category.currentAmount().compareTo(BigDecimal.ZERO) > 0
                         || category.baselineAverageAmount().compareTo(BigDecimal.ZERO) > 0)
@@ -280,14 +278,14 @@ public class CycleComparisonService {
     }
 
     private CycleComparisonSummaryDto summary(BigDecimal current, BigDecimal baselineAverage, int baselineCount) {
-        BigDecimal deltaAmount = money(current.subtract(baselineAverage));
-        BigDecimal deltaPercent = deltaPercent(deltaAmount, baselineAverage);
+        DeltaCalculator.Delta delta = DeltaCalculator.amountAndPercent(
+                current, baselineAverage, NULL_ON_ZERO_BASELINE);
         return new CycleComparisonSummaryDto(
                 current,
                 baselineAverage,
-                deltaAmount,
-                deltaPercent,
-                status(current, baselineAverage, deltaPercent, baselineCount));
+                delta.amount(),
+                delta.percent(),
+                status(current, baselineAverage, delta.percent(), baselineCount));
     }
 
     private List<CycleComparisonPointDto> currentSeries(
@@ -386,25 +384,6 @@ public class CycleComparisonService {
                 : CycleComparisonStatus.BELOW_BASELINE;
     }
 
-    private BigDecimal deltaPercent(BigDecimal deltaAmount, BigDecimal baseline) {
-        if (baseline.compareTo(BigDecimal.ZERO) == 0) {
-            return null;
-        }
-        return deltaAmount.multiply(HUNDRED).divide(baseline, SCALE, ROUNDING);
-    }
-
-    private BigDecimal average(List<BigDecimal> values, int divisor) {
-        if (divisor == 0) {
-            return zero();
-        }
-        BigDecimal total = values.stream()
-                .filter(Objects::nonNull)
-                .map(this::money)
-                .reduce(zero(), BigDecimal::add)
-                .setScale(SCALE, ROUNDING);
-        return total.divide(BigDecimal.valueOf(divisor), SCALE, ROUNDING);
-    }
-
     private List<Integer> safeIds(List<Integer> categoryIds) {
         return categoryIds == null || categoryIds.isEmpty() ? List.of(-1) : categoryIds;
     }
@@ -413,23 +392,8 @@ public class CycleComparisonService {
         return importance == null || importance.isEmpty() ? List.of(Importance.ESSENTIAL) : importance;
     }
 
-    private int inclusiveDays(LocalDate from, LocalDate to) {
-        if (to.isBefore(from)) {
-            return 0;
-        }
-        return (int) (to.toEpochDay() - from.toEpochDay() + 1);
-    }
-
     private long count(Long value) {
         return value == null ? 0L : value;
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
-    }
-
-    private BigDecimal zero() {
-        return BigDecimal.ZERO.setScale(SCALE, ROUNDING);
     }
 
     private record CyclePlan(CycleWindow current, List<CycleWindow> baseline) {
