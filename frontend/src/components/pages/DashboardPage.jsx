@@ -7,18 +7,21 @@ import { useAppContext } from '@/contexts/AppContext';
 import { Loading } from '../common/Loading';
 import { dashboardApi } from '@/lib/api';
 import DashboardHeader from '../dashboard/DashboardHeader';
+import CycleHealthHero from '../dashboard/CycleHealthHero';
 import SummaryCards from '../dashboard/SummaryCards';
 import FixedTransactionsTile from '../dashboard/FixedTransactionsTile';
+import InsightsCard from '../dashboard/InsightsCard';
+import CategoryPressureCard from '../dashboard/CategoryPressureCard';
+import PreviousCyclePreview from '../dashboard/PreviousCyclePreview';
 import { useTranslations } from 'next-intl';
-import TopCategories from "@/components/dashboard/TopCategories";
 
 export default function DashboardPage() {
     const t = useTranslations();
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
     const { walletMutationVersion } = useAppContext();
     const router = useRouter();
-    
-    const [dashboardData, setDashboardData] = useState(null);
+
+    const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [periodType, setPeriodType] = useState('PAY_CYCLE');
@@ -29,14 +32,18 @@ export default function DashboardPage() {
     const [customStartDate, setCustomStartDate] = useState(null);
     const [customEndDate, setCustomEndDate] = useState(null);
 
-    const fetchDashboard = useCallback(async (walletId, pType, startDate, endDate) => {
+    const fetchSummary = useCallback(async (walletId, pType, startDate, endDate) => {
         setLoading(true);
         setError(null);
         try {
-            const data = await dashboardApi.getDashboard(walletId, startDate, endDate, pType);
-            setDashboardData(data);
+            const data = await dashboardApi.getDashboardSummary(walletId, {
+                periodType: pType,
+                startDate,
+                endDate,
+            });
+            setSummary(data);
         } catch (err) {
-            console.error('Failed to fetch dashboard:', err);
+            console.error('Failed to fetch dashboard summary:', err);
             setError(err.message || 'Failed to load dashboard data');
         } finally {
             setLoading(false);
@@ -48,13 +55,13 @@ export default function DashboardPage() {
         if (periodType === 'CUSTOM' && (!customStartDate || !customEndDate)) return;
 
         if (periodType === 'CUSTOM') {
-            fetchDashboard(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
+            fetchSummary(currentWallet.id, 'CUSTOM', customStartDate, customEndDate);
         } else if (periodType === 'MONTHLY') {
-            fetchDashboard(currentWallet.id, 'MONTHLY', `${selectedMonth}-01`, null);
+            fetchSummary(currentWallet.id, 'MONTHLY', `${selectedMonth}-01`, null);
         } else {
-            fetchDashboard(currentWallet.id, periodType, null, null);
+            fetchSummary(currentWallet.id, periodType, null, null);
         }
-    }, [currentWallet?.id, periodType, selectedMonth, customStartDate, customEndDate, walletMutationVersion, fetchDashboard]);
+    }, [currentWallet?.id, periodType, selectedMonth, customStartDate, customEndDate, walletMutationVersion, fetchSummary]);
 
     const handlePeriodTypeChange = (newPeriodType) => {
         if (newPeriodType === 'CUSTOM') return;
@@ -84,20 +91,16 @@ export default function DashboardPage() {
                     <div className="mb-6">
                         <Wallet className="w-16 h-16 text-violet-400 mx-auto mb-4" />
                         <h2 className="text-2xl font-semibold text-white mb-2">{t('dashboard.welcomeToSavix')}</h2>
-                        <p className="text-gray-400 mb-6">
-                            {t('dashboard.noWalletsYet')}
-                        </p>
+                        <p className="text-gray-400 mb-6">{t('dashboard.noWalletsYet')}</p>
                     </div>
-                    <button 
+                    <button
                         onClick={() => router.push('/wallets')}
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
                         <Plus className="w-5 h-5 mr-2" />
                         {t('dashboard.createFirstWallet')}
                     </button>
-                    <p className="text-sm text-gray-500 mt-4">
-                        {t('dashboard.walletHelp')}
-                    </p>
+                    <p className="text-sm text-gray-500 mt-4">{t('dashboard.walletHelp')}</p>
                 </div>
             </div>
         );
@@ -110,11 +113,9 @@ export default function DashboardPage() {
                     <div className="mb-6">
                         <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
                         <h2 className="text-xl font-semibold text-white mb-2">{t('dashboard.noWalletSelected')}</h2>
-                        <p className="text-gray-400 mb-6">
-                            {t('dashboard.selectWalletDashboard')}
-                        </p>
+                        <p className="text-gray-400 mb-6">{t('dashboard.selectWalletDashboard')}</p>
                     </div>
-                    <button 
+                    <button
                         onClick={() => router.push('/wallets')}
                         className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
                     >
@@ -136,8 +137,8 @@ export default function DashboardPage() {
                 <div className="text-center">
                     <h2 className="text-xl font-semibold text-white mb-2">{t('errors.errorLoadingDashboard')}</h2>
                     <p className="text-gray-400 mb-4">{error}</p>
-                    <button 
-                        onClick={() => window.location.reload()} 
+                    <button
+                        onClick={() => window.location.reload()}
                         className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
                     >
                         {t('common.retry')}
@@ -147,16 +148,17 @@ export default function DashboardPage() {
         );
     }
 
-    if (!dashboardData) {
+    if (!summary) {
         return null;
     }
 
     return (
         <div>
+            {/* Header: wallet name + period selector */}
             <DashboardHeader
-                period={dashboardData.period}
+                walletName={summary.walletName}
+                period={summary.period}
                 periodType={periodType}
-                currentBalance={currentWallet?.balance}
                 selectedMonth={selectedMonth}
                 onPeriodTypeChange={handlePeriodTypeChange}
                 onMonthChange={handleMonthChange}
@@ -165,28 +167,35 @@ export default function DashboardPage() {
                 customEndDate={customEndDate}
             />
 
-            {/* Bento grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch">
-                {/* Stat banner — full width */}
-                <div className="lg:col-span-12">
-                    <SummaryCards summary={dashboardData.summary} />
-                </div>
+            {/* Hero: Cycle Health */}
+            <CycleHealthHero cycleHealth={summary.cycleHealth} period={summary.period} />
 
-                {/* Fixed transactions — 7 cols on desktop, full on mobile */}
-                <div className="lg:col-span-7 flex">
-                    <FixedTransactionsTile
-                        tileData={dashboardData.fixedPaymentsTile}
-                        loading={false}
-                        error={null}
-                    />
-                </div>
+            {/* KPI row */}
+            <div className="mb-5">
+                <SummaryCards kpis={summary.kpis} />
+            </div>
 
-                {/* Categories — 5 cols on desktop, full on mobile */}
-                <div className="lg:col-span-5 flex">
-                    <TopCategories categories={dashboardData.topCategories} />
-                </div>
+            {/* Main operational grid — 2×2 on desktop, stacked on mobile.
+                 Grid stretch (default) equalizes card heights per row automatically. */}
+            <div
+                className="grid grid-cols-1 gap-5 lg:[grid-template-columns:minmax(0,1.35fr)_minmax(360px,0.95fr)]"
+            >
+                {/* Row 1 – left: Fixed Payments (primary operational card) */}
+                <FixedTransactionsTile
+                    fixedPayments={summary.fixedPayments}
+                    walletId={currentWallet?.id}
+                />
+                {/* Row 1 – right: Category Pressure (fills to match Fixed Payments height) */}
+                <CategoryPressureCard categoryPressure={summary.categoryPressure} />
+
+                {/* Row 2 – left: VS Previous Cycle */}
+                <PreviousCyclePreview
+                    preview={summary.previousCyclePreview}
+                    period={summary.period}
+                />
+                {/* Row 2 – right: Insights (fills to match VS Previous Cycle height) */}
+                <InsightsCard insights={summary.insights} />
             </div>
         </div>
     );
 }
-
