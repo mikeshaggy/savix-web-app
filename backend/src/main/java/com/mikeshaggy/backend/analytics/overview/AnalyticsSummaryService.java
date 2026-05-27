@@ -93,6 +93,7 @@ public class AnalyticsSummaryService {
                 proj.projectionAvailable(),
                 proj.projectedEndBalance(),
                 proj.safeToSpendToday(),
+                proj.safeToSpendPerDay(),
                 proj.dailyBurnRate(),
                 savingsRate,
                 proj.projectedPeriodExpenses(),

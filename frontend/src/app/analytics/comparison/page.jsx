@@ -225,7 +225,7 @@ function CumulativeChart({ data, baselineCycles, locale, t }) {
       </div>
       <div className="h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 10, right: 14, left: 0, bottom: 6 }}>
+          <LineChart data={chartData} margin={{ top: 10, right: 14, left: 8, bottom: 6 }}>
             <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis
               dataKey="dayIndex"
@@ -238,7 +238,7 @@ function CumulativeChart({ data, baselineCycles, locale, t }) {
             <YAxis
               tickLine={false}
               axisLine={false}
-              width={72}
+              width={96}
               tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
               tickFormatter={(value) => formatCurrency(toNumber(value), locale)}
             />
@@ -342,7 +342,7 @@ function CategoryDeltas({ categories, baselineAvailable, baselineCycles, sortMod
       >
         <table className="w-full min-w-[760px]">
           <thead className="sticky top-0 z-10">
-            <tr className="border-y border-white/[0.05] bg-white/[0.015]">
+            <tr className="border-b border-white/[0.08] bg-[#0e0e1c]">
               <th className="text-left text-[10px] uppercase tracking-[0.12em] text-white/25 font-bold px-5 py-3">
                 {t('cycleComparisonCategory')}
               </th>

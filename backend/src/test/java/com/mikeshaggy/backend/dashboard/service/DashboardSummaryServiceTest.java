@@ -165,6 +165,8 @@ class DashboardSummaryServiceTest {
         assertThat(result.kpis().savingsRate().deltaPercentagePoints()).isEqualByComparingTo("-4.80");
         assertThat(result.cycleHealth().status()).isEqualTo(DashboardHealthStatus.ON_TRACK);
         assertThat(result.cycleHealth().safeToSpend()).isEqualByComparingTo("620.00");
+        // 620.00 / 5 daysRemaining = 124.00
+        assertThat(result.cycleHealth().safeToSpendPerDay()).isEqualByComparingTo("124.00");
         assertThat(result.fixedPayments().nextPendingOccurrence().name()).isEqualTo("Rent");
         assertThat(result.fixedPayments().upcomingOccurrences()).hasSize(3);
         assertThat(result.insights()).hasSize(1);
@@ -486,6 +488,9 @@ class DashboardSummaryServiceTest {
     }
 
     private SpendingProjectionDto projection(String safeToSpend, String projectedEndBalance) {
+        // daysRemaining = 5; safeToSpendPerDay = safeToSpend / 5
+        BigDecimal safeTotal = new BigDecimal(safeToSpend);
+        BigDecimal perDay = safeTotal.divide(new BigDecimal("5"), 2, java.math.RoundingMode.HALF_UP);
         return new SpendingProjectionDto(
                 PeriodType.PAY_CYCLE,
                 "Current pay cycle",
@@ -501,7 +506,8 @@ class DashboardSummaryServiceTest {
                 new BigDecimal("3696.15"),
                 new BigDecimal(projectedEndBalance),
                 new BigDecimal("600.00"),
-                new BigDecimal(safeToSpend),
+                safeTotal,
+                perDay,
                 true,
                 null);
     }

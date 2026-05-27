@@ -17,6 +17,7 @@ public record AnalyticsSummaryDto(
         // Forecast KPIs
         BigDecimal projectedEndBalance,
         BigDecimal safeToSpend,
+        BigDecimal safeToSpendPerDay,
         BigDecimal dailyBurnRate,
         BigDecimal savingsRate,
         BigDecimal projectedTotalSpend,

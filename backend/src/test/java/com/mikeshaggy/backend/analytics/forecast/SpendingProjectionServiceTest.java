@@ -95,6 +95,8 @@ class SpendingProjectionServiceTest {
         assertThat(result.projectedEndBalance()).isEqualByComparingTo("-735.00");
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("350.00");
         assertThat(result.safeToSpendToday()).isEqualByComparingTo("-3235.00");
+        // -3235.00 / 21 = -154.05 (HALF_UP)
+        assertThat(result.safeToSpendPerDay()).isEqualByComparingTo("-154.05");
         assertThat(result.projectionAvailable()).isTrue();
         assertThat(result.projectionReason()).isNull();
     }

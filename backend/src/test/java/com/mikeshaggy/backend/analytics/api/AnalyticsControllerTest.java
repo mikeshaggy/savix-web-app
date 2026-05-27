@@ -519,6 +519,7 @@ class AnalyticsControllerTest {
     }
 
     private SpendingProjectionDto projection(PeriodType periodType) {
+        // daysRemaining = 21; safeToSpendPerDay = 1000.00 / 21 = 47.62
         return new SpendingProjectionDto(
                 periodType,
                 "Projection",
@@ -535,6 +536,7 @@ class AnalyticsControllerTest {
                 new BigDecimal("-735.00"),
                 new BigDecimal("350.00"),
                 new BigDecimal("1000.00"),
+                new BigDecimal("47.62"),
                 true,
                 null);
     }

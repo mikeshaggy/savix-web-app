@@ -120,6 +120,7 @@ class AnalyticsRegressionSafetyTest {
                         new BigDecimal("3800.00"),
                         BigDecimal.ZERO,
                         BigDecimal.ZERO,
+                        BigDecimal.ZERO,
                         false,
                         "Historical period"));
         when(categoryAggregationService.aggregateExpenses(

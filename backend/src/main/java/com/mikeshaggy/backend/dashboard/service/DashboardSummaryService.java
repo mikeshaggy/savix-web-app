@@ -207,6 +207,7 @@ public class DashboardSummaryService {
                 status,
                 money(currentBalance),
                 projection.safeToSpendToday(),
+                projection.safeToSpendPerDay(),
                 projection.projectedEndBalance(),
                 expensesDelta.amount(),
                 expensesDelta.percent(),

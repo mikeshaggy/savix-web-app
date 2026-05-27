@@ -6,6 +6,7 @@ public record DashboardCycleHealthDto(
         DashboardHealthStatus status,
         BigDecimal currentBalance,
         BigDecimal safeToSpend,
+        BigDecimal safeToSpendPerDay,
         BigDecimal projectedEndBalance,
         BigDecimal spendingPaceDeltaAmount,
         BigDecimal spendingPaceDeltaPercent,

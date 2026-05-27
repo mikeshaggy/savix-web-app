@@ -45,6 +45,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
     status,
     currentBalance,
     safeToSpend,
+    safeToSpendPerDay,
     projectedEndBalance,
     spendingPaceDeltaPercent,
     projectionAvailable,
@@ -127,12 +128,19 @@ export default function CycleHealthHero({ cycleHealth, period }) {
           </div>
           <div
             className={`font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none ${
-              safeToSpend != null && Number(safeToSpend) >= 0 ? 'text-white' : 'text-rose-400'
+              safeToSpendPerDay != null && Number(safeToSpendPerDay) >= 0 ? 'text-white' : 'text-rose-400'
             }`}
             style={{ whiteSpace: 'nowrap' }}
           >
-            {safeToSpend != null ? formatCurrency(safeToSpend) : '—'}
+            {safeToSpendPerDay != null
+              ? `${formatCurrency(safeToSpendPerDay)} ${t('dashboard.perDay')}`
+              : '—'}
           </div>
+          {safeToSpend != null && (
+            <div className="text-[9px] text-white/30 mt-1.5" style={{ whiteSpace: 'nowrap' }}>
+              {t('dashboard.safeToSpendTotal', { amount: formatCurrency(safeToSpend) })}
+            </div>
+          )}
         </div>
 
         {/* Projected End Balance */}

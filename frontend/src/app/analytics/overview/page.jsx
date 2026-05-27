@@ -209,12 +209,13 @@ export default function AnalyticsOverviewPage() {
   const isActive    = summary?.projectionAvailable ?? false;
   const endBalance  = summary?.projectedEndBalance ?? 0;
   const safeToday   = summary?.safeToSpend ?? 0;
+  const safePerDay  = summary?.safeToSpendPerDay ?? 0;
   const burnRate    = summary?.dailyBurnRate ?? 0;
   const savingsRate = summary?.savingsRate ?? null;
 
   const balanceColor = endBalance >= 0 ? '#4ade80' : '#f87171';
   const safeColor    = !isActive ? '#9ca3af'
-                      : safeToday >= 0 ? '#4ade80' : '#f87171';
+                      : safePerDay >= 0 ? '#4ade80' : '#f87171';
   const savingsColor = (savingsRate === null || savingsRate >= 0) ? '#4ade80' : '#f87171';
 
   // ── explore card values ──────────────────────────────────────────────────────
@@ -293,8 +294,8 @@ export default function AnalyticsOverviewPage() {
             <KpiChip
               icon={ShieldCheck}
               label={t('overviewKpiSafe')}
-              value={isActive ? formatCurrency(safeToday) : t('projectionNotApplicable')}
-              helper={t('overviewKpiSafeHelper')}
+              value={isActive ? `${formatCurrency(safePerDay)} ${t('perDay')}` : t('projectionNotApplicable')}
+              helper={isActive ? t('overviewKpiSafeTotalHelper', { amount: formatCurrency(safeToday) }) : t('overviewKpiSafeHelper')}
               color={safeColor}
             />
             <KpiChip

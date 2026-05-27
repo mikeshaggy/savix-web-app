@@ -98,6 +98,7 @@ public class SpendingProjectionService {
                 projection.projectedEndBalance(),
                 projection.remainingFixedPayments(),
                 projection.safeToSpendToday(),
+                projection.safeToSpendPerDay(),
                 projection.projectionAvailable(),
                 projection.projectionReason());
     }
