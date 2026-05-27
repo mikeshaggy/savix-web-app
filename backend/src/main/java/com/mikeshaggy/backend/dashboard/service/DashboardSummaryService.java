@@ -9,6 +9,7 @@ import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.insight.InsightDto;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
+import com.mikeshaggy.backend.analytics.insight.PrecomputedInsightData;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.PeriodTotals;
 import com.mikeshaggy.backend.common.calculation.DeltaCalculator;
@@ -114,10 +115,24 @@ public class DashboardSummaryService {
                 .getFixedPaymentsTileData(fixedPaymentPeriod, wallet, userId, cutoffDate);
         SpendingProjectionDto projection = spendingProjectionService.getSpendingProjection(
                 wallet, userId, primary, cutoffDate, fixedPaymentsTile.summary().remainingAmount());
+        CategoryAggregationResult currentCategories = categoryAggregationService.aggregateExpenses(
+                walletId, userId, primary.startDate(), cutoffDate, resolvedCategoryMode);
+        CategoryAggregationResult compareCategories = comparison.available()
+                ? categoryAggregationService.aggregateExpenses(
+                        walletId, userId, comparison.startDate(), comparison.endDate(), resolvedCategoryMode)
+                : null;
+
         List<DashboardCategoryPressureItemDto> categoryPressure = categoryPressure(
-                walletId, userId, primary.startDate(), cutoffDate, comparison,
-                currentTotals.expenses(), resolvedCategoryMode);
-        List<DashboardInsightDto> insights = insights(wallet, userId, primary, comparison, cutoffDate, projection);
+                currentCategories, compareCategories, comparison, currentTotals.expenses());
+
+        // Share precomputed categories with InsightEngine only when the mode matches what it uses internally
+        CategoryAggregationResult insightCurrentCats = resolvedCategoryMode == CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES
+                ? currentCategories : null;
+        CategoryAggregationResult insightCompareCats = resolvedCategoryMode == CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES
+                ? compareCategories : null;
+        PrecomputedInsightData insightData = new PrecomputedInsightData(
+                projection, currentTotals, compareTotals.expenses(), insightCurrentCats, insightCompareCats);
+        List<DashboardInsightDto> insights = insights(wallet, userId, primary, comparison, cutoffDate, insightData);
 
         DeltaCalculator.Delta expensesDelta = delta(
                 currentSnapshot.expenses(), compareSnapshot.expenses(), comparison.available());
@@ -243,7 +258,7 @@ public class DashboardSummaryService {
 
     private List<DashboardInsightDto> insights(Wallet wallet, UUID userId, PeriodDto primary,
                                                ComparisonWindow comparison, LocalDate cutoffDate,
-                                               SpendingProjectionDto projection) {
+                                               PrecomputedInsightData precomputed) {
         PeriodDto primaryWindow = new PeriodDto(
                 primary.startDate(),
                 cutoffDate,
@@ -253,7 +268,7 @@ public class DashboardSummaryService {
                 ? new PeriodDto(comparison.startDate(), comparison.endDate(), comparison.endDate(), primary.periodType())
                 : null;
         InsightResponseDto response = insightEngine.getInsightsForWindow(
-                wallet, userId, primaryWindow, compareWindow, cutoffDate, projection);
+                wallet, userId, primaryWindow, compareWindow, cutoffDate, precomputed);
         return response.insights().stream()
                 .limit(DASHBOARD_INSIGHT_LIMIT)
                 .map(this::insight)
@@ -270,18 +285,12 @@ public class DashboardSummaryService {
     }
 
     private List<DashboardCategoryPressureItemDto> categoryPressure(
-            Integer walletId, UUID userId,
-            LocalDate currentStart, LocalDate cutoffDate,
+            CategoryAggregationResult current,
+            CategoryAggregationResult compare,
             ComparisonWindow comparison,
-            BigDecimal currentExpenses,
-            CategoryAggregationMode categoryMode) {
-        CategoryAggregationResult current = categoryAggregationService.aggregateExpenses(
-                walletId, userId, currentStart, cutoffDate, categoryMode);
-
-        var compareByCategory = comparison.available()
-                ? categoryAggregationService.aggregateExpenses(
-                        walletId, userId, comparison.startDate(), comparison.endDate(), categoryMode)
-                        .categories()
+            BigDecimal currentExpenses) {
+        var compareByCategory = comparison.available() && compare != null
+                ? compare.categories()
                         .stream()
                         .collect(Collectors.toMap(CategoryAggregation::categoryId, Function.identity()))
                 : java.util.Map.<Integer, CategoryAggregation>of();

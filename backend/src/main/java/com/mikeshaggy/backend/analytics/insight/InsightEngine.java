@@ -63,16 +63,22 @@ public class InsightEngine {
         PeriodDto compare = resolved.compare();
 
         LocalDate today = LocalDate.now(clock);
+        PeriodTotals totals = transactionQueryService.totals(walletId, userId, primary.startDate(), primary.endDate());
+        BigDecimal compareExpenses = compare == null
+                ? zero()
+                : transactionQueryService.sum(
+                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
         SpendingProjectionDto projection = projectionForPeriod(walletId, userId, primary, today);
-        return buildInsights(walletId, userId, primary, compare, today, projection);
+        return buildInsights(walletId, userId, primary, compare, today,
+                new PrecomputedInsightData(projection, totals, compareExpenses, null, null));
     }
 
     public InsightResponseDto getInsightsForWindow(Wallet wallet, UUID userId,
                                                    PeriodDto primary, PeriodDto compare,
                                                    LocalDate asOfDate,
-                                                   SpendingProjectionDto precomputedProjection) {
+                                                   PrecomputedInsightData precomputed) {
         LocalDate effectiveAsOfDate = asOfDate == null ? LocalDate.now(clock) : asOfDate;
-        return buildInsights(wallet.getId(), userId, primary, compare, effectiveAsOfDate, precomputedProjection);
+        return buildInsights(wallet.getId(), userId, primary, compare, effectiveAsOfDate, precomputed);
     }
 
     private SpendingProjectionDto projectionForPeriod(Integer walletId, UUID userId,
@@ -87,30 +93,28 @@ public class InsightEngine {
     private InsightResponseDto buildInsights(Integer walletId, UUID userId,
                                              PeriodDto primary, PeriodDto compare,
                                              LocalDate asOfDate,
-                                             SpendingProjectionDto projection) {
-        PeriodTotals totals = transactionQueryService.totals(walletId, userId, primary.startDate(), primary.endDate());
+                                             PrecomputedInsightData precomputed) {
+        PeriodTotals totals = precomputed.currentTotals();
         BigDecimal income = totals.income();
         BigDecimal expenses = totals.expenses();
         BigDecimal saved = totals.balance();
         BigDecimal savingsRate = fromIncomeAndExpenses(income, expenses);
-
-        BigDecimal compareExpenses = compare == null
-                ? zero()
-                : transactionQueryService.sum(
-                        walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
+        BigDecimal compareExpenses = precomputed.compareExpenses();
 
         List<InsightDto> insights = new ArrayList<>();
         if (compare != null) {
-            insights.addAll(categorySpikeInsights(walletId, userId, primary, compare));
+            insights.addAll(categorySpikeInsights(walletId, userId, primary, compare,
+                    precomputed.currentCategories(), precomputed.compareCategories()));
         }
         highImpulseSpendingInsight(walletId, userId, primary.startDate(), primary.endDate(), expenses)
                 .ifPresent(insights::add);
         if (compare != null) {
-            spendingPaceInsight(walletId, userId, primary, compare, compareExpenses, asOfDate)
+            spendingPaceInsight(walletId, userId, primary, compare, compareExpenses, asOfDate,
+                    totals.expenses())
                     .ifPresent(insights::add);
         }
         lowSavingsRateInsight(income, expenses, savingsRate).ifPresent(insights::add);
-        safeToSpendInsight(projection).ifPresent(insights::add);
+        safeToSpendInsight(precomputed.projection()).ifPresent(insights::add);
         if (compare != null) {
             goodMonthInsight(income, expenses, saved, savingsRate, compareExpenses).ifPresent(insights::add);
         }
@@ -122,13 +126,16 @@ public class InsightEngine {
     }
 
     private List<InsightDto> categorySpikeInsights(
-            Integer walletId, UUID userId, PeriodDto primary, PeriodDto compare) {
-        CategoryAggregationResult currentRows = categoryAggregationService.aggregateExpenses(
-                walletId, userId, primary.startDate(), primary.endDate(),
-                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
-        CategoryAggregationResult compareRows = categoryAggregationService.aggregateExpenses(
-                walletId, userId, compare.startDate(), compare.endDate(),
-                CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+            Integer walletId, UUID userId, PeriodDto primary, PeriodDto compare,
+            CategoryAggregationResult precomputedCurrent, CategoryAggregationResult precomputedCompare) {
+        CategoryAggregationResult currentRows = precomputedCurrent != null
+                ? precomputedCurrent
+                : categoryAggregationService.aggregateExpenses(walletId, userId, primary.startDate(), primary.endDate(),
+                        CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+        CategoryAggregationResult compareRows = precomputedCompare != null
+                ? precomputedCompare
+                : categoryAggregationService.aggregateExpenses(walletId, userId, compare.startDate(), compare.endDate(),
+                        CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
 
         Map<Integer, BigDecimal> compareByCategory = compareRows.categories().stream()
                 .collect(Collectors.toMap(
@@ -190,7 +197,8 @@ public class InsightEngine {
     private Optional<InsightDto> spendingPaceInsight(
             Integer walletId, UUID userId,
             PeriodDto primary, PeriodDto compare,
-            BigDecimal compareExpenses, LocalDate today) {
+            BigDecimal compareExpenses, LocalDate today,
+            BigDecimal currentTotalsExpenses) {
         int compareDays = InclusiveDateRange.daysBetween(compare.startDate(), compare.endDate());
         if (compareExpenses.compareTo(BigDecimal.ZERO) == 0 || compareDays == 0) {
             return Optional.empty();
@@ -204,8 +212,13 @@ public class InsightEngine {
             return Optional.empty();
         }
 
-        BigDecimal expensesToDate = transactionQueryService.sum(
-                walletId, userId, primary.startDate(), paceEnd, CategoryType.EXPENSE);
+        // When paceEnd == primary.endDate(), currentTotalsExpenses already covers the same date range.
+        // This is always true when called from the dashboard window path (primaryWindow.endDate == cutoffDate)
+        // and also when today is after the period end in the standalone path. In either case the same value
+        // would be returned by a SUM query, so we reuse the precomputed result to avoid a duplicate query.
+        BigDecimal expensesToDate = paceEnd.equals(primary.endDate())
+                ? currentTotalsExpenses
+                : transactionQueryService.sum(walletId, userId, primary.startDate(), paceEnd, CategoryType.EXPENSE);
         BigDecimal currentDailyBurnRate = expensesToDate.divide(BigDecimal.valueOf(elapsedDays), SCALE, ROUNDING);
 
         if (compareDailyRate.compareTo(BigDecimal.ZERO) == 0

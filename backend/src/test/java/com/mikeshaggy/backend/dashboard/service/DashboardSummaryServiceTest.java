@@ -5,6 +5,7 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
+import com.mikeshaggy.backend.analytics.insight.PrecomputedInsightData;
 import com.mikeshaggy.backend.analytics.insight.InsightDto;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
@@ -629,7 +630,7 @@ class DashboardSummaryServiceTest {
         ArgumentCaptor<PeriodDto> compareCaptor = ArgumentCaptor.forClass(PeriodDto.class);
         verify(insightEngine).getInsightsForWindow(
                 any(Wallet.class), eq(USER_ID), primaryCaptor.capture(), compareCaptor.capture(),
-                eq(cutoff), any(SpendingProjectionDto.class));
+                eq(cutoff), any(PrecomputedInsightData.class));
         assertThat(primaryCaptor.getValue().startDate()).isEqualTo(LocalDate.of(2026, 5, 1));
         assertThat(primaryCaptor.getValue().endDate()).isEqualTo(cutoff);
         assertThat(compareCaptor.getValue().startDate()).isEqualTo(LocalDate.of(2026, 4, 1));

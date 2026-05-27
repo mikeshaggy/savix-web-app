@@ -1,10 +1,12 @@
 package com.mikeshaggy.backend.analytics.insight;
 
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.PeriodTotals;
 import com.mikeshaggy.backend.category.domain.CategoryType;
+import org.mockito.Mockito;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
@@ -152,12 +154,9 @@ class InsightEngineTest {
         // Primary March: expenses 4000 over 31 days → 129.03/day
         // Compare Feb: expenses 2800 over 28 days → 100/day
         // 129.03 > 100 * 1.20 = 120 ✓
+        // today (Apr 15) > PRIMARY_END → paceEnd = PRIMARY_END → reuses totals.expenses(), no extra query
         stubPrimaryTotals("10000.00", "4000.00");
         stubCompareExpenses("2800.00");
-        // pace query: primary start to primary end (today = Apr 15 > Mar 31)
-        when(transactionQueryService.sum(
-                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
-                .thenReturn(new BigDecimal("4000.00"));
 
         InsightResponseDto result = getInsights();
 
@@ -272,12 +271,9 @@ class InsightEngineTest {
     void normalPeriodWithExpensesMatchingComparePeriodGeneratesNoInsights() {
         // income=2000, expenses=1000, compare=1000 → no spikes, pace ok, savings=50%>10%>30% (pace only)
         // Pace: 1000/31 ≈ 32.26, compare: 1000/28 ≈ 35.71. 32.26 < 35.71*1.2=42.86 → no pace ✓
+        // today (Apr 15) > PRIMARY_END → paceEnd = PRIMARY_END → reuses totals.expenses(), no extra query
         stubPrimaryTotals("2000.00", "1000.00");
         stubCompareExpenses("1000.00");
-        // pace sum for primary
-        when(transactionQueryService.sum(
-                WALLET_ID, USER_ID, PRIMARY_START, PRIMARY_END, CategoryType.EXPENSE))
-                .thenReturn(new BigDecimal("1000.00"));
 
         InsightResponseDto result = getInsights();
 
@@ -293,17 +289,16 @@ class InsightEngineTest {
         PeriodDto compareWindow = new PeriodDto(
                 COMPARE_START, LocalDate.of(2026, 2, 10), LocalDate.of(2026, 2, 10), PeriodType.CUSTOM);
         LocalDate asOfDate = LocalDate.of(2026, 3, 10);
-        SpendingProjectionDto precomputedProjection = projection("250.00");
-
-        when(transactionQueryService.totals(WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10)))
-                .thenReturn(new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")));
-        when(transactionQueryService.sum(WALLET_ID, USER_ID,
-                COMPARE_START, LocalDate.of(2026, 2, 10), CategoryType.EXPENSE))
-                .thenReturn(new BigDecimal("300.00"));
+        // null categories → InsightEngine still queries transactionRepository for category spikes
+        PrecomputedInsightData precomputed = new PrecomputedInsightData(
+                projection("250.00"),
+                new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")),
+                new BigDecimal("300.00"),
+                null, null);
 
         Wallet wallet = Wallet.builder().id(WALLET_ID).build();
         InsightResponseDto result = insightEngine.getInsightsForWindow(
-                wallet, USER_ID, primaryWindow, compareWindow, asOfDate, precomputedProjection);
+                wallet, USER_ID, primaryWindow, compareWindow, asOfDate, precomputed);
 
         assertThat(result.periodStart()).isEqualTo(PRIMARY_START);
         assertThat(result.periodEnd()).isEqualTo(LocalDate.of(2026, 3, 10));
@@ -314,8 +309,70 @@ class InsightEngineTest {
         verify(transactionQueryService).expenseByImportance(
                 WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10), Importance.SHOULDNT_HAVE);
         // SpendingProjectionService must NOT be called — projection was supplied by the caller
-        org.mockito.Mockito.verify(spendingProjectionService, org.mockito.Mockito.never())
+        Mockito.verify(spendingProjectionService, Mockito.never())
                 .getSpendingProjection(any(), any(), any(), any(), any(), any());
+    }
+
+    // ─── getInsightsForWindow — precomputed data ─────────────────────────────────
+
+    @Test
+    void getInsightsForWindowDoesNotQueryCurrentTotalsWhenPrecomputedDataIsSupplied() {
+        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        PrecomputedInsightData precomputed = new PrecomputedInsightData(
+                projection("250.00"),
+                new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")),
+                BigDecimal.ZERO,
+                null, null);
+        Wallet wallet = Wallet.builder().id(WALLET_ID).build();
+
+        insightEngine.getInsightsForWindow(wallet, USER_ID, primaryWindow, compareWindow, PRIMARY_END, precomputed);
+
+        Mockito.verify(transactionQueryService, Mockito.never())
+                .totals(eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class));
+    }
+
+    @Test
+    void spendingPaceInsightUsesPrecomputedCurrentExpensesWithoutExtraQuery() {
+        // Primary March: 4000 over 31 days → 129.03/day; compare Feb: 2800 over 28 days → 100/day
+        // 129.03 > 100 * 1.20 = 120 → pace insight triggered
+        // asOfDate == PRIMARY_END → paceEnd == primary.endDate() → uses currentTotals.expenses(), no sum query
+        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        PrecomputedInsightData precomputed = new PrecomputedInsightData(
+                null,
+                new PeriodTotals(new BigDecimal("10000.00"), new BigDecimal("4000.00")),
+                new BigDecimal("2800.00"),
+                null, null);
+        Wallet wallet = Wallet.builder().id(WALLET_ID).build();
+
+        InsightResponseDto result = insightEngine.getInsightsForWindow(
+                wallet, USER_ID, primaryWindow, compareWindow, PRIMARY_END, precomputed);
+
+        InsightDto insight = onlyInsightOfType(result, InsightType.SPENDING_PACE_ABOVE_BASELINE);
+        assertThat(insight.relatedAmount()).isEqualByComparingTo("4000.00");
+        Mockito.verify(transactionQueryService, Mockito.never())
+                .sum(eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class),
+                        eq(CategoryType.EXPENSE));
+    }
+
+    @Test
+    void getInsightsForWindowDoesNotQueryCategoryAggregationsWhenPrecomputedCategoriesAreSupplied() {
+        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        CategoryAggregationResult emptyCats = new CategoryAggregationResult(BigDecimal.ZERO, List.of());
+        PrecomputedInsightData precomputed = new PrecomputedInsightData(
+                projection("250.00"),
+                new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")),
+                BigDecimal.ZERO,
+                emptyCats, emptyCats);
+        Wallet wallet = Wallet.builder().id(WALLET_ID).build();
+
+        insightEngine.getInsightsForWindow(wallet, USER_ID, primaryWindow, compareWindow, PRIMARY_END, precomputed);
+
+        Mockito.verify(transactionRepository, Mockito.never())
+                .findIncludedCategorySpendByWalletUserAndDateRange(
+                        any(), any(), any(LocalDate.class), any(LocalDate.class), any());
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────────
