@@ -72,6 +72,17 @@ public interface FixedPaymentOccurrenceRepository extends JpaRepository<FixedPay
 
     @Query("""
         SELECT o FROM FixedPaymentOccurrence o
+        WHERE o.fixedPayment.id = :fixedPaymentId
+        AND o.status = 'PENDING'
+        AND o.dueDate > :activeTo
+    """)
+    List<FixedPaymentOccurrence> findPendingAfterActiveTo(
+            @Param("fixedPaymentId") Integer fixedPaymentId,
+            @Param("activeTo") LocalDate activeTo
+    );
+
+    @Query("""
+        SELECT o FROM FixedPaymentOccurrence o
         JOIN FETCH o.fixedPayment fp
         JOIN FETCH fp.category
         JOIN FETCH fp.wallet

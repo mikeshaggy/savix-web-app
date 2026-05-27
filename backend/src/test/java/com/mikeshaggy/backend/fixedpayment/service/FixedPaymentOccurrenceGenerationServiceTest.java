@@ -668,6 +668,57 @@ class FixedPaymentOccurrenceGenerationServiceTest {
     }
 
     @Nested
+    class DeletePendingOccurrencesAfterActiveTo {
+
+        @Test
+        void deletesOnlyPendingOccurrencesAfterActiveToForEndedActivePayments() {
+            // given
+            UUID userId = UUID.randomUUID();
+            FixedPayment fp = FixedPayment.builder()
+                    .id(1)
+                    .activeTo(LocalDate.of(2026, 3, 20))
+                    .build();
+            FixedPaymentOccurrence stalePending = FixedPaymentOccurrence.builder()
+                    .id(10L)
+                    .fixedPayment(fp)
+                    .dueDate(LocalDate.of(2026, 3, 21))
+                    .status(OccurrenceStatus.PENDING)
+                    .build();
+
+            when(fixedPaymentRepository.findAllActiveByUserId(eq(userId), any(LocalDate.class)))
+                    .thenReturn(List.of(fp));
+            when(occurrenceRepository.findPendingAfterActiveTo(1, LocalDate.of(2026, 3, 20)))
+                    .thenReturn(List.of(stalePending));
+
+            // when
+            service.deletePendingOccurrencesAfterActiveTo(userId);
+
+            // then
+            verify(occurrenceRepository).deleteAll(List.of(stalePending));
+        }
+
+        @Test
+        void skipsOpenEndedPayments() {
+            // given
+            UUID userId = UUID.randomUUID();
+            FixedPayment fp = FixedPayment.builder()
+                    .id(1)
+                    .activeTo(null)
+                    .build();
+
+            when(fixedPaymentRepository.findAllActiveByUserId(eq(userId), any(LocalDate.class)))
+                    .thenReturn(List.of(fp));
+
+            // when
+            service.deletePendingOccurrencesAfterActiveTo(userId);
+
+            // then
+            verify(occurrenceRepository, never()).findPendingAfterActiveTo(anyInt(), any(LocalDate.class));
+            verify(occurrenceRepository, never()).deleteAll(anyList());
+        }
+    }
+
+    @Nested
     class MarkOverdueOccurrences {
 
         @Test

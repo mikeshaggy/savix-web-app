@@ -15,6 +15,7 @@ import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.dto.UpdateFixedPaymentRequest;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.maintenance.FixedPaymentOccurrenceMaintenanceService;
 import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.user.domain.User;
@@ -48,7 +49,7 @@ class FixedPaymentCrudServiceTest {
     private FixedPaymentOccurrenceRepository occurrenceRepository;
 
     @Mock
-    private FixedPaymentOccurrenceGenerationService generationService;
+    private FixedPaymentOccurrenceMaintenanceService maintenanceService;
 
     @Mock
     private WalletService walletService;
@@ -105,7 +106,7 @@ class FixedPaymentCrudServiceTest {
     class CreateFixedPayment {
 
         @Test
-        void happyPath_persistsCorrectDataAndTriggersGeneration() {
+        void happyPath_persistsCorrectDataAndTriggersMaintenance() {
             // given
             CreateFixedPaymentRequest request =
                     new CreateFixedPaymentRequest(
@@ -149,7 +150,7 @@ class FixedPaymentCrudServiceTest {
             assertThat(saved.getCategory()).isSameAs(category);
             assertThat(saved.getAnchorDate()).isEqualTo(LocalDate.of(2026, 1, 1));
 
-            verify(generationService).ensureOccurrencesGenerated(USER_ID);
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
         }
 
         @Test
@@ -209,7 +210,7 @@ class FixedPaymentCrudServiceTest {
                     .hasMessageContaining("Wallet not found");
 
             verify(fixedPaymentRepository, never()).save(any());
-            verify(generationService, never()).ensureOccurrencesGenerated(any());
+            verify(maintenanceService, never()).prepareOccurrencesAfterFixedPaymentMutation(any());
         }
 
         @Test
@@ -260,7 +261,7 @@ class FixedPaymentCrudServiceTest {
             assertThatThrownBy(() -> fixedPaymentCrudService.createFixedPayment(request, USER_ID))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("activeTo must not be before activeFrom");
-            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, generationService);
+            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, maintenanceService);
         }
 
         @Test
@@ -283,7 +284,7 @@ class FixedPaymentCrudServiceTest {
             assertThatThrownBy(() -> fixedPaymentCrudService.createFixedPayment(request, USER_ID))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("activeTo must not be before anchorDate");
-            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, generationService);
+            verifyNoInteractions(walletService, categoryService, fixedPaymentRepository, maintenanceService);
         }
     }
 
@@ -291,7 +292,7 @@ class FixedPaymentCrudServiceTest {
     class UpdateFixedPayment {
 
         @Test
-        void noStructuralChange_updatesFieldsWithoutPurgingOccurrences() {
+        void noStructuralChange_updatesFieldsWithoutPurgingOccurrencesAndStillTriggersMaintenance() {
             // given
             FixedPayment existing = buildFixedPayment(1);
             UpdateFixedPaymentRequest request =
@@ -301,7 +302,7 @@ class FixedPaymentCrudServiceTest {
                             existing.getAnchorDate(),
                             existing.getCycle(),
                             "updated notes",
-                            LocalDate.of(2027, 12, 31));
+                            null);
 
             when(fixedPaymentRepository.findByIdAndWalletUserId(1, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -315,15 +316,95 @@ class FixedPaymentCrudServiceTest {
             // then
             assertThat(response.title()).isEqualTo("Updated Rent");
             assertThat(response.notes()).isEqualTo("updated notes");
-            assertThat(response.activeTo()).isEqualTo(LocalDate.of(2027, 12, 31));
+            assertThat(response.activeTo()).isNull();
 
             verify(occurrenceRepository, never()).findFuturePendingByFixedPaymentId(anyInt(), any());
+            verify(occurrenceRepository, never()).findPendingAfterActiveTo(anyInt(), any());
             verify(occurrenceRepository, never()).deleteAll(anyList());
-            verify(generationService, never()).ensureOccurrencesGenerated(any());
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
         }
 
         @Test
-        void amountChanged_purgesFuturePendingAndRegenerates() {
+        void activeToShortenedFromNull_deletesPendingOccurrencesAfterNewActiveToAndTriggersMaintenance() {
+            // given
+            FixedPayment existing = buildFixedPayment(1);
+            LocalDate newActiveTo = LocalDate.of(2026, 4, 1);
+            UpdateFixedPaymentRequest request =
+                    new UpdateFixedPaymentRequest(
+                            "Rent",
+                            existing.getAmount(),
+                            existing.getAnchorDate(),
+                            existing.getCycle(),
+                            null,
+                            newActiveTo);
+
+            FixedPaymentOccurrence stalePending =
+                    FixedPaymentOccurrence.builder()
+                            .id(70L)
+                            .fixedPayment(existing)
+                            .dueDate(LocalDate.of(2026, 5, 1))
+                            .status(OccurrenceStatus.PENDING)
+                            .build();
+            when(fixedPaymentRepository.findByIdAndWalletUserId(1, USER_ID))
+                    .thenReturn(Optional.of(existing));
+            when(occurrenceRepository.findPendingAfterActiveTo(1, newActiveTo))
+                    .thenReturn(List.of(stalePending));
+            when(fixedPaymentRepository.save(any(FixedPayment.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            FixedPaymentResponse response =
+                    fixedPaymentCrudService.updateFixedPayment(1, request, USER_ID);
+
+            // then
+            assertThat(response.activeTo()).isEqualTo(newActiveTo);
+            verify(occurrenceRepository, never()).findFuturePendingByFixedPaymentId(anyInt(), any());
+            verify(occurrenceRepository).deleteAll(List.of(stalePending));
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
+        }
+
+        @Test
+        void activeToShortenedFromLaterDate_deletesPendingOccurrencesAfterNewActiveToAndTriggersMaintenance() {
+            // given
+            FixedPayment existing = buildFixedPayment(1);
+            existing.setActiveTo(LocalDate.of(2026, 12, 31));
+            LocalDate newActiveTo = LocalDate.of(2026, 5, 31);
+            UpdateFixedPaymentRequest request =
+                    new UpdateFixedPaymentRequest(
+                            "Rent",
+                            existing.getAmount(),
+                            existing.getAnchorDate(),
+                            existing.getCycle(),
+                            null,
+                            newActiveTo);
+
+            FixedPaymentOccurrence stalePending =
+                    FixedPaymentOccurrence.builder()
+                            .id(72L)
+                            .fixedPayment(existing)
+                            .dueDate(LocalDate.of(2026, 6, 1))
+                            .status(OccurrenceStatus.PENDING)
+                            .build();
+
+            when(fixedPaymentRepository.findByIdAndWalletUserId(1, USER_ID))
+                    .thenReturn(Optional.of(existing));
+            when(occurrenceRepository.findPendingAfterActiveTo(1, newActiveTo))
+                    .thenReturn(List.of(stalePending));
+            when(fixedPaymentRepository.save(any(FixedPayment.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            FixedPaymentResponse response =
+                    fixedPaymentCrudService.updateFixedPayment(1, request, USER_ID);
+
+            // then
+            assertThat(response.activeTo()).isEqualTo(newActiveTo);
+            verify(occurrenceRepository).deleteAll(List.of(stalePending));
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
+        }
+
+        @Test
+        void amountChanged_purgesFuturePendingAndTriggersMaintenance() {
             // given
             FixedPayment existing = buildFixedPayment(1);
             UpdateFixedPaymentRequest request =
@@ -356,11 +437,11 @@ class FixedPaymentCrudServiceTest {
             // then
             assertThat(response.amount()).isEqualByComparingTo("1600.00");
             verify(occurrenceRepository).deleteAll(List.of(futureOcc));
-            verify(generationService).ensureOccurrencesGenerated(USER_ID);
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
         }
 
         @Test
-        void cycleChanged_purgesFuturePendingAndRegenerates() {
+        void cycleChanged_purgesFuturePendingAndTriggersMaintenance() {
             // given
             FixedPayment existing = buildFixedPayment(1);
             UpdateFixedPaymentRequest request =
@@ -381,7 +462,7 @@ class FixedPaymentCrudServiceTest {
             // then
             assertThat(response.cycle()).isEqualTo(Cycle.QUARTERLY);
             verify(occurrenceRepository).deleteAll(List.of());
-            verify(generationService).ensureOccurrencesGenerated(USER_ID);
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
         }
 
         @Test
@@ -409,7 +490,7 @@ class FixedPaymentCrudServiceTest {
 
             // then
             verify(occurrenceRepository).deleteAll(anyList());
-            verify(generationService).ensureOccurrencesGenerated(USER_ID);
+            verify(maintenanceService).prepareOccurrencesAfterFixedPaymentMutation(USER_ID);
         }
 
         @Test
@@ -458,7 +539,7 @@ class FixedPaymentCrudServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("activeTo must not be before activeFrom");
             verify(fixedPaymentRepository, never()).save(any());
-            verifyNoInteractions(occurrenceRepository, generationService);
+            verifyNoInteractions(occurrenceRepository, maintenanceService);
         }
 
         @Test
@@ -483,7 +564,7 @@ class FixedPaymentCrudServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("activeTo must not be before anchorDate");
             verify(fixedPaymentRepository, never()).save(any());
-            verifyNoInteractions(occurrenceRepository, generationService);
+            verifyNoInteractions(occurrenceRepository, maintenanceService);
         }
     }
 

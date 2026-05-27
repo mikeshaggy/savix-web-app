@@ -7,6 +7,7 @@ import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.CreateFixedPaymentRequest;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.dto.UpdateFixedPaymentRequest;
+import com.mikeshaggy.backend.fixedpayment.maintenance.FixedPaymentOccurrenceMaintenanceService;
 import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
 import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -30,7 +31,7 @@ public class FixedPaymentCrudService {
 
     private final FixedPaymentRepository fixedPaymentRepository;
     private final FixedPaymentOccurrenceRepository occurrenceRepository;
-    private final FixedPaymentOccurrenceGenerationService generationService;
+    private final FixedPaymentOccurrenceMaintenanceService maintenanceService;
     private final WalletService walletService;
     private final CategoryService categoryService;
     private final Clock clock;
@@ -58,7 +59,7 @@ public class FixedPaymentCrudService {
 
         fp = fixedPaymentRepository.save(fp);
 
-        generationService.ensureOccurrencesGenerated(userId);
+        maintenanceService.prepareOccurrencesAfterFixedPaymentMutation(userId);
 
         log.info("Fixed payment created: fixedPaymentId={}, userId={}, walletId={}, categoryId={}",
             fp.getId(), userId, wallet.getId(), category.getId());
@@ -75,6 +76,7 @@ public class FixedPaymentCrudService {
         boolean amountChanged = !fp.getAmount().equals(request.amount());
         boolean cycleChanged = !fp.getCycle().equals(request.cycle());
         boolean anchorChanged = !fp.getAnchorDate().equals(request.anchorDate());
+        boolean activeToShortened = isActiveToShortened(fp.getActiveTo(), request.activeTo());
 
         if (amountChanged || cycleChanged || anchorChanged) {
             List<FixedPaymentOccurrence> futurePending = occurrenceRepository
@@ -82,13 +84,17 @@ public class FixedPaymentCrudService {
             occurrenceRepository.deleteAll(futurePending);
         }
 
+        if (activeToShortened) {
+            List<FixedPaymentOccurrence> stalePending = occurrenceRepository
+                    .findPendingAfterActiveTo(fp.getId(), request.activeTo());
+            occurrenceRepository.deleteAll(stalePending);
+        }
+
         request.applyTo(fp);
 
         fp = fixedPaymentRepository.save(fp);
 
-        if (amountChanged || cycleChanged || anchorChanged) {
-            generationService.ensureOccurrencesGenerated(userId);
-        }
+        maintenanceService.prepareOccurrencesAfterFixedPaymentMutation(userId);
 
         log.info("Fixed payment updated: fixedPaymentId={}, userId={}, walletId={}, categoryId={}",
             fp.getId(), userId, fp.getWallet().getId(), fp.getCategory().getId());
@@ -137,5 +143,10 @@ public class FixedPaymentCrudService {
         if (anchorDate != null && activeTo.isBefore(anchorDate)) {
             throw new IllegalArgumentException("activeTo must not be before anchorDate");
         }
+    }
+
+    private boolean isActiveToShortened(LocalDate currentActiveTo, LocalDate requestedActiveTo) {
+        return requestedActiveTo != null
+                && (currentActiveTo == null || requestedActiveTo.isBefore(currentActiveTo));
     }
 }
