@@ -444,6 +444,10 @@ export const fixedPaymentApi = {
 };
 
 export const transferApi = {
+  getAllTransfers: () => get('/transfers'),
+
+  getTransfersByWallet: (walletId) => get(`/transfers/wallet/${walletId}`),
+
   getTransferById: (id) => get(`/transfers/${id}`),
 
   createTransfer: (transferData) => post('/transfers', transferData),
