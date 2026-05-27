@@ -8,9 +8,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.mikeshaggy.backend.analytics.comparison.BaselineComparisonDto;
+import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownDto;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownItemDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonBaselineDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonCycleDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonHighlightsDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonResponseDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonSeriesDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonStatus;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonSummaryDto;
+import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapDayDto;
 import com.mikeshaggy.backend.analytics.daily.HeatmapResponseDto;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
@@ -19,21 +27,18 @@ import com.mikeshaggy.backend.analytics.insight.InsightDto;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
 import com.mikeshaggy.backend.analytics.insight.InsightSeverity;
 import com.mikeshaggy.backend.analytics.insight.InsightType;
-import com.mikeshaggy.backend.analytics.overview.PeriodOverviewDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
-import com.mikeshaggy.backend.analytics.comparison.BaselineService;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapService;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownService;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
 import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryService;
-import com.mikeshaggy.backend.analytics.overview.PeriodOverviewService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
@@ -65,9 +70,6 @@ class AnalyticsControllerTest {
     private AnalyticsSummaryService analyticsSummaryService;
 
     @MockitoBean
-    private PeriodOverviewService periodOverviewService;
-
-    @MockitoBean
     private SpendingProjectionService spendingProjectionService;
 
     @MockitoBean
@@ -80,7 +82,7 @@ class AnalyticsControllerTest {
     private HeatmapService heatmapService;
 
     @MockitoBean
-    private BaselineService baselineService;
+    private CycleComparisonService cycleComparisonService;
 
     @MockitoBean
     private InsightEngine insightEngine;
@@ -100,89 +102,84 @@ class AnalyticsControllerTest {
     }
 
     @Nested
-    class PeriodOverview {
+    class CycleComparison {
 
         @Test
-        void defaultPeriodType_returns200() throws Exception {
-            PeriodOverviewDto response = new PeriodOverviewDto(
-                    LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31),
-                    1,
-                    new BigDecimal("5000.00"),
-                    new BigDecimal("3200.00"),
-                    new BigDecimal("1800.00"),
-                    new BigDecimal("36.00"),
-                    47L,
-                    new BigDecimal("103.23"),
-                    31,
-                    31);
-            when(periodOverviewService.getPeriodOverview(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE), isNull(), isNull()))
+        void defaultRequestReturns200() throws Exception {
+            CycleComparisonResponseDto response = cycleComparison();
+            when(cycleComparisonService.getCycleComparison(
+                    eq(1),
+                    eq(TEST_USER_ID),
+                    isNull(),
+                    isNull(),
+                    isNull(),
+                    eq(CategoryAggregationMode.ALL),
+                    isNull()))
                     .thenReturn(response);
 
-            mockMvc.perform(get("/api/wallets/1/analytics/overview"))
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.income").value(5000.00))
-                    .andExpect(jsonPath("$.expenses").value(3200.00))
-                    .andExpect(jsonPath("$.balance").value(1800.00))
-                    .andExpect(jsonPath("$.savingsRate").value(36.00))
-                    .andExpect(jsonPath("$.transactionCount").value(47))
-                    .andExpect(jsonPath("$.avgDailySpending").value(103.23))
-                    .andExpect(jsonPath("$.daysInPeriod").value(31))
-                    .andExpect(jsonPath("$.daysElapsed").value(31));
+                    .andExpect(jsonPath("$.walletId").value(1))
+                    .andExpect(jsonPath("$.currentCycle.dayIndex").value(17))
+                    .andExpect(jsonPath("$.baseline.available").value(true))
+                    .andExpect(jsonPath("$.summary.status").value("ABOVE_BASELINE"));
         }
 
         @Test
-        void monthlyPeriodType_returns200() throws Exception {
-            PeriodOverviewDto response = new PeriodOverviewDto(
-                    LocalDate.of(2026, 3, 1),
-                    LocalDate.of(2026, 3, 31),
-                    1,
-                    new BigDecimal("5000.00"),
-                    new BigDecimal("3200.00"),
-                    new BigDecimal("1800.00"),
-                    new BigDecimal("36.00"),
-                    47L,
-                    new BigDecimal("103.23"),
-                    31,
-                    31);
-            when(periodOverviewService.getPeriodOverview(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.MONTHLY),
-                    eq(LocalDate.of(2026, 3, 1)), isNull()))
+        void queryParamsArePassedToService() throws Exception {
+            CycleComparisonResponseDto response = cycleComparison();
+            when(cycleComparisonService.getCycleComparison(
+                    eq(1),
+                    eq(TEST_USER_ID),
+                    eq(LocalDate.of(2026, 5, 17)),
+                    eq(2),
+                    eq(List.of(1, 2)),
+                    eq(CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES),
+                    eq(List.of(Importance.SHOULDNT_HAVE))))
                     .thenReturn(response);
 
-            mockMvc.perform(get("/api/wallets/1/analytics/overview")
-                            .queryParam("periodType", "MONTHLY")
-                            .queryParam("startDate", "2026-03-01"))
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison")
+                            .queryParam("asOfDate", "2026-05-17")
+                            .queryParam("baselineCycles", "2")
+                            .queryParam("categoryIds", "1,2")
+                            .queryParam("categoryMode", "INCLUDED_IN_TOP_CATEGORIES")
+                            .queryParam("importance", "SHOULDNT_HAVE"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.startDate").value("2026-03-01"))
-                    .andExpect(jsonPath("$.endDate").value("2026-03-31"));
+                    .andExpect(jsonPath("$.walletId").value(1));
         }
 
         @Test
-        void futurePeriod_returns400() throws Exception {
-            when(periodOverviewService.getPeriodOverview(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.MONTHLY),
-                    eq(LocalDate.of(2099, 1, 1)), isNull()))
-                    .thenThrow(new IllegalArgumentException("period must not be in the future"));
+        void invalidBaselineCyclesReturns400() throws Exception {
+            when(cycleComparisonService.getCycleComparison(
+                    eq(1),
+                    eq(TEST_USER_ID),
+                    isNull(),
+                    eq(13),
+                    isNull(),
+                    eq(CategoryAggregationMode.ALL),
+                    isNull()))
+                    .thenThrow(new IllegalArgumentException("baselineCycles must be between 1 and 12"));
 
-            mockMvc.perform(get("/api/wallets/1/analytics/overview")
-                            .queryParam("periodType", "MONTHLY")
-                            .queryParam("startDate", "2099-01-01"))
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison")
+                            .queryParam("baselineCycles", "13"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("period must not be in the future"));
+                    .andExpect(jsonPath("$.message").value("baselineCycles must be between 1 and 12"));
         }
 
         @Test
-        void foreignWallet_returns404() throws Exception {
-            when(periodOverviewService.getPeriodOverview(
-                    eq(77), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE), isNull(), isNull()))
-                    .thenThrow(new EntityNotFoundException("Wallet not found with id: 77"));
-
-            mockMvc.perform(get("/api/wallets/77/analytics/overview"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.message").value("Wallet not found with id: 77"));
+        void invalidCategoryModeReturns400() throws Exception {
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison")
+                            .queryParam("categoryMode", "VISIBLE_ONLY"))
+                    .andExpect(status().isBadRequest());
         }
+
+        @Test
+        void invalidImportanceReturns400() throws Exception {
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison")
+                            .queryParam("importance", "IMPULSE"))
+                    .andExpect(status().isBadRequest());
+        }
+
     }
 
     @Nested
@@ -454,65 +451,6 @@ class AnalyticsControllerTest {
     }
 
     @Nested
-    class Baseline {
-
-        @Test
-        void defaultPeriodTypeReturns200() throws Exception {
-            when(baselineService.getBaseline(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE), isNull(), isNull()))
-                    .thenReturn(baseline());
-
-            mockMvc.perform(get("/api/wallets/1/analytics/baseline"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.periodStart").value("2026-03-01"))
-                    .andExpect(jsonPath("$.periodEnd").value("2026-03-31"))
-                    .andExpect(jsonPath("$.compareStart").value("2026-02-01"))
-                    .andExpect(jsonPath("$.compareEnd").value("2026-02-28"))
-                    .andExpect(jsonPath("$.baselineIncome").value(4800.00))
-                    .andExpect(jsonPath("$.currentExpenses").value(3200.00))
-                    .andExpect(jsonPath("$.incomeDeltaPercent").value(4.17))
-                    .andExpect(jsonPath("$.incomeDeltaDisplay").value("+4.17%"))
-                    .andExpect(jsonPath("$.incomeDeltaAvailable").value(true));
-        }
-
-        @Test
-        void customPeriodReturns200() throws Exception {
-            LocalDate start = LocalDate.of(2026, 3, 1);
-            LocalDate end = LocalDate.of(2026, 3, 31);
-            when(baselineService.getBaseline(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.CUSTOM), eq(start), eq(end)))
-                    .thenReturn(baseline());
-
-            mockMvc.perform(get("/api/wallets/1/analytics/baseline")
-                            .queryParam("periodType", "CUSTOM")
-                            .queryParam("startDate", "2026-03-01")
-                            .queryParam("endDate", "2026-03-31"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.periodStart").value("2026-03-01"));
-        }
-
-        @Test
-        void invalidPeriodTypeReturns400() throws Exception {
-            mockMvc.perform(get("/api/wallets/1/analytics/baseline")
-                            .queryParam("periodType", "WEEKLY"))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        void serviceErrorPropagatesAs400() throws Exception {
-            when(baselineService.getBaseline(
-                    eq(1), eq(TEST_USER_ID), eq(PeriodType.CUSTOM), any(), any()))
-                    .thenThrow(new IllegalArgumentException("Both startDate and endDate are required for CUSTOM period type"));
-
-            mockMvc.perform(get("/api/wallets/1/analytics/baseline")
-                            .queryParam("periodType", "CUSTOM")
-                            .queryParam("startDate", "2026-03-01"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Both startDate and endDate are required for CUSTOM period type"));
-        }
-    }
-
-    @Nested
     class Insights {
 
         @Test
@@ -629,27 +567,27 @@ class AnalyticsControllerTest {
                         5L)));
     }
 
-    private BaselineComparisonDto baseline() {
-        return new BaselineComparisonDto(
-                LocalDate.of(2026, 3, 1),
-                LocalDate.of(2026, 3, 31),
-                LocalDate.of(2026, 2, 1),
-                LocalDate.of(2026, 2, 28),
-                new BigDecimal("4800.00"),
-                new BigDecimal("2900.00"),
-                new BigDecimal("39.58"),
-                new BigDecimal("5000.00"),
-                new BigDecimal("3200.00"),
-                new BigDecimal("36.00"),
-                new BigDecimal("4.17"),
-                "+4.17%",
-                true,
-                new BigDecimal("10.34"),
-                "+10.34%",
-                true,
-                new BigDecimal("-9.05"),
-                "-9.05%",
-                true,
+    private CycleComparisonResponseDto cycleComparison() {
+        return new CycleComparisonResponseDto(
+                1,
+                LocalDate.of(2026, 5, 17),
+                new CycleComparisonCycleDto(
+                        LocalDate.of(2026, 5, 1),
+                        LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 5, 17),
+                        17,
+                        17,
+                        31),
+                new CycleComparisonBaselineDto(3, 3, true, List.of()),
+                new CycleComparisonSummaryDto(
+                        new BigDecimal("1234.56"),
+                        new BigDecimal("1050.00"),
+                        new BigDecimal("184.56"),
+                        new BigDecimal("17.58"),
+                        CycleComparisonStatus.ABOVE_BASELINE),
+                List.of(),
+                new CycleComparisonSeriesDto(List.of(), List.of()),
+                new CycleComparisonHighlightsDto(List.of(), List.of()),
                 List.of());
     }
 }
