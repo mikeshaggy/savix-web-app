@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.ledger.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,5 +99,60 @@ class WalletEntryServiceTest {
         // when
         // then
         assertThat(service.getEntriesByWalletIdForUser(1, USER_ID, null, null, null)).hasSize(1);
+    }
+
+    @Test
+    void moveSourceEntryDate_updatesOriginalEntryDateWhenItChanged() {
+        // given
+        Wallet wallet = new Wallet();
+        wallet.setId(1);
+        wallet.setName("Main");
+
+        WalletEntry entry = new WalletEntry();
+        entry.setId(42L);
+        entry.setWallet(wallet);
+        entry.setAmountSigned(new BigDecimal("-25.00"));
+        entry.setEntryDate(LocalDate.of(2026, 3, 1));
+        entry.setSourceType(SourceType.TRANSACTION);
+        entry.setSourceId(100L);
+
+        LocalDate newDate = LocalDate.of(2026, 3, 8);
+        when(walletEntryRepository.findFirstByWalletIdAndSourceTypeAndSourceIdOrderByIdAsc(
+                        1, SourceType.TRANSACTION, 100L))
+                .thenReturn(java.util.Optional.of(entry));
+
+        // when
+        boolean moved = service.moveSourceEntryDate(wallet, SourceType.TRANSACTION, 100L, newDate);
+
+        // then
+        assertThat(moved).isTrue();
+        assertThat(entry.getEntryDate()).isEqualTo(newDate);
+        verify(walletEntryRepository).save(entry);
+    }
+
+    @Test
+    void moveSourceEntryDate_whenDateUnchangedDoesNotSave() {
+        // given
+        Wallet wallet = new Wallet();
+        wallet.setId(1);
+
+        LocalDate date = LocalDate.of(2026, 3, 1);
+        WalletEntry entry = new WalletEntry();
+        entry.setId(42L);
+        entry.setWallet(wallet);
+        entry.setEntryDate(date);
+        entry.setSourceType(SourceType.TRANSACTION);
+        entry.setSourceId(100L);
+
+        when(walletEntryRepository.findFirstByWalletIdAndSourceTypeAndSourceIdOrderByIdAsc(
+                        1, SourceType.TRANSACTION, 100L))
+                .thenReturn(java.util.Optional.of(entry));
+
+        // when
+        boolean moved = service.moveSourceEntryDate(wallet, SourceType.TRANSACTION, 100L, date);
+
+        // then
+        assertThat(moved).isFalse();
+        verify(walletEntryRepository, never()).save(entry);
     }
 }
