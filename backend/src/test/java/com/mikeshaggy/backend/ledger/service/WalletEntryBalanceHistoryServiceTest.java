@@ -95,6 +95,27 @@ class WalletEntryBalanceHistoryServiceTest {
     }
 
     @Test
+    void recalculateWalletLedger_preservesRepositoryOrderingForSameDayEntries() {
+        // given
+        Wallet wallet = wallet(8, "0.00");
+        WalletEntry firstSameDay = entry(201L, wallet, "100.00", "2026-03-01");
+        WalletEntry secondSameDay = entry(202L, wallet, "-25.00", "2026-03-01");
+        WalletEntry thirdSameDay = entry(203L, wallet, "10.00", "2026-03-01");
+
+        when(walletRepository.findById(8)).thenReturn(Optional.of(wallet));
+        when(walletEntryRepository.findByWalletIdOrderByLedgerOrder(8))
+                .thenReturn(List.of(firstSameDay, secondSameDay, thirdSameDay));
+
+        service.recalculateWalletLedger(8L);
+
+        // then
+        assertThat(firstSameDay.getBalanceAfter()).isEqualByComparingTo("100.00");
+        assertThat(secondSameDay.getBalanceAfter()).isEqualByComparingTo("75.00");
+        assertThat(thirdSameDay.getBalanceAfter()).isEqualByComparingTo("85.00");
+        assertThat(wallet.getBalance()).isEqualByComparingTo("85.00");
+    }
+
+    @Test
     void recalculateWalletLedger_whenNoEntries_setsWalletBalanceToZero_andSkipsSaveAll() {
         // given
         Wallet wallet = wallet(2, "999.99");
