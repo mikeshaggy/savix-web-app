@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -82,6 +83,7 @@ public class TransferService {
         Wallet oldFromWallet = existingTransfer.getFromWallet();
         Wallet oldToWallet = existingTransfer.getToWallet();
         BigDecimal oldAmount = existingTransfer.getAmount();
+        LocalDate oldTransferDate = existingTransfer.getTransferDate();
 
         Wallet newFromWallet = oldFromWallet;
         if (!request.fromWalletId().equals(oldFromWallet.getId())) {
@@ -102,7 +104,7 @@ public class TransferService {
         walletBalanceService.adjustForTransferEdit(
                 oldFromWallet, oldToWallet, oldAmount,
                 newFromWallet, newToWallet, updatedTransfer.getAmount(),
-                updatedTransfer.getId(), updatedTransfer.getTransferDate()
+                updatedTransfer.getId(), oldTransferDate, updatedTransfer.getTransferDate()
         );
 
         log.info("Transfer updated: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",

@@ -4,9 +4,9 @@ import com.mikeshaggy.backend.analytics.daily.HeatmapCategoryDto;
 import com.mikeshaggy.backend.analytics.daily.HeatmapDayDto;
 import com.mikeshaggy.backend.analytics.daily.HeatmapResponseDto;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.zero;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +50,7 @@ public class HeatmapService {
                 .collect(Collectors.groupingBy(HeatmapProjection::getDate));
 
         List<HeatmapDayDto> days = new ArrayList<>();
-        BigDecimal maxDayTotal = money(BigDecimal.ZERO);
+        BigDecimal maxDayTotal = zero();
 
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             List<HeatmapProjection> dayRows = rowsByDate.getOrDefault(date, List.of());
@@ -64,7 +66,7 @@ public class HeatmapService {
 
             BigDecimal total = categories.stream()
                     .map(HeatmapCategoryDto::amount)
-                    .reduce(money(BigDecimal.ZERO), BigDecimal::add)
+                    .reduce(zero(), BigDecimal::add)
                     .setScale(SCALE, ROUNDING);
             long transactions = categories.stream()
                     .mapToLong(HeatmapCategoryDto::transactions)
@@ -78,10 +80,6 @@ public class HeatmapService {
         }
 
         return new HeatmapResponseDto(from, to, days, maxDayTotal);
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
     }
 
     private long count(Long value) {

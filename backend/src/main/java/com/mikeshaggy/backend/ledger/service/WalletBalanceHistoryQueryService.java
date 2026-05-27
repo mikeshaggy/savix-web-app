@@ -8,6 +8,7 @@ import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistorySummaryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelineEntryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelineGroupResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelinePaginationResponse;
+import com.mikeshaggy.backend.ledger.repository.WalletEntryDateCountProjection;
 import com.mikeshaggy.backend.ledger.repository.WalletEntryRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.repository.WalletRepository;
@@ -68,11 +69,18 @@ public class WalletBalanceHistoryQueryService {
                 to,
                 Pageable.unpaged()
         );
+        List<WalletEntryDateCountProjection> timelineDateCounts =
+                walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(walletId, userId, from, to);
+        TimelinePagePlan timelinePagePlan =
+                planTimelinePage(timelineDateCounts, effectivePage, effectiveSize);
+        List<WalletEntry> timelineEntries = timelinePagePlan.entryDates().isEmpty()
+                ? List.of()
+                : walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        walletId, userId, timelinePagePlan.entryDates());
 
         WalletBalanceHistorySummaryResponse summary = buildSummary(entries);
         List<WalletBalanceHistoryChartPointResponse> chart = buildChart(entries);
-        List<WalletBalanceHistoryTimelineGroupResponse> timeline = buildTimeline(entries);
-        TimelinePaginationResult paginatedTimeline = paginateTimelineGroups(timeline, effectivePage, effectiveSize);
+        List<WalletBalanceHistoryTimelineGroupResponse> timeline = buildTimeline(timelineEntries);
 
         return new WalletBalanceHistoryResponse(
                 wallet.getId(),
@@ -80,8 +88,8 @@ public class WalletBalanceHistoryQueryService {
                 wallet.getBalance(),
                 summary,
                 chart,
-                paginatedTimeline.items(),
-                paginatedTimeline.pagination()
+                timeline,
+                timelinePagePlan.pagination()
         );
     }
 
@@ -97,33 +105,33 @@ public class WalletBalanceHistoryQueryService {
         return ALLOWED_PAGE_SIZES.contains(requestedSize) ? requestedSize : DEFAULT_PAGE_SIZE;
     }
 
-    private TimelinePaginationResult paginateTimelineGroups(
-            List<WalletBalanceHistoryTimelineGroupResponse> groups,
+    private TimelinePagePlan planTimelinePage(
+            List<WalletEntryDateCountProjection> dateCounts,
             int requestedPage,
             int pageSize
     ) {
-        int totalEntryRows = groups.stream()
-                .mapToInt(g -> g.entries().size())
+        int totalEntryRows = dateCounts.stream()
+                .mapToInt(row -> row.getEntryCount().intValue())
                 .sum();
 
         if (totalEntryRows == 0) {
             WalletBalanceHistoryTimelinePaginationResponse emptyPagination =
                     new WalletBalanceHistoryTimelinePaginationResponse(0, pageSize, 0, 0, false, false);
-            return new TimelinePaginationResult(List.of(), emptyPagination);
+            return new TimelinePagePlan(List.of(), emptyPagination);
         }
 
-        List<List<WalletBalanceHistoryTimelineGroupResponse>> pages = new ArrayList<>();
-        List<WalletBalanceHistoryTimelineGroupResponse> bucket = new ArrayList<>();
+        List<List<LocalDate>> pages = new ArrayList<>();
+        List<LocalDate> bucket = new ArrayList<>();
         int bucketRows = 0;
 
-        for (WalletBalanceHistoryTimelineGroupResponse group : groups) {
-            int groupRows = group.entries().size();
+        for (WalletEntryDateCountProjection dateCount : dateCounts) {
+            int groupRows = dateCount.getEntryCount().intValue();
             if (!bucket.isEmpty() && bucketRows + groupRows > pageSize) {
                 pages.add(bucket);
                 bucket = new ArrayList<>();
                 bucketRows = 0;
             }
-            bucket.add(group);
+            bucket.add(dateCount.getEntryDate());
             bucketRows += groupRows;
         }
         if (!bucket.isEmpty()) {
@@ -143,7 +151,7 @@ public class WalletBalanceHistoryQueryService {
                         activePage > 0
                 );
 
-        return new TimelinePaginationResult(pages.get(activePage), pagination);
+        return new TimelinePagePlan(pages.get(activePage), pagination);
     }
 
     private WalletBalanceHistorySummaryResponse buildSummary(List<WalletEntry> entries) {
@@ -274,8 +282,8 @@ public class WalletBalanceHistoryQueryService {
         return "#" + sourceId;
     }
 
-    private record TimelinePaginationResult(
-            List<WalletBalanceHistoryTimelineGroupResponse> items,
+    private record TimelinePagePlan(
+            List<LocalDate> entryDates,
             WalletBalanceHistoryTimelinePaginationResponse pagination
     ) {
     }

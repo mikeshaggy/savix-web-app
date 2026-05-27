@@ -7,9 +7,9 @@ import static org.mockito.Mockito.*;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.*;
@@ -33,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -137,8 +138,8 @@ class FixedPaymentDashboardServiceTest {
                                     0,
                                     BigDecimal.ZERO,
                                     0,
-                                    0.0),
-                            new FixedProgressDto(0, 0, 0.0, null, null, null, null, 0),
+                                    BigDecimal.ZERO),
+                            new FixedProgressDto(0, 0, BigDecimal.ZERO, null, null, null, null, 0),
                             wallet.getBalance(),
                             wallet.getBalance(),
                             new RiskIndicatorDto(false, null),
@@ -212,6 +213,73 @@ class FixedPaymentDashboardServiceTest {
 
             // then
             assertThat(result).isSameAs(expectedTile);
+        }
+
+        @Test
+        void asOfAwareTileFiltersOccurrencesAfterFixedPaymentEndDateAndDelegatesAsOfDate() {
+            // given
+            FixedPayment fp = buildFixedPayment(1);
+            fp.setActiveTo(LocalDate.of(2026, 3, 20));
+            LocalDate asOfDate = LocalDate.of(2026, 3, 15);
+
+            when(fixedPaymentRepository.findAllActiveInPeriodByWalletIdAndUserId(
+                            1, USER_ID, period.startDate(), period.billingEndDate()))
+                    .thenReturn(List.of(fp));
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
+
+            FixedPaymentOccurrence valid =
+                    FixedPaymentOccurrence.builder()
+                            .id(1L)
+                            .fixedPayment(fp)
+                            .status(OccurrenceStatus.PENDING)
+                            .expectedAmount(new BigDecimal("1500.00"))
+                            .dueDate(LocalDate.of(2026, 3, 20))
+                            .build();
+            FixedPaymentOccurrence afterEndDate =
+                    FixedPaymentOccurrence.builder()
+                            .id(2L)
+                            .fixedPayment(fp)
+                            .status(OccurrenceStatus.PENDING)
+                            .expectedAmount(new BigDecimal("1500.00"))
+                            .dueDate(LocalDate.of(2026, 4, 1))
+                            .build();
+
+            when(occurrenceRepository.findAllByFixedPaymentIdsAndDueDateBetween(
+                            List.of(1), period.startDate(), period.billingEndDate()))
+                    .thenReturn(List.of(valid, afterEndDate));
+            when(occurrenceRepository.findByFixedPaymentIdsAndStatus(List.of(1), OccurrenceStatus.OVERDUE))
+                    .thenReturn(List.of());
+            when(transactionService.sumIncomeByWalletIdAndDateRange(
+                            1, USER_ID, period.startDate(), period.endDate()))
+                    .thenReturn(new BigDecimal("4000.00"));
+
+            FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);
+            when(tileAssembler.assemble(
+                            eq(period),
+                            anyList(),
+                            eq(List.of()),
+                            eq(new BigDecimal("4000.00")),
+                            eq(new BigDecimal("5000.00")),
+                            eq(1),
+                            eq(asOfDate)))
+                    .thenReturn(expectedTile);
+
+            // when
+            FixedTransactionsTileDto result =
+                    fixedPaymentDashboardService.getFixedPaymentsTileData(period, 1, USER_ID, asOfDate);
+
+            // then
+            assertThat(result).isSameAs(expectedTile);
+            ArgumentCaptor<List<FixedPaymentOccurrence>> occurrencesCaptor = ArgumentCaptor.forClass(List.class);
+            verify(tileAssembler).assemble(
+                    eq(period),
+                    occurrencesCaptor.capture(),
+                    eq(List.of()),
+                    eq(new BigDecimal("4000.00")),
+                    eq(new BigDecimal("5000.00")),
+                    eq(1),
+                    eq(asOfDate));
+            assertThat(occurrencesCaptor.getValue()).containsExactly(valid);
         }
 
         @Test

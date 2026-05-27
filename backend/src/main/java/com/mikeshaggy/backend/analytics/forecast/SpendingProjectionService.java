@@ -1,13 +1,12 @@
 package com.mikeshaggy.backend.analytics.forecast;
 
-import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
-import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
@@ -19,91 +18,100 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.UUID;
 
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
-import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.PeriodWindow;
+import static com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.ProjectionInput;
+import static com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.ProjectionResult;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SpendingProjectionService {
 
-    private final TransactionRepository transactionRepository;
+    private final AnalyticsTransactionQueryService transactionQueryService;
     private final WalletService walletService;
     private final PeriodService periodService;
     private final FixedPaymentDashboardService fixedPaymentDashboardService;
+    private final SpendingProjectionCalculator projectionCalculator;
     private final Clock clock;
 
     public SpendingProjectionDto getSpendingProjection(Integer walletId, UUID userId,
                                                        PeriodType periodType,
                                                        LocalDate startDate, LocalDate endDate) {
+        return getSpendingProjection(walletId, userId, periodType, startDate, endDate, null);
+    }
+
+    public SpendingProjectionDto getSpendingProjection(Integer walletId, UUID userId,
+                                                       PeriodType periodType,
+                                                       LocalDate startDate, LocalDate endDate,
+                                                       LocalDate asOfDate) {
         Wallet wallet = walletService.getWalletEntityByIdForUser(walletId, userId);
         PeriodDto resolved = periodService.resolve(periodType, walletId, userId, startDate, endDate);
-        PeriodWindow period = resolveProjectionWindow(resolved);
+        return getSpendingProjection(wallet, userId, resolved, asOfDate);
+    }
 
-        LocalDate today = LocalDate.now(clock);
+    public SpendingProjectionDto getSpendingProjection(Wallet wallet, UUID userId,
+                                                       PeriodDto resolvedPeriod, LocalDate asOfDate) {
+        return getSpendingProjection(wallet, userId, resolvedPeriod, asOfDate, null);
+    }
+
+    public SpendingProjectionDto getSpendingProjection(Wallet wallet, UUID userId,
+                                                       PeriodDto resolvedPeriod, LocalDate asOfDate,
+                                                       BigDecimal precomputedRemainingFixed) {
+        PeriodWindow period = resolveProjectionWindow(resolvedPeriod);
+
+        LocalDate today = asOfDate == null ? LocalDate.now(clock) : asOfDate;
         if (period.startDate().isAfter(today)) {
             throw new IllegalArgumentException("period must not be in the future");
         }
 
-        int daysInPeriod = inclusiveDays(period.startDate(), period.endDate());
-        boolean historicalPeriod = period.endDate().isBefore(today);
-        boolean projectionAvailable = !historicalPeriod;
-        int daysElapsed = historicalPeriod
-                ? daysInPeriod
-                : inclusiveDays(period.startDate(), today);
-        int daysRemaining = historicalPeriod
-                ? 0
-                : Math.max(0, inclusiveDays(today.plusDays(1), period.endDate()));
-
         LocalDate toDate = today.isBefore(period.endDate()) ? today : period.endDate();
-        BigDecimal incomeToDate = sum(walletId, userId, period.startDate(), toDate, CategoryType.INCOME);
-        BigDecimal incomeForPeriod = sum(walletId, userId, period.startDate(), period.endDate(), CategoryType.INCOME);
-        BigDecimal expensesToDate = sum(walletId, userId, period.startDate(), toDate, CategoryType.EXPENSE);
-        BigDecimal dailyBurnRate = daysElapsed == 0
-                ? money(BigDecimal.ZERO)
-                : expensesToDate.divide(BigDecimal.valueOf(daysElapsed), SCALE, ROUNDING);
-
-        BigDecimal projectedPeriodExpenses;
-        BigDecimal projectedEndBalance;
-        BigDecimal remainingFixedPayments;
-        BigDecimal safeToSpendToday;
-        String projectionReason;
-
-        if (projectionAvailable) {
-            projectedPeriodExpenses = money(dailyBurnRate.multiply(BigDecimal.valueOf(daysInPeriod)));
-            projectedEndBalance = money(incomeForPeriod.subtract(projectedPeriodExpenses));
-            remainingFixedPayments = remainingFixedPayments(resolved, period, walletId, userId);
-            BigDecimal projectedRemainingVariableSpend = dailyBurnRate.multiply(BigDecimal.valueOf(daysRemaining));
-            safeToSpendToday = money(wallet.getBalance()
-                    .subtract(remainingFixedPayments)
-                    .subtract(projectedRemainingVariableSpend));
-            projectionReason = null;
-        } else {
-            projectedPeriodExpenses = expensesToDate;
-            projectedEndBalance = money(incomeForPeriod.subtract(expensesToDate));
-            remainingFixedPayments = money(BigDecimal.ZERO);
-            safeToSpendToday = money(BigDecimal.ZERO);
-            projectionReason = "Historical period";
-        }
+        BigDecimal incomeToDate = transactionQueryService.sum(
+                wallet.getId(), userId, period.startDate(), toDate, CategoryType.INCOME);
+        BigDecimal incomeForPeriod = transactionQueryService.sum(
+                wallet.getId(), userId, period.startDate(), period.endDate(), CategoryType.INCOME);
+        BigDecimal expensesToDate = transactionQueryService.sum(
+                wallet.getId(), userId, period.startDate(), toDate, CategoryType.EXPENSE);
+        BigDecimal remainingFixed = resolveRemainingFixed(
+                precomputedRemainingFixed, resolvedPeriod, period, wallet, userId, today);
+        ProjectionResult projection = projectionCalculator.calculate(new ProjectionInput(
+                period,
+                today,
+                wallet.getBalance(),
+                incomeForPeriod,
+                expensesToDate,
+                remainingFixed));
 
         return new SpendingProjectionDto(
-                resolved.periodType(),
-                periodLabel(resolved.periodType()),
+                resolvedPeriod.periodType(),
+                periodLabel(resolvedPeriod.periodType()),
                 period.startDate(),
                 period.endDate(),
-                daysInPeriod,
-                daysElapsed,
-                daysRemaining,
+                projection.daysInPeriod(),
+                projection.daysElapsed(),
+                projection.daysRemaining(),
                 incomeToDate,
                 incomeForPeriod,
                 expensesToDate,
-                dailyBurnRate,
-                projectedPeriodExpenses,
-                projectedEndBalance,
-                remainingFixedPayments,
-                safeToSpendToday,
-                projectionAvailable,
-                projectionReason);
+                projection.dailyBurnRate(),
+                projection.projectedPeriodExpenses(),
+                projection.projectedEndBalance(),
+                projection.remainingFixedPayments(),
+                projection.safeToSpendToday(),
+                projection.projectionAvailable(),
+                projection.projectionReason());
+    }
+
+    private BigDecimal resolveRemainingFixed(BigDecimal precomputedRemainingFixed,
+                                             PeriodDto resolved, PeriodWindow period,
+                                             Wallet wallet, UUID userId, LocalDate today) {
+        if (!projectionCalculator.isProjectionAvailable(period, today)) {
+            return money(BigDecimal.ZERO);
+        }
+        if (precomputedRemainingFixed != null) {
+            return money(precomputedRemainingFixed);
+        }
+        return remainingFixedPayments(resolved, period, wallet, userId, today);
     }
 
     private PeriodWindow resolveProjectionWindow(PeriodDto period) {
@@ -115,30 +123,27 @@ public class SpendingProjectionService {
     }
 
     private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
-                                             Integer walletId, UUID userId) {
+                                             Integer walletId, UUID userId, LocalDate asOfDate) {
         PeriodDto fixedPaymentPeriod = new PeriodDto(
                 period.startDate(),
                 period.endDate(),
                 period.endDate(),
                 resolved.periodType());
         FixedTransactionsTileDto tile = fixedPaymentDashboardService
-                .getFixedPaymentsTileData(fixedPaymentPeriod, walletId, userId);
+                .getFixedPaymentsTileData(fixedPaymentPeriod, walletId, userId, asOfDate);
         return money(tile.summary().remainingAmount());
     }
 
-    private BigDecimal sum(Integer walletId, UUID userId, LocalDate from, LocalDate to, CategoryType type) {
-        return money(transactionRepository.sumByWalletUserDateRangeAndType(walletId, userId, from, to, type));
-    }
-
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
-    }
-
-    private int inclusiveDays(LocalDate from, LocalDate to) {
-        if (to.isBefore(from)) {
-            return 0;
-        }
-        return (int) (to.toEpochDay() - from.toEpochDay() + 1);
+    private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
+                                             Wallet wallet, UUID userId, LocalDate asOfDate) {
+        PeriodDto fixedPaymentPeriod = new PeriodDto(
+                period.startDate(),
+                period.endDate(),
+                period.endDate(),
+                resolved.periodType());
+        FixedTransactionsTileDto tile = fixedPaymentDashboardService
+                .getFixedPaymentsTileData(fixedPaymentPeriod, wallet, userId, asOfDate);
+        return money(tile.summary().remainingAmount());
     }
 
     private String periodLabel(PeriodType periodType) {
@@ -150,6 +155,4 @@ public class SpendingProjectionService {
         };
     }
 
-    private record PeriodWindow(LocalDate startDate, LocalDate endDate) {
-    }
 }

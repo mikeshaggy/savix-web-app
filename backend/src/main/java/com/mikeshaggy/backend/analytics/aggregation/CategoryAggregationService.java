@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.HUNDRED;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.ROUNDING;
 import static com.mikeshaggy.backend.common.calculation.CalculationUtils.SCALE;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
+import static com.mikeshaggy.backend.common.calculation.MoneyMath.zero;
 
 @Service
 @RequiredArgsConstructor
@@ -85,11 +87,4 @@ public class CategoryAggregationService {
         return money(amount).multiply(HUNDRED).divide(total, SCALE, ROUNDING);
     }
 
-    private BigDecimal money(BigDecimal value) {
-        return (value == null ? BigDecimal.ZERO : value).setScale(SCALE, ROUNDING);
-    }
-
-    private BigDecimal zero() {
-        return BigDecimal.ZERO.setScale(SCALE, ROUNDING);
-    }
 }

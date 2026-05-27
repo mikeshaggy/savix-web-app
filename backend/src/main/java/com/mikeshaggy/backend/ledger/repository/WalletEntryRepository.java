@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.ledger.repository;
 
+import com.mikeshaggy.backend.ledger.domain.SourceType;
 import com.mikeshaggy.backend.ledger.domain.WalletEntry;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,7 +32,35 @@ public interface WalletEntryRepository extends JpaRepository<WalletEntry, Long> 
             Pageable pageable
     );
 
+    @Query("SELECT e.entryDate AS entryDate, COUNT(e.id) AS entryCount " +
+            "FROM WalletEntry e WHERE e.wallet.id = :walletId AND e.wallet.user.id = :userId " +
+            "AND (cast(:from as LocalDate) IS NULL OR e.entryDate >= :from) " +
+            "AND (cast(:to as LocalDate) IS NULL OR e.entryDate <= :to) " +
+            "GROUP BY e.entryDate " +
+            "ORDER BY e.entryDate DESC")
+    List<WalletEntryDateCountProjection> findTimelineDateCountsByWalletIdAndUserId(
+            Integer walletId,
+            UUID userId,
+            LocalDate from,
+            LocalDate to
+    );
+
+    @Query("SELECT e FROM WalletEntry e JOIN FETCH e.wallet WHERE e.wallet.id = :walletId AND e.wallet.user.id = :userId " +
+            "AND e.entryDate IN :entryDates " +
+            "ORDER BY e.entryDate DESC, e.createdAt DESC, e.id DESC")
+    List<WalletEntry> findByWalletIdAndUserIdAndEntryDateInForHistory(
+            Integer walletId,
+            UUID userId,
+            List<LocalDate> entryDates
+    );
+
     @Query("SELECT e FROM WalletEntry e JOIN FETCH e.wallet WHERE e.wallet.id = :walletId " +
             "ORDER BY e.entryDate ASC, e.createdAt ASC, e.id ASC")
     List<WalletEntry> findByWalletIdOrderByLedgerOrder(Integer walletId);
+
+    Optional<WalletEntry> findFirstByWalletIdAndSourceTypeAndSourceIdOrderByIdAsc(
+            Integer walletId,
+            SourceType sourceType,
+            Long sourceId
+    );
 }

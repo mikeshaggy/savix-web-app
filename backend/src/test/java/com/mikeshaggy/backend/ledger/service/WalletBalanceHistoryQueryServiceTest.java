@@ -2,13 +2,17 @@ package com.mikeshaggy.backend.ledger.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mikeshaggy.backend.ledger.domain.SourceType;
 import com.mikeshaggy.backend.ledger.domain.WalletEntry;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelinePaginationResponse;
+import com.mikeshaggy.backend.ledger.repository.WalletEntryDateCountProjection;
 import com.mikeshaggy.backend.ledger.repository.WalletEntryRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.repository.WalletRepository;
@@ -82,6 +86,13 @@ class WalletBalanceHistoryQueryServiceTest {
                         eq(null),
                         eq(null),
                         eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(List.of(e3, e2, e1));
+        when(walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(1, USER_ID, null, null))
+                .thenReturn(List.of(
+                        dateCount(LocalDate.of(2026, 3, 10), 2),
+                        dateCount(LocalDate.of(2026, 3, 8), 1)));
+        when(walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        1, USER_ID, List.of(LocalDate.of(2026, 3, 10), LocalDate.of(2026, 3, 8))))
                 .thenReturn(List.of(e3, e2, e1));
 
         // when
@@ -268,6 +279,17 @@ class WalletBalanceHistoryQueryServiceTest {
                         eq(org.springframework.data.domain.Pageable.unpaged())))
                 .thenReturn(
                         List.of(e12a, e12b, e12c, e11a, e11b, e11c, e11d, e10a, e10b, e10c, e10d, e10e, e10f));
+        when(walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(1, USER_ID, null, null))
+                .thenReturn(List.of(
+                        dateCount(LocalDate.of(2026, 3, 12), 3),
+                        dateCount(LocalDate.of(2026, 3, 11), 4),
+                        dateCount(LocalDate.of(2026, 3, 10), 6)));
+        when(walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        1, USER_ID, List.of(LocalDate.of(2026, 3, 12), LocalDate.of(2026, 3, 11))))
+                .thenReturn(List.of(e12a, e12b, e12c, e11a, e11b, e11c, e11d));
+        when(walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        1, USER_ID, List.of(LocalDate.of(2026, 3, 10))))
+                .thenReturn(List.of(e10a, e10b, e10c, e10d, e10e, e10f));
 
         // Page 0 with size 10: Mar 12 (3) + Mar 11 (4) = 7 rows fit; Mar 10 (6) would exceed limit →
         // goes to page 1
@@ -306,6 +328,8 @@ class WalletBalanceHistoryQueryServiceTest {
                         eq(null),
                         eq(org.springframework.data.domain.Pageable.unpaged())))
                 .thenReturn(List.of());
+        when(walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(1, USER_ID, null, null))
+                .thenReturn(List.of());
 
         // when
         WalletBalanceHistoryResponse response =
@@ -322,6 +346,55 @@ class WalletBalanceHistoryQueryServiceTest {
         assertThat(response.timeline()).isEmpty();
         assertThat(response.timelinePagination())
                 .isEqualTo(new WalletBalanceHistoryTimelinePaginationResponse(0, 10, 0, 0, false, false));
+        verify(walletEntryRepository, never())
+                .findByWalletIdAndUserIdAndEntryDateInForHistory(eq(1), eq(USER_ID), anyList());
+    }
+
+    @Test
+    void getBalanceHistoryByWalletIdForUser_fetchesOnlyRequestedTimelineDateBuckets() {
+        Wallet wallet = wallet(1, "Main", "150.00");
+        LocalDate newestDate = LocalDate.of(2026, 3, 30);
+        List<WalletEntry> allEntries = java.util.stream.IntStream.range(0, 15)
+                .mapToObj(i -> entry(
+                        (long) i + 1,
+                        wallet,
+                        "10.00",
+                        String.valueOf(10 * (i + 1)) + ".00",
+                        newestDate.minusDays(i).toString(),
+                        newestDate.minusDays(i) + "T08:00:00Z",
+                        SourceType.TRANSACTION,
+                        (long) i + 1))
+                .toList();
+        List<WalletEntryDateCountProjection> counts = allEntries.stream()
+                .map(entry -> dateCount(entry.getEntryDate(), 1))
+                .toList();
+        List<LocalDate> expectedPageOneDates = allEntries.subList(10, 15).stream()
+                .map(WalletEntry::getEntryDate)
+                .toList();
+        List<WalletEntry> expectedPageOneEntries = allEntries.subList(10, 15);
+
+        when(walletRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(wallet));
+        when(walletEntryRepository.findByWalletIdAndUserIdForHistory(
+                        eq(1), eq(USER_ID), eq(null), eq(null),
+                        eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(allEntries);
+        when(walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(1, USER_ID, null, null))
+                .thenReturn(counts);
+        when(walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        1, USER_ID, expectedPageOneDates))
+                .thenReturn(expectedPageOneEntries);
+
+        WalletBalanceHistoryResponse response =
+                service.getBalanceHistoryByWalletIdForUser(1, USER_ID, null, null, 1, 10);
+
+        assertThat(response.timeline()).hasSize(5);
+        assertThat(response.timeline())
+                .extracting(com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelineGroupResponse::date)
+                .containsExactlyElementsOf(expectedPageOneDates);
+        assertThat(response.timelinePagination())
+                .isEqualTo(new WalletBalanceHistoryTimelinePaginationResponse(1, 10, 15, 2, false, true));
+        verify(walletEntryRepository).findByWalletIdAndUserIdAndEntryDateInForHistory(
+                1, USER_ID, expectedPageOneDates);
     }
 
     @Test
@@ -375,6 +448,13 @@ class WalletBalanceHistoryQueryServiceTest {
                         eq(null),
                         eq(null),
                         eq(org.springframework.data.domain.Pageable.unpaged())))
+                .thenReturn(List.of(e2, e1));
+        when(walletEntryRepository.findTimelineDateCountsByWalletIdAndUserId(1, USER_ID, null, null))
+                .thenReturn(List.of(
+                        dateCount(LocalDate.of(2026, 3, 11), 1),
+                        dateCount(LocalDate.of(2026, 3, 10), 1)));
+        when(walletEntryRepository.findByWalletIdAndUserIdAndEntryDateInForHistory(
+                        1, USER_ID, List.of(LocalDate.of(2026, 3, 11), LocalDate.of(2026, 3, 10))))
                 .thenReturn(List.of(e2, e1));
 
         // when
@@ -443,5 +523,19 @@ class WalletBalanceHistoryQueryServiceTest {
         entry.setSourceType(sourceType);
         entry.setSourceId(sourceId);
         return entry;
+    }
+
+    private WalletEntryDateCountProjection dateCount(LocalDate date, long count) {
+        return new WalletEntryDateCountProjection() {
+            @Override
+            public LocalDate getEntryDate() {
+                return date;
+            }
+
+            @Override
+            public Long getEntryCount() {
+                return count;
+            }
+        };
     }
 }

@@ -8,7 +8,15 @@ import { useCategories } from '@/hooks/useApi';
 import { useAppContext } from '@/contexts/AppContext';
 import TransactionModal from '@/components/modals/TransactionModal';
 
-export default function FixedTransactionsTile({ tileData, loading, error }) {
+function computeDaysDelta(dueDateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr);
+  due.setHours(0, 0, 0, 0);
+  return Math.round((due - today) / (1000 * 60 * 60 * 24));
+}
+
+export default function FixedTransactionsTile({ fixedPayments, walletId }) {
   const t = useTranslations();
   const { lang } = useLanguage();
   const { categories } = useCategories();
@@ -18,22 +26,22 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionPrefill, setTransactionPrefill] = useState(null);
 
-  const rows = useMemo(() => {
-    if (!tileData) return [];
-    const overdue = tileData.overdue || [];
-    const upcoming = tileData.upcoming || [];
-    return [...overdue, ...upcoming].slice(0, 5);
-  }, [tileData]);
+  const { nextPending, rows } = useMemo(() => {
+    const occs = fixedPayments?.upcomingOccurrences ?? [];
+    const np = occs.find((occ) => occ.status === 'PENDING' || occ.status === 'OVERDUE') ?? null;
+    const rest = np ? occs.filter((occ) => occ.id !== np.id) : occs;
+    return { nextPending: np, rows: rest.slice(0, 8) };
+  }, [fixedPayments]);
 
-  const handleMarkPaidClick = (occurrence) => {
-    setMarkPaidOccurrence(occurrence);
+  const handleMarkPaidClick = (occ) => {
+    setMarkPaidOccurrence(occ);
     setTransactionPrefill({
-      title: occurrence.title,
-      amount: occurrence.expectedAmount,
-      categoryId: occurrence.categoryId || null,
-      walletId: occurrence.walletId || null,
+      title: occ.name,
+      amount: occ.amount,
+      categoryId: occ.categoryId || null,
+      walletId: walletId || null,
       notes: null,
-      occurrenceId: occurrence.occurrenceId,
+      occurrenceId: occ.id,
     });
   };
 
@@ -41,7 +49,7 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
     setShowTransactionModal(true);
   };
 
-  const handleTransactionSave = async (transactionData, _id) => {
+  const handleTransactionSave = async (transactionData) => {
     await onCreateTransaction(transactionData);
   };
 
@@ -63,34 +71,41 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
     return t('fixedPayments.daysLeft', { days: daysDelta });
   };
 
-  if (loading) {
+  if (!fixedPayments) {
     return (
-      <div className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col items-center justify-center py-16"
-           style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}>
-        <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-3" />
-        <div className="text-[12px] text-white/25">{t('common.loading')}</div>
+      <div
+        className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col items-center justify-center py-16"
+        style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}
+      >
+        <div className="text-[12px] text-white/25">{t('fixedPayments.noData')}</div>
       </div>
     );
   }
 
-  if (error || !tileData) {
-    return (
-      <div className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col items-center justify-center py-16"
-           style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}>
-        <div className="text-[12px] text-white/25">
-          {error || t('fixedPayments.noData')}
-        </div>
-      </div>
-    );
-  }
+  const {
+    plannedAmount,
+    paidAmount,
+    remainingAmount,
+    paidCount,
+    totalCount,
+    balanceAfterRemainingFixedPayments,
+    atRisk,
+    shortfallAmount,
+  } = fixedPayments;
 
-  const { summary, progress, riskIndicator, balanceAfterFixed } = tileData;
+  const paidPct = totalCount > 0 ? (paidCount / totalCount) * 100 : 0;
+  const balanceAfterFixed = balanceAfterRemainingFixedPayments;
+  const allOccs = fixedPayments.upcomingOccurrences ?? [];
+  const overflowCount = allOccs.length - (nextPending ? 1 : 0) - rows.length;
+  const npDaysDelta = nextPending?.dueDate ? computeDaysDelta(nextPending.dueDate) : 0;
+  const npIsOverdue = nextPending?.status === 'OVERDUE';
 
   return (
     <>
-      <div className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
-           style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}>
-
+      <div
+        className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
+        style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.055]">
           <div>
@@ -101,106 +116,170 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
               {t('fixedPayments.tileSubtitle')}
             </div>
           </div>
-          <a href="/transactions/fixed-payments" className="text-[12px] text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity">
+          <a
+            href="/transactions/fixed-payments"
+            className="text-[12px] text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity"
+          >
             {t('dashboard.viewAll')}
           </a>
         </div>
 
         {/* Risk banner */}
-        {riskIndicator?.atRisk && (
-          <div className="flex items-center gap-2.5 px-5 py-2.5 bg-red-500/[0.07] border-b border-red-500/[0.15] text-[12px] text-red-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse shrink-0" />
+        {atRisk && (
+          <div className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-500/[0.09] border-b border-rose-500/[0.2] text-[12px] text-rose-400">
+            <div className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse shrink-0" />
             <span>
-              {t('fixedPayments.riskWarning', { amount: formatCurrency(riskIndicator.shortfallAmount, lang) })}
+              {t('fixedPayments.riskWarning', {
+                amount: formatCurrency(shortfallAmount ?? 0, lang),
+              })}
             </span>
           </div>
         )}
 
         {/* 4 stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.06] border-b border-white/[0.055]">
-          {/* Planned */}
-          <div className="bg-[#13131f] p-3.5 relative">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#94a3b8] opacity-80" />
-            <div className="text-[8px] tracking-[0.1em] uppercase text-white/25 mb-1.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.07] border-b border-white/[0.07]">
+          <div className="bg-[#13131f] p-4 relative">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-slate-400 opacity-70" />
+            <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.planned')}
             </div>
-            <div className="font-bold text-[16px] tracking-[-0.01em] leading-none text-white">
-              {formatCurrency(summary?.plannedAmount ?? 0, lang)}
+            <div className="font-bold text-[15px] tracking-[-0.01em] leading-none text-white whitespace-nowrap">
+              {formatCurrency(plannedAmount ?? 0, lang)}
             </div>
-            <div className="text-[9px] text-white/25 mt-1.5">
-              {t('fixedPayments.countItems', { count: summary?.plannedCount ?? 0 })}
+            <div className="text-[9px] text-white/30 mt-1.5">
+              {t('fixedPayments.countItems', { count: totalCount ?? 0 })}
             </div>
           </div>
-          {/* Paid */}
-          <div className="bg-[#13131f] p-3.5 relative">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-green-400 opacity-80" />
-            <div className="text-[8px] tracking-[0.1em] uppercase text-white/25 mb-1.5">
+          <div className="bg-[#13131f] p-4 relative">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-400 opacity-80" />
+            <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.paid')}
             </div>
-            <div className="font-bold text-[16px] tracking-[-0.01em] leading-none text-green-400">
-              {formatCurrency(summary?.paidAmount ?? 0, lang)}
+            <div className="font-bold text-[15px] tracking-[-0.01em] leading-none text-emerald-400 whitespace-nowrap">
+              {formatCurrency(paidAmount ?? 0, lang)}
             </div>
-            <div className="text-[9px] text-white/25 mt-1.5">
-              {t('fixedPayments.countItems', { count: summary?.paidCount ?? 0 })}
+            <div className="text-[9px] text-white/30 mt-1.5">
+              {t('fixedPayments.countItems', { count: paidCount ?? 0 })}
             </div>
           </div>
-          {/* Remaining */}
-          <div className="bg-[#13131f] p-3.5 relative">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#7c6af7] opacity-80" />
-            <div className="text-[8px] tracking-[0.1em] uppercase text-white/25 mb-1.5">
+          <div className="bg-[#13131f] p-4 relative">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-violet-500 opacity-80" />
+            <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.remaining')}
             </div>
-            <div className="font-bold text-[16px] tracking-[-0.01em] leading-none text-purple-400">
-              {formatCurrency(summary?.remainingAmount ?? 0, lang)}
-            </div>
-            <div className="text-[9px] text-white/25 mt-1.5">
-              {t('fixedPayments.countItems', { count: summary?.remainingCount ?? 0 })}
+            <div className="font-bold text-[15px] tracking-[-0.01em] leading-none text-violet-400 whitespace-nowrap">
+              {formatCurrency(remainingAmount ?? 0, lang)}
             </div>
           </div>
-          {/* Balance After */}
-          <div className="bg-[#13131f] p-3.5 relative">
-            <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${balanceAfterFixed < 0 ? 'bg-red-400' : 'bg-amber-400'}`} />
-            <div className="text-[8px] tracking-[0.1em] uppercase text-white/25 mb-1.5">
+          <div className="bg-[#13131f] p-4 relative">
+            <div
+              className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${
+                balanceAfterFixed != null && balanceAfterFixed < 0 ? 'bg-rose-400' : 'bg-amber-400'
+              }`}
+            />
+            <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.balanceAfter')}
             </div>
-            <div className={`font-bold text-[16px] tracking-[-0.01em] leading-none ${balanceAfterFixed < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+            <div
+              className={`font-bold text-[15px] tracking-[-0.01em] leading-none whitespace-nowrap ${
+                balanceAfterFixed != null && balanceAfterFixed < 0 ? 'text-rose-400' : 'text-amber-400'
+              }`}
+            >
               {formatCurrency(balanceAfterFixed ?? 0, lang)}
             </div>
-            <div className="text-[9px] text-white/25 mt-1.5">
-              {t('fixedPayments.afterAllFixed')}
-            </div>
+            <div className="text-[9px] text-white/30 mt-1.5">{t('fixedPayments.afterAllFixed')}</div>
           </div>
         </div>
 
-        {/* Progress bar strip */}
-        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/[0.055]">
-          <span className="text-[9px] text-white/25 whitespace-nowrap shrink-0">
-            <span className="text-white">{progress?.paidCount ?? 0}</span> / {progress?.totalCount ?? 0} {t('fixedPayments.paidLabel')}
+        {/* Progress bar */}
+        <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/[0.07]">
+          <span className="text-[9px] text-white/30 whitespace-nowrap shrink-0">
+            <span className="text-white/80">{paidCount ?? 0}</span>
+            <span className="text-white/25"> / {totalCount ?? 0} {t('fixedPayments.paidLabel')}</span>
           </span>
-          <div className="flex-1 h-[3px] bg-white/[0.06] rounded-[3px] overflow-hidden">
+          <div className="flex-1 h-[3px] bg-white/[0.07] rounded-[3px] overflow-hidden">
             <div
               className="h-full rounded-[3px] relative"
-              style={{
-                width: `${progress?.paidPct ?? 0}%`,
-                background: '#8b5cf6',
-              }}
+              style={{ width: `${paidPct}%`, background: '#8b5cf6' }}
             >
               <div className="absolute right-0 top-0 bottom-0 w-[8px] bg-white/25 animate-pulse" />
             </div>
           </div>
           <span className="text-[9px] text-purple-400 font-medium whitespace-nowrap shrink-0">
-            {Math.round(progress?.paidPct ?? 0)}%
+            {Math.round(paidPct)}%
           </span>
         </div>
 
-        {/* Transaction rows */}
-        <div className="flex-1 flex flex-col">
-          {rows.length === 0 ? (
+        {/* Next due: highlighted first pending/overdue occurrence */}
+        {nextPending && (
+          <div
+            className={`border-b border-white/[0.07] ${
+              npIsOverdue ? 'bg-rose-500/[0.04]' : 'bg-violet-500/[0.04]'
+            }`}
+          >
+            <div
+              className={`px-5 pt-2 text-[8px] tracking-[0.1em] uppercase font-semibold ${
+                npIsOverdue ? 'text-rose-400/60' : 'text-violet-400/60'
+              }`}
+            >
+              {t('fixedPayments.nextDue')}
+            </div>
+            <div className="group flex items-center gap-2.5 px-5 py-2.5 cursor-default">
+              {npIsOverdue && (
+                <div className="w-[5px] h-[5px] rounded-full bg-red-400 shrink-0 animate-pulse" />
+              )}
+              <div className="w-[30px] h-[30px] bg-[#1a1a2a] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
+                🔁
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] font-semibold text-white truncate">{nextPending.name}</div>
+                <div className="text-[9px] text-white/25 flex items-center gap-1.5 mt-0.5">
+                  <span>{nextPending.dueDate}</span>
+                  {nextPending.categoryName && (
+                    <>
+                      <span>·</span>
+                      <span className="text-[8px] tracking-[0.05em] uppercase bg-white/[0.04] border border-white/[0.06] px-1.5 py-px rounded">
+                        {nextPending.categoryName}
+                      </span>
+                    </>
+                  )}
+                  <span className={`text-[8px] px-1.5 py-px rounded ${getDaysChipClass(npDaysDelta)}`}>
+                    {getDaysLabel(npDaysDelta)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkPaidClick(nextPending);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-[9px] tracking-[0.06em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-400 md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-green-400/[0.15] shrink-0"
+              >
+                <Check className="w-3 h-3" />
+                {t('fixedPayments.markAsPaid')}
+              </button>
+              <div className="text-right shrink-0">
+                <div
+                  className={`font-bold text-[14px] tracking-[-0.01em] whitespace-nowrap ${
+                    npIsOverdue ? 'text-red-400' : 'text-violet-400'
+                  }`}
+                >
+                  {formatCurrency(nextPending.amount, lang)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remaining upcoming occurrences — scrollable */}
+        <div className="flex flex-col overflow-y-auto dashboard-scroll" style={{ maxHeight: '152px' }}>
+          {!nextPending && rows.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-[12px] text-white/25">
               {t('fixedPayments.noOccurrences')}
             </div>
           ) : (
-            rows.map((occ, idx) => {
+            rows.map((occ) => {
+              const daysDelta = occ.dueDate ? computeDaysDelta(occ.dueDate) : 0;
               const isOverdue = occ.status === 'OVERDUE';
               const isPaid = occ.status === 'PAID';
               const isSkipped = occ.status === 'SKIPPED';
@@ -208,38 +287,39 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
 
               return (
                 <div
-                  key={occ.occurrenceId}
+                  key={occ.id}
                   className={`group flex items-center gap-2.5 px-5 py-2.5 cursor-pointer transition-colors border-b border-white/[0.03] last:border-b-0 ${
-                    isOverdue ? 'bg-red-500/[0.03] hover:bg-red-500/[0.06]' : 'hover:bg-white/[0.025]'
+                    isOverdue
+                      ? 'bg-red-500/[0.03] hover:bg-red-500/[0.06]'
+                      : 'hover:bg-white/[0.025]'
                   } ${isPaid ? 'opacity-60' : ''}`}
-                  style={{ animation: `fadeUp 0.3s ease both`, animationDelay: `${0.04 * (idx + 1)}s` }}
                 >
-                  {/* Overdue pulse */}
                   {isOverdue && (
                     <div className="w-[5px] h-[5px] rounded-full bg-red-400 shrink-0 animate-pulse" />
                   )}
 
-                  {/* Icon */}
                   <div className="w-[30px] h-[30px] bg-[#1a1a2a] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
-                    {occ.categoryEmoji || '🔁'}
+                    🔁
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium text-white truncate">{occ.title}</div>
+                    <div className="text-[12px] font-medium text-white truncate">{occ.name}</div>
                     <div className="text-[9px] text-white/25 flex items-center gap-1.5 mt-0.5">
                       <span>{occ.dueDate}</span>
-                      <span>·</span>
-                      <span className="text-[8px] tracking-[0.05em] uppercase bg-white/[0.04] border border-white/[0.06] px-1.5 py-px rounded">
-                        {occ.categoryName}
-                      </span>
-                      <span className={`text-[8px] px-1.5 py-px rounded ${getDaysChipClass(occ.daysDelta)}`}>
-                        {getDaysLabel(occ.daysDelta)}
+                      {occ.categoryName && (
+                        <>
+                          <span>·</span>
+                          <span className="text-[8px] tracking-[0.05em] uppercase bg-white/[0.04] border border-white/[0.06] px-1.5 py-px rounded">
+                            {occ.categoryName}
+                          </span>
+                        </>
+                      )}
+                      <span className={`text-[8px] px-1.5 py-px rounded ${getDaysChipClass(daysDelta)}`}>
+                        {getDaysLabel(daysDelta)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Mark paid button (hover) */}
                   {canMarkPaid && (
                     <button
                       onClick={(e) => {
@@ -253,22 +333,25 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
                     </button>
                   )}
 
-                  {/* Amount + badge */}
                   <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                    <div className={`font-bold text-[13px] tracking-[-0.01em] ${
-                      isOverdue ? 'text-red-400' : isPaid ? 'text-green-400' : 'text-purple-400'
-                    }`}>
-                      {formatCurrency(occ.expectedAmount, lang)}
+                    <div
+                      className={`font-bold text-[13px] tracking-[-0.01em] ${
+                        isOverdue ? 'text-red-400' : isPaid ? 'text-green-400' : 'text-purple-400'
+                      }`}
+                    >
+                      {formatCurrency(occ.amount, lang)}
                     </div>
-                    <span className={`text-[7px] tracking-[0.08em] uppercase px-1.5 py-px rounded ${
-                      isOverdue
-                        ? 'bg-red-500/[0.12] text-red-400 border border-red-500/25'
-                        : isPaid
+                    <span
+                      className={`text-[7px] tracking-[0.08em] uppercase px-1.5 py-px rounded ${
+                        isOverdue
+                          ? 'bg-red-500/[0.12] text-red-400 border border-red-500/25'
+                          : isPaid
                           ? 'bg-green-400/10 text-green-400 border border-green-400/20'
                           : isSkipped
-                            ? 'bg-white/[0.04] text-white/25 border border-white/[0.06]'
-                            : 'bg-purple-500/[0.12] text-purple-400 border border-purple-500/25'
-                    }`}>
+                          ? 'bg-white/[0.04] text-white/25 border border-white/[0.06]'
+                          : 'bg-purple-500/[0.12] text-purple-400 border border-purple-500/25'
+                      }`}
+                    >
                       {occ.status}
                     </span>
                   </div>
@@ -278,18 +361,18 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
           )}
         </div>
 
-        {/* Footer */}
-        {(progress?.totalCount ?? 0) > 5 && (
+        {/* Footer: overflow items beyond what's shown */}
+        {overflowCount > 0 && (
           <a
             href="/transactions/fixed-payments"
             className="block px-5 py-2 text-[9px] text-white/25 text-center border-t border-white/[0.055] cursor-pointer tracking-[0.06em] hover:text-purple-400 transition-colors"
           >
-            + {(progress.totalCount - 5)} {t('fixedPayments.moreThisCycle')}
+            + {overflowCount} {t('fixedPayments.moreThisCycle')}
           </a>
         )}
       </div>
 
-      {/* Mark as Paid confirmation modal */}
+      {/* Mark as Paid confirmation */}
       {markPaidOccurrence && !showTransactionModal && (
         <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-3 sm:p-6">
           <div
@@ -299,10 +382,7 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
               animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both',
             }}
           >
-            {/* Top glow */}
             <div className="absolute top-0 left-[10%] right-[10%] h-px bg-purple-400/45" />
-
-            {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
               <div className="text-lg font-bold tracking-[-0.3px]">
                 {t('fixedPayments.markAsPaid')}
@@ -314,31 +394,25 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
                 <X className="w-3 h-3" />
               </button>
             </div>
-
-            {/* Preview card */}
             <div className="px-4 sm:px-7 py-5">
               <div className="flex items-center gap-3 bg-[#131325] border border-white/[0.06] rounded-xl p-4">
                 <div className="w-10 h-10 bg-[#1a1a2a] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
-                  {markPaidOccurrence.categoryEmoji || '🔁'}
+                  🔁
                 </div>
                 <div className="flex-1">
-                  <div className="text-[14px] font-semibold">{markPaidOccurrence.title}</div>
+                  <div className="text-[14px] font-semibold">{markPaidOccurrence.name}</div>
                   <div className="text-[11px] text-white/25 mt-0.5">
                     {t('fixedPayments.dueOn', { date: markPaidOccurrence.dueDate })}
                   </div>
                 </div>
                 <div className="text-[16px] font-bold text-purple-400">
-                  {formatCurrency(markPaidOccurrence.expectedAmount, lang)}
+                  {formatCurrency(markPaidOccurrence.amount, lang)}
                 </div>
               </div>
-
-              {/* Info note */}
               <p className="text-[12px] text-white/25 mt-4 leading-relaxed">
                 {t('fixedPayments.markPaidInfo')}
               </p>
             </div>
-
-            {/* Footer */}
             <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
               <button
                 onClick={() => setMarkPaidOccurrence(null)}
@@ -362,14 +436,12 @@ export default function FixedTransactionsTile({ tileData, loading, error }) {
         </div>
       )}
 
-      {/* Transaction Modal for mark-as-paid */}
       {showTransactionModal && (
         <TransactionModal
           isOpen={showTransactionModal}
           onClose={handleCloseAll}
           onSave={handleTransactionSave}
           prefill={transactionPrefill}
-          onPrefillSaved={() => { if (onRefresh) onRefresh(); }}
           categories={categories}
           loading={false}
         />

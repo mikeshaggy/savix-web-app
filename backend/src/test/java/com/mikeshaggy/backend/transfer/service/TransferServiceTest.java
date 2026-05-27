@@ -167,7 +167,44 @@ class TransferServiceTest {
                             eq(toWallet),
                             eq(new BigDecimal("750.00")),
                             eq(50L),
+                            eq(DATE),
                             eq(DATE));
+        }
+
+        @Test
+        void updateDateOnlyPassesOldAndNewDatesToLedgerAdjustment() {
+            // given
+            LocalDate newDate = DATE.plusDays(5);
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(1, 2, new BigDecimal("500.00"), newDate, "Moved date");
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+            when(transferRepository.save(any(Transfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            transferService.updateTransfer(50L, request, USER_ID);
+
+            // then
+            verify(walletBalanceService)
+                    .adjustForTransferEdit(
+                            eq(fromWallet),
+                            eq(toWallet),
+                            eq(new BigDecimal("500.00")),
+                            eq(fromWallet),
+                            eq(toWallet),
+                            eq(new BigDecimal("500.00")),
+                            eq(50L),
+                            eq(DATE),
+                            eq(newDate));
         }
 
         @Test
@@ -210,6 +247,7 @@ class TransferServiceTest {
                             eq(toWallet),
                             eq(new BigDecimal("500.00")),
                             eq(50L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -253,6 +291,7 @@ class TransferServiceTest {
                             eq(newTo),
                             eq(new BigDecimal("500.00")),
                             eq(50L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -331,6 +370,7 @@ class TransferServiceTest {
                             eq(newTo),
                             eq(new BigDecimal("500.00")),
                             eq(50L),
+                            eq(DATE),
                             eq(DATE));
         }
 
@@ -386,6 +426,7 @@ class TransferServiceTest {
                             eq(newTo),
                             eq(new BigDecimal("1200.00")),
                             eq(50L),
+                            eq(DATE),
                             eq(DATE));
         }
 

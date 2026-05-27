@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,11 +42,13 @@ public class WalletBalanceService {
 
     public void adjustForTransactionEdit(Wallet oldWallet, BigDecimal oldAmount, CategoryType oldType,
                                          Wallet newWallet, BigDecimal newAmount, CategoryType newType,
-                                         Long transactionId, LocalDate newTransactionDate) {
+                                         Long transactionId, LocalDate oldTransactionDate,
+                                         LocalDate newTransactionDate) {
         BigDecimal oldSigned = resolveSignedAmount(oldAmount, oldType);
         BigDecimal newSigned = resolveSignedAmount(newAmount, newType);
 
         boolean walletChanged = !oldWallet.getId().equals(newWallet.getId());
+        boolean dateChanged = !Objects.equals(oldTransactionDate, newTransactionDate);
 
         if (walletChanged) {
             walletEntryService.createEntry(oldWallet, oldSigned.negate(), newTransactionDate,
@@ -58,6 +61,12 @@ public class WalletBalanceService {
             log.debug("Transaction #{} moved from wallet {} to wallet {}: reverted {} on old, applied {} on new",
                     transactionId, oldWallet.getId(), newWallet.getId(), oldSigned.negate(), newSigned);
         } else {
+            boolean sourceEntryMoved = false;
+            if (dateChanged) {
+                sourceEntryMoved = walletEntryService.moveSourceEntryDate(
+                        oldWallet, SourceType.TRANSACTION, transactionId, newTransactionDate);
+            }
+
             BigDecimal delta = newSigned.subtract(oldSigned);
             if (delta.compareTo(BigDecimal.ZERO) != 0) {
                 walletEntryService.createEntry(oldWallet, delta, newTransactionDate,
@@ -66,6 +75,11 @@ public class WalletBalanceService {
 
                 log.debug("Transaction #{} adjusted on wallet {}: delta {}",
                         transactionId, oldWallet.getId(), delta);
+            } else if (sourceEntryMoved) {
+                recalculateWallet(oldWallet);
+
+                log.debug("Transaction #{} moved on wallet {} from {} to {}",
+                        transactionId, oldWallet.getId(), oldTransactionDate, newTransactionDate);
             } else {
                 log.debug("Transaction #{} edited with no balance effect, skipping adjustment",
                         transactionId);
@@ -102,9 +116,10 @@ public class WalletBalanceService {
 
     public void adjustForTransferEdit(Wallet oldFromWallet, Wallet oldToWallet, BigDecimal oldAmount,
                                       Wallet newFromWallet, Wallet newToWallet, BigDecimal newAmount,
-                                      Long transferId, LocalDate newTransferDate) {
+                                      Long transferId, LocalDate oldTransferDate, LocalDate newTransferDate) {
         boolean fromChanged = !oldFromWallet.getId().equals(newFromWallet.getId());
         boolean toChanged = !oldToWallet.getId().equals(newToWallet.getId());
+        boolean dateChanged = !Objects.equals(oldTransferDate, newTransferDate);
         Set<Long> walletIdsToRecalculate = new LinkedHashSet<>();
 
         if (fromChanged) {
@@ -114,6 +129,11 @@ public class WalletBalanceService {
             createAdjustmentEntry(newFromWallet, newAmount.negate(), newTransferDate, transferId);
             walletIdsToRecalculate.add(newFromWallet.getId().longValue());
         } else {
+            if (dateChanged && walletEntryService.moveSourceEntryDate(
+                    oldFromWallet, SourceType.TRANSFER, transferId, newTransferDate)) {
+                walletIdsToRecalculate.add(oldFromWallet.getId().longValue());
+            }
+
             BigDecimal fromDelta = oldAmount.subtract(newAmount);
             if (fromDelta.compareTo(BigDecimal.ZERO) != 0) {
                 createAdjustmentEntry(oldFromWallet, fromDelta, newTransferDate, transferId);
@@ -128,6 +148,11 @@ public class WalletBalanceService {
             createAdjustmentEntry(newToWallet, newAmount, newTransferDate, transferId);
             walletIdsToRecalculate.add(newToWallet.getId().longValue());
         } else {
+            if (dateChanged && walletEntryService.moveSourceEntryDate(
+                    oldToWallet, SourceType.TRANSFER, transferId, newTransferDate)) {
+                walletIdsToRecalculate.add(oldToWallet.getId().longValue());
+            }
+
             BigDecimal toDelta = newAmount.subtract(oldAmount);
             if (toDelta.compareTo(BigDecimal.ZERO) != 0) {
                 createAdjustmentEntry(oldToWallet, toDelta, newTransferDate, transferId);

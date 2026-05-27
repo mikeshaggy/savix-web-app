@@ -3,8 +3,8 @@ package com.mikeshaggy.backend.fixedpayment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mikeshaggy.backend.category.domain.Category;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
@@ -126,6 +126,36 @@ class FixedPaymentTileAssemblerTest {
         }
 
         @Test
+        void assembleWithAsOfDateUsesProvidedDateForRemainingAndUpcoming() {
+            // given
+            FixedPayment fp = fixedPayment(1, "Rent", "1000.00");
+            FixedPaymentOccurrence beforeAsOf =
+                    occurrence(1L, fp, OccurrenceStatus.PENDING, "1000.00", LocalDate.of(2026, 3, 12));
+            FixedPaymentOccurrence afterAsOf =
+                    occurrence(2L, fp, OccurrenceStatus.PENDING, "1000.00", LocalDate.of(2026, 3, 20));
+
+            // when
+            FixedTransactionsTileDto result =
+                    assembler.assemble(
+                            PERIOD,
+                            List.of(beforeAsOf, afterAsOf),
+                            List.of(),
+                            new BigDecimal("4000.00"),
+                            new BigDecimal("5000.00"),
+                            1,
+                            LocalDate.of(2026, 3, 15));
+
+            // then
+            assertThat(result.summary().plannedAmount()).isEqualByComparingTo("2000.00");
+            assertThat(result.summary().remainingAmount()).isEqualByComparingTo("1000.00");
+            assertThat(result.summary().remainingCount()).isEqualTo(1);
+            assertThat(result.upcoming()).hasSize(1);
+            assertThat(result.upcoming().getFirst().dueDate()).isEqualTo(LocalDate.of(2026, 3, 20));
+            assertThat(result.upcoming().getFirst().daysDelta()).isEqualTo(5);
+            assertThat(result.balanceAfterFixed()).isEqualByComparingTo("4000.00");
+        }
+
+        @Test
         void overdueCountAndAmountFromSeparateList() {
             // given
             FixedPayment fp = fixedPayment(1, "Insurance", "200.00");
@@ -166,7 +196,24 @@ class FixedPaymentTileAssemblerTest {
 
             // 1000 / 4000 * 100 = 25.00
             // then
-            assertThat(result.summary().fixedRatio()).isEqualTo(25.00);
+            assertThat(result.summary().fixedRatio()).isEqualByComparingTo("25.00");
+        }
+
+        @Test
+        void fixedRatio_nonEvenDivisionIsRoundedHalfUp() {
+            // given: planned = 1, income = 3 → 1/3 * 100 = 33.333... rounds to 33.33
+            FixedPayment fp = fixedPayment(1, "Subscription", "1.00");
+            FixedPaymentOccurrence occ =
+                    occurrence(1L, fp, OccurrenceStatus.PENDING, "1.00", LocalDate.of(2026, 3, 15));
+
+            // when
+            FixedTransactionsTileDto result =
+                    assembler.assemble(
+                            PERIOD, List.of(occ), List.of(), new BigDecimal("3.00"),
+                            new BigDecimal("5000.00"), 1);
+
+            // then — no floating-point error, exactly 33.33
+            assertThat(result.summary().fixedRatio()).isEqualByComparingTo("33.33");
         }
 
         @Test
@@ -182,7 +229,7 @@ class FixedPaymentTileAssemblerTest {
                             PERIOD, List.of(occ), List.of(), BigDecimal.ZERO, new BigDecimal("5000.00"), 1);
 
             // then
-            assertThat(result.summary().fixedRatio()).isEqualTo(0.0);
+            assertThat(result.summary().fixedRatio()).isEqualByComparingTo("0");
         }
     }
 
@@ -267,7 +314,19 @@ class FixedPaymentTileAssemblerTest {
             assertThat(result.progress().paidCount()).isEqualTo(1);
             assertThat(result.progress().totalCount()).isEqualTo(3);
             // 1/3 * 100 = 33.33
-            assertThat(result.progress().paidPct()).isEqualTo(33.33);
+            assertThat(result.progress().paidPct()).isEqualByComparingTo("33.33");
+        }
+
+        @Test
+        void paidPct_emptyPeriodReturnsZero() {
+            // given: no occurrences in period at all
+            FixedTransactionsTileDto result =
+                    assembler.assemble(
+                            PERIOD, List.of(), List.of(),
+                            new BigDecimal("4000.00"), new BigDecimal("5000.00"), 0);
+
+            // then
+            assertThat(result.progress().paidPct()).isEqualByComparingTo("0");
         }
 
         @Test

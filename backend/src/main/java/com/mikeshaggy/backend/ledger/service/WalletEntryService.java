@@ -91,4 +91,29 @@ public class WalletEntryService {
 
         return savedEntry;
     }
+
+    @Transactional
+    public boolean moveSourceEntryDate(Wallet wallet, SourceType sourceType, Long sourceId, LocalDate newEntryDate) {
+        return walletEntryRepository
+                .findFirstByWalletIdAndSourceTypeAndSourceIdOrderByIdAsc(wallet.getId(), sourceType, sourceId)
+                .map(entry -> {
+                    if (entry.getEntryDate().equals(newEntryDate)) {
+                        return false;
+                    }
+
+                    LocalDate oldEntryDate = entry.getEntryDate();
+                    entry.setEntryDate(newEntryDate);
+                    walletEntryRepository.save(entry);
+
+                    log.info("Moved wallet entry (id: {}) for wallet {} from {} to {}, source: {} #{}",
+                            entry.getId(), wallet.getId(), oldEntryDate, newEntryDate, sourceType, sourceId);
+
+                    return true;
+                })
+                .orElseGet(() -> {
+                    log.warn("Could not move missing wallet entry for wallet {}, source: {} #{}",
+                            wallet.getId(), sourceType, sourceId);
+                    return false;
+                });
+    }
 }

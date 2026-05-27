@@ -82,6 +82,29 @@ public class FixedPaymentOccurrenceGenerationService {
         }
     }
 
+    @Transactional
+    public void deletePendingOccurrencesAfterActiveTo(UUID userId) {
+        List<FixedPayment> activePayments = fixedPaymentRepository
+                .findAllActiveByUserId(userId, LocalDate.now(clock));
+
+        int deletedCount = 0;
+        for (FixedPayment fp : activePayments) {
+            if (fp.getActiveTo() == null) {
+                continue;
+            }
+
+            List<FixedPaymentOccurrence> stalePending = occurrenceRepository
+                    .findPendingAfterActiveTo(fp.getId(), fp.getActiveTo());
+            occurrenceRepository.deleteAll(stalePending);
+            deletedCount += stalePending.size();
+        }
+
+        if (deletedCount > 0) {
+            log.info("Fixed payment stale pending occurrences removed: userId={}, deletedOccurrences={}",
+                    userId, deletedCount);
+        }
+    }
+
     private int generateOccurrences(FixedPayment fp, LocalDate from, LocalDate to) {
         List<LocalDate> dueDates = computeDueDates(fp.getAnchorDate(), fp.getCycle(), from, to);
         if (dueDates.isEmpty()) {

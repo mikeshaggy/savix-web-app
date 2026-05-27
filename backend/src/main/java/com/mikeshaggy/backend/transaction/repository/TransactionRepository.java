@@ -193,48 +193,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("importanceEmpty") boolean importanceEmpty);
 
     @Query("""
-        SELECT YEAR(t.transactionDate) AS year,
-               MONTH(t.transactionDate) AS month,
-               c.type AS type,
-               COALESCE(SUM(t.amount), 0) AS amount
-        FROM Transaction t
-        JOIN t.category c
-        WHERE t.wallet.id = :walletId
-        AND t.wallet.user.id = :userId
-        AND t.transactionDate >= :from
-        AND t.transactionDate < :to
-        GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate), c.type
-    """)
-    List<MonthlyTotalsProjection> findMonthlyTotalsByWalletUserAndDateRange(
-            @Param("walletId") Integer walletId,
-            @Param("userId") UUID userId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to);
-
-    @Query("""
-        SELECT YEAR(t.transactionDate) AS year,
-               MONTH(t.transactionDate) AS month,
-               c.id AS categoryId,
-               c.name AS name,
-               c.emoji AS emoji,
-               COALESCE(SUM(t.amount), 0) AS amount
-        FROM Transaction t
-        JOIN t.category c
-        WHERE t.wallet.id = :walletId
-        AND t.wallet.user.id = :userId
-        AND t.transactionDate >= :from
-        AND t.transactionDate < :to
-        AND c.type = :type
-        GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate), c.id, c.name, c.emoji
-    """)
-    List<MonthlyCategorySpendProjection> findMonthlyCategorySpendByWalletUserAndDateRange(
-            @Param("walletId") Integer walletId,
-            @Param("userId") UUID userId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("type") CategoryType type);
-
-    @Query("""
         SELECT c.id AS categoryId,
                c.name AS name,
                c.emoji AS emoji,
@@ -258,41 +216,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("type") CategoryType type);
 
     @Query("""
-        SELECT YEAR(t.transactionDate) AS year,
-               MONTH(t.transactionDate) AS month,
-               c.id AS categoryId,
-               c.name AS name,
-               c.emoji AS emoji,
-               COALESCE(SUM(t.amount), 0) AS amount
-        FROM Transaction t
-        JOIN t.category c
-        WHERE t.wallet.id = :walletId
-        AND t.wallet.user.id = :userId
-        AND t.transactionDate >= :from
-        AND t.transactionDate < :to
-        AND c.type = :type
-        AND c.excludedFromTopCategories = false
-        GROUP BY YEAR(t.transactionDate), MONTH(t.transactionDate), c.id, c.name, c.emoji
-    """)
-    List<MonthlyCategorySpendProjection> findIncludedMonthlyCategorySpendByWalletUserAndDateRange(
-            @Param("walletId") Integer walletId,
-            @Param("userId") UUID userId,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to,
-            @Param("type") CategoryType type);
-
-    @Query("""
-        SELECT MIN(t.transactionDate) FROM Transaction t
-        WHERE t.wallet.id = :walletId
-        AND t.wallet.user.id = :userId
-        AND t.transactionDate < :before
-    """)
-    Optional<LocalDate> findEarliestTransactionDateBefore(
-            @Param("walletId") Integer walletId,
-            @Param("userId") UUID userId,
-            @Param("before") LocalDate before);
-
-    @Query("""
         SELECT COUNT(t) FROM Transaction t
         WHERE t.wallet.id = :walletId
         AND t.wallet.user.id = :userId
@@ -303,6 +226,37 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
+
+    @Query("""
+        SELECT t.transactionDate AS date,
+               COUNT(t) AS transactionCount
+        FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.user.id = :userId
+        AND (:walletId IS NULL OR t.wallet.id = :walletId)
+        AND (:typesEmpty = true OR c.type IN :types)
+        AND (:categoryIdsEmpty = true OR c.id IN :categoryIds)
+        AND (:importancesEmpty = true OR t.importance IN :importances)
+        AND (:startDate IS NULL OR t.transactionDate >= :startDate)
+        AND (:endDate IS NULL OR t.transactionDate <= :endDate)
+        AND (:queryBlank = true
+            OR LOWER(t.title) LIKE :query
+            OR LOWER(COALESCE(t.notes, '')) LIKE :query)
+        GROUP BY t.transactionDate
+    """)
+    List<TransactionDateCountProjection> findTransactionDateCounts(
+            @Param("userId") UUID userId,
+            @Param("walletId") Integer walletId,
+            @Param("types") List<CategoryType> types,
+            @Param("typesEmpty") boolean typesEmpty,
+            @Param("categoryIds") List<Integer> categoryIds,
+            @Param("categoryIdsEmpty") boolean categoryIdsEmpty,
+            @Param("importances") List<Importance> importances,
+            @Param("importancesEmpty") boolean importancesEmpty,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("query") String query,
+            @Param("queryBlank") boolean queryBlank);
 
     @Override
     @EntityGraph(attributePaths = {"wallet", "category"})

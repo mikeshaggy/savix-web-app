@@ -372,8 +372,6 @@ export const categoryApi = {
 };
 
 export const transactionApi = {
-  getAllTransactions: () => get('/transactions'),
-
   getTransactions: (params = {}) => {
     const searchParams = new URLSearchParams();
     
@@ -402,8 +400,6 @@ export const transactionApi = {
 
   getTransactionById: (id) => get(`/transactions/${id}`),
 
-  getTransactionsByWalletId: (walletId) => get(`/transactions/wallet/${walletId}`),
-
   createTransaction: (transactionData) => post('/transactions', transactionData),
 
   updateTransaction: (id, transactionData) => put(`/transactions/${id}`, transactionData),
@@ -427,16 +423,15 @@ export const csvImportApi = {
 };
 
 export const dashboardApi = {
-  getDashboard: async (walletId, startDate, endDate, periodType = 'PAY_CYCLE') => {
+  getDashboardSummary: (walletId, params = {}) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
     }
-    
-    const params = new URLSearchParams({ walletId, periodType });
-    if (startDate) params.append('startDate', startDate);
-    if (endDate) params.append('endDate', endDate);
-    
-    return get(`/dashboard?${params.toString()}`);
+    const searchParams = new URLSearchParams({ periodType: params.periodType || 'PAY_CYCLE' });
+    if (params.startDate) searchParams.set('startDate', params.startDate);
+    if (params.endDate) searchParams.set('endDate', params.endDate);
+    if (params.asOfDate) searchParams.set('asOfDate', params.asOfDate);
+    return get(`/wallets/${walletId}/dashboard/summary?${searchParams.toString()}`);
   },
 };
 
@@ -449,11 +444,7 @@ export const fixedPaymentApi = {
 };
 
 export const transferApi = {
-  getAllTransfers: () => get('/transfers'),
-
   getTransferById: (id) => get(`/transfers/${id}`),
-
-  getTransfersByWalletId: (walletId) => get(`/transfers/wallet/${walletId}`),
 
   createTransfer: (transferData) => post('/transfers', transferData),
 
@@ -462,21 +453,7 @@ export const transferApi = {
   deleteTransfer: (id) => del(`/transfers/${id}`),
 };
 
-export const walletEntryApi = {
-  getWalletBalanceHistory: (walletId) => get(`/wallet-entries/wallet/${walletId}`),
-};
-
 export const analyticsApi = {
-  getPeriodOverview: (walletId, periodType, startDate, endDate) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
-    }
-    const params = new URLSearchParams({ periodType });
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    return get(`/wallets/${walletId}/analytics/overview?${params.toString()}`);
-  },
-
   getProjections: (walletId, periodType, startDate, endDate) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
@@ -515,16 +492,6 @@ export const analyticsApi = {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     return get(`/wallets/${walletId}/analytics/heatmap?${params.toString()}`);
-  },
-
-  getBaseline: (walletId, periodType, startDate, endDate) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
-    }
-    const params = new URLSearchParams({ periodType });
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    return get(`/wallets/${walletId}/analytics/baseline?${params.toString()}`);
   },
 
   /**

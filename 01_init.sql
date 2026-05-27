@@ -105,6 +105,8 @@ CREATE INDEX idx_transactions_category ON transactions(category_id);
 CREATE INDEX idx_transactions_date ON transactions(transaction_date);
 CREATE INDEX idx_transactions_wallet_date ON transactions(wallet_id, transaction_date);
 CREATE INDEX idx_transactions_wallet_date_category ON transactions(wallet_id, transaction_date, category_id);
+CREATE INDEX idx_transactions_wallet_category_date ON transactions(wallet_id, category_id, transaction_date DESC);
+CREATE INDEX idx_transactions_wallet_date_importance ON transactions(wallet_id, transaction_date, importance);
 
 -- categories
 CREATE INDEX idx_categories_user ON categories(user_id);
@@ -119,13 +121,18 @@ CREATE INDEX idx_transfers_date ON transfers(transfer_date);
 -- wallet entries
 CREATE INDEX idx_wallet_entries_wallet_date ON wallet_entries(wallet_id, entry_date);
 CREATE INDEX idx_wallet_entries_source ON wallet_entries(source_type, source_id);
+CREATE INDEX idx_wallet_entries_wallet_history_order
+    ON wallet_entries(wallet_id, entry_date DESC, created_at DESC, id DESC);
 
 -- fixed payments
 CREATE INDEX idx_fixed_payments_wallet ON fixed_payments(wallet_id);
+CREATE INDEX idx_fixed_payments_wallet_active_to ON fixed_payments(wallet_id, active_to);
 
 -- fixed payment occurrences
 CREATE INDEX idx_fpo_payment_date_status
     ON fixed_payment_occurrences(fixed_payment_id, due_date, status);
+CREATE INDEX idx_fpo_payment_status_date
+    ON fixed_payment_occurrences(fixed_payment_id, status, due_date);
 CREATE INDEX idx_fpo_transaction
     ON fixed_payment_occurrences(transaction_id)
     WHERE transaction_id IS NOT NULL;

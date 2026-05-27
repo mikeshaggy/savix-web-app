@@ -177,6 +177,7 @@ class WalletBalanceServiceTest {
                     new BigDecimal("150.00"),
                     CategoryType.EXPENSE,
                     10L,
+                    DATE,
                     DATE);
 
             // then
@@ -199,6 +200,7 @@ class WalletBalanceServiceTest {
                     new BigDecimal("100.00"),
                     CategoryType.EXPENSE,
                     10L,
+                    DATE,
                     DATE);
 
             // then
@@ -221,11 +223,60 @@ class WalletBalanceServiceTest {
                     new BigDecimal("100.00"),
                     CategoryType.EXPENSE,
                     10L,
+                    DATE,
                     DATE);
 
             // then
             verifyNoInteractions(walletEntryService);
             verifyNoInteractions(walletEntryBalanceHistoryService);
+        }
+
+        @Test
+        void sameWallet_dateOnlyChangeMovesSourceEntryForwardAndRecalculatesLedger() {
+            Wallet wallet = wallet(1, "500.00");
+            LocalDate newDate = DATE.plusDays(5);
+
+            when(walletEntryService.moveSourceEntryDate(wallet, SourceType.TRANSACTION, 10L, newDate))
+                    .thenReturn(true);
+
+            walletBalanceService.adjustForTransactionEdit(
+                    wallet,
+                    new BigDecimal("100.00"),
+                    CategoryType.EXPENSE,
+                    wallet,
+                    new BigDecimal("100.00"),
+                    CategoryType.EXPENSE,
+                    10L,
+                    DATE,
+                    newDate);
+
+            verify(walletEntryService).moveSourceEntryDate(wallet, SourceType.TRANSACTION, 10L, newDate);
+            verify(walletEntryService, never())
+                    .createEntry(any(), any(), any(), any(), any());
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(1L);
+        }
+
+        @Test
+        void sameWallet_dateOnlyChangeMovesSourceEntryBackwardAndRecalculatesLedger() {
+            Wallet wallet = wallet(1, "500.00");
+            LocalDate oldDate = DATE.plusDays(5);
+
+            when(walletEntryService.moveSourceEntryDate(wallet, SourceType.TRANSACTION, 10L, DATE))
+                    .thenReturn(true);
+
+            walletBalanceService.adjustForTransactionEdit(
+                    wallet,
+                    new BigDecimal("100.00"),
+                    CategoryType.EXPENSE,
+                    wallet,
+                    new BigDecimal("100.00"),
+                    CategoryType.EXPENSE,
+                    10L,
+                    oldDate,
+                    DATE);
+
+            verify(walletEntryService).moveSourceEntryDate(wallet, SourceType.TRANSACTION, 10L, DATE);
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(1L);
         }
 
         @Test
@@ -243,6 +294,7 @@ class WalletBalanceServiceTest {
                     new BigDecimal("300.00"),
                     CategoryType.EXPENSE,
                     10L,
+                    DATE,
                     DATE);
 
             // then
@@ -269,6 +321,7 @@ class WalletBalanceServiceTest {
                     new BigDecimal("150.00"),
                     CategoryType.EXPENSE,
                     10L,
+                    DATE,
                     DATE);
 
             // then
@@ -340,13 +393,55 @@ class WalletBalanceServiceTest {
 
             // when
             walletBalanceService.adjustForTransferEdit(
-                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("300.00"), 5L, DATE);
+                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("300.00"), 5L, DATE, DATE);
 
             // then
             verify(walletEntryService)
                     .createEntry(from, new BigDecimal("-50.00"), DATE, SourceType.ADJUSTMENT, 5L);
             verify(walletEntryService)
                     .createEntry(to, new BigDecimal("50.00"), DATE, SourceType.ADJUSTMENT, 5L);
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(1L);
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(2L);
+        }
+
+        @Test
+        void sameWallets_dateOnlyChangeMovesBothTransferEntriesForwardAndRecalculatesBothLedgers() {
+            Wallet from = wallet(1, "750.00");
+            Wallet to = wallet(2, "750.00");
+            LocalDate newDate = DATE.plusDays(5);
+
+            when(walletEntryService.moveSourceEntryDate(from, SourceType.TRANSFER, 5L, newDate))
+                    .thenReturn(true);
+            when(walletEntryService.moveSourceEntryDate(to, SourceType.TRANSFER, 5L, newDate))
+                    .thenReturn(true);
+
+            walletBalanceService.adjustForTransferEdit(
+                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("250.00"), 5L, DATE, newDate);
+
+            verify(walletEntryService).moveSourceEntryDate(from, SourceType.TRANSFER, 5L, newDate);
+            verify(walletEntryService).moveSourceEntryDate(to, SourceType.TRANSFER, 5L, newDate);
+            verify(walletEntryService, never())
+                    .createEntry(any(), any(), any(), any(), any());
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(1L);
+            verify(walletEntryBalanceHistoryService).recalculateWalletLedger(2L);
+        }
+
+        @Test
+        void sameWallets_dateOnlyChangeMovesBothTransferEntriesBackwardAndRecalculatesBothLedgers() {
+            Wallet from = wallet(1, "750.00");
+            Wallet to = wallet(2, "750.00");
+            LocalDate oldDate = DATE.plusDays(5);
+
+            when(walletEntryService.moveSourceEntryDate(from, SourceType.TRANSFER, 5L, DATE))
+                    .thenReturn(true);
+            when(walletEntryService.moveSourceEntryDate(to, SourceType.TRANSFER, 5L, DATE))
+                    .thenReturn(true);
+
+            walletBalanceService.adjustForTransferEdit(
+                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("250.00"), 5L, oldDate, DATE);
+
+            verify(walletEntryService).moveSourceEntryDate(from, SourceType.TRANSFER, 5L, DATE);
+            verify(walletEntryService).moveSourceEntryDate(to, SourceType.TRANSFER, 5L, DATE);
             verify(walletEntryBalanceHistoryService).recalculateWalletLedger(1L);
             verify(walletEntryBalanceHistoryService).recalculateWalletLedger(2L);
         }
@@ -367,6 +462,7 @@ class WalletBalanceServiceTest {
                     oldTo,
                     new BigDecimal("300.00"),
                     5L,
+                    DATE,
                     DATE);
 
             // then
@@ -397,6 +493,7 @@ class WalletBalanceServiceTest {
                     newTo,
                     new BigDecimal("300.00"),
                     5L,
+                    DATE,
                     DATE);
 
             // then
@@ -428,6 +525,7 @@ class WalletBalanceServiceTest {
                     newTo,
                     new BigDecimal("300.00"),
                     5L,
+                    DATE,
                     DATE);
 
             // then
@@ -453,7 +551,7 @@ class WalletBalanceServiceTest {
 
             // when
             walletBalanceService.adjustForTransferEdit(
-                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("250.00"), 5L, DATE);
+                    from, to, new BigDecimal("250.00"), from, to, new BigDecimal("250.00"), 5L, DATE, DATE);
 
             // then
             verifyNoInteractions(walletEntryService);

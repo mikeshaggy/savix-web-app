@@ -1,6 +1,5 @@
 package com.mikeshaggy.backend.analytics.api;
 
-import com.mikeshaggy.backend.analytics.comparison.BaselineComparisonDto;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownDto;
 import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonResponseDto;
@@ -10,19 +9,16 @@ import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
 import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryDto;
 import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryService;
-import com.mikeshaggy.backend.analytics.overview.PeriodOverviewDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
-import com.mikeshaggy.backend.analytics.comparison.BaselineService;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapService;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownService;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
-import com.mikeshaggy.backend.analytics.overview.PeriodOverviewService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
-import com.mikeshaggy.backend.dashboard.dto.PeriodType;
-import com.mikeshaggy.backend.dashboard.service.PeriodService;
+import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -46,12 +42,10 @@ public class AnalyticsController {
 
     private final PeriodService periodService;
     private final AnalyticsSummaryService analyticsSummaryService;
-    private final PeriodOverviewService periodOverviewService;
     private final SpendingProjectionService spendingProjectionService;
     private final CategoryBreakdownService categoryBreakdownService;
     private final ImportanceBreakdownService importanceBreakdownService;
     private final HeatmapService heatmapService;
-    private final BaselineService baselineService;
     private final CycleComparisonService cycleComparisonService;
     private final InsightEngine insightEngine;
     private final CurrentUserProvider currentUserProvider;
@@ -75,18 +69,6 @@ public class AnalyticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         UUID userId = currentUserProvider.getCurrentUserId();
         AnalyticsSummaryDto response = analyticsSummaryService.getSummary(
-                walletId, userId, periodType, startDate, endDate);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/overview")
-    public ResponseEntity<PeriodOverviewDto> getPeriodOverview(
-            @PathVariable Integer walletId,
-            @RequestParam(defaultValue = "PAY_CYCLE") PeriodType periodType,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        UUID userId = currentUserProvider.getCurrentUserId();
-        PeriodOverviewDto response = periodOverviewService.getPeriodOverview(
                 walletId, userId, periodType, startDate, endDate);
         return ResponseEntity.ok(response);
     }
@@ -138,17 +120,6 @@ public class AnalyticsController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/baseline")
-    public ResponseEntity<BaselineComparisonDto> getBaseline(
-            @PathVariable Integer walletId,
-            @RequestParam(defaultValue = "PAY_CYCLE") PeriodType periodType,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        UUID userId = currentUserProvider.getCurrentUserId();
-        BaselineComparisonDto response = baselineService.getBaseline(walletId, userId, periodType, startDate, endDate);
-        return ResponseEntity.ok(response);
-    }
-
     @GetMapping("/cycle-comparison")
     public ResponseEntity<CycleComparisonResponseDto> getCycleComparison(
             @PathVariable Integer walletId,
@@ -156,11 +127,10 @@ public class AnalyticsController {
             @RequestParam(required = false) Integer baselineCycles,
             @RequestParam(required = false) List<Integer> categoryIds,
             @RequestParam(defaultValue = "ALL") CategoryAggregationMode categoryMode,
-            @RequestParam(defaultValue = "false") boolean includeIncome,
             @RequestParam(required = false) List<Importance> importance) {
         UUID userId = currentUserProvider.getCurrentUserId();
         CycleComparisonResponseDto response = cycleComparisonService.getCycleComparison(
-                walletId, userId, asOfDate, baselineCycles, categoryIds, categoryMode, includeIncome, importance);
+                walletId, userId, asOfDate, baselineCycles, categoryIds, categoryMode, importance);
         return ResponseEntity.ok(response);
     }
 

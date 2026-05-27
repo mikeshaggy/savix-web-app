@@ -39,9 +39,6 @@ class FixedPaymentOccurrenceServiceTest {
     private FixedPaymentOccurrenceRepository occurrenceRepository;
 
     @Mock
-    private FixedPaymentOccurrenceGenerationService generationService;
-
-    @Mock
     private Clock clock;
 
     @InjectMocks
@@ -84,34 +81,6 @@ class FixedPaymentOccurrenceServiceTest {
                 .cycle(Cycle.MONTHLY)
                 .activeFrom(LocalDate.of(2026, 1, 1))
                 .build();
-    }
-
-    @Nested
-    class PrepareOccurrencesForDashboard {
-
-        @Test
-        void delegatesGenerationAndOverdueMarking() {
-            // given
-            // when
-            fixedPaymentOccurrenceService.prepareOccurrencesForDashboard(USER_ID);
-
-            // then
-            verify(generationService).ensureOccurrencesGenerated(USER_ID);
-            verify(generationService).markOverdueOccurrences(USER_ID);
-        }
-
-        @Test
-        void generationIsCalledBeforeOverdueMarking() {
-            // given
-            var inOrder = inOrder(generationService);
-
-            // when
-            fixedPaymentOccurrenceService.prepareOccurrencesForDashboard(USER_ID);
-            // then
-
-            inOrder.verify(generationService).ensureOccurrencesGenerated(USER_ID);
-            inOrder.verify(generationService).markOverdueOccurrences(USER_ID);
-        }
     }
 
     @Nested

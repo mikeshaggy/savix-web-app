@@ -3,10 +3,11 @@ package com.mikeshaggy.backend.transaction.service;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
-import com.mikeshaggy.backend.dashboard.dto.PeriodDto;
+import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.dto.*;
+import com.mikeshaggy.backend.transaction.repository.TransactionDateCountProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.transaction.repository.TransactionSpecifications;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -51,29 +52,50 @@ public class TransactionService {
         int effectiveSize = normalizeSize(filter.size());
         Sort effectiveSort = normalizeSort(filter.sort());
 
-        List<Transaction> transactions = searchAllTransactions(
+        List<TransactionDateCountProjection> dateCounts = transactionRepository.findTransactionDateCounts(
                 filter.userId(),
                 filter.walletId(),
-                filter.types(),
-                filter.categoryIds(),
-                filter.importances(),
+                safeTypes(filter.types()),
+                filter.types() == null || filter.types().isEmpty(),
+                safeCategoryIds(filter.categoryIds()),
+                filter.categoryIds() == null || filter.categoryIds().isEmpty(),
+                safeImportances(filter.importances()),
+                filter.importances() == null || filter.importances().isEmpty(),
                 filter.startDate(),
                 filter.endDate(),
-                filter.q(),
-                effectiveSort
-        );
+                queryPattern(filter.q()),
+                filter.q() == null || filter.q().isBlank());
+
+        GroupedPaginationPlan plan = paginateDateCounts(
+                dateCounts,
+                effectivePage,
+                effectiveSize,
+                dateDirection(effectiveSort));
+
+        List<Transaction> transactions = plan.dates().isEmpty()
+                ? List.of()
+                : searchTransactionsForDates(
+                        filter.userId(),
+                        filter.walletId(),
+                        filter.types(),
+                        filter.categoryIds(),
+                        filter.importances(),
+                        filter.startDate(),
+                        filter.endDate(),
+                        filter.q(),
+                        plan.dates(),
+                        effectiveSort);
 
         List<TransactionDateGroupResponse> groups = groupTransactionsByDate(transactions);
-        GroupedPaginationResult result = paginateTransactionGroups(groups, effectivePage, effectiveSize);
 
         return new TransactionPageResponse(
-                result.groups(),
-                result.activePage(),
+                groups,
+                plan.activePage(),
                 effectiveSize,
-                result.totalElements(),
-                result.totalPages(),
-                result.activePage() + 1 < result.totalPages(),
-                result.activePage() > 0
+                plan.totalElements(),
+                plan.totalPages(),
+                plan.activePage() + 1 < plan.totalPages(),
+                plan.activePage() > 0
         );
     }
 
@@ -109,7 +131,7 @@ public class TransactionService {
         return Sort.by(Sort.Direction.DESC, "transactionDate").and(Sort.by(direction, field));
     }
 
-    private List<Transaction> searchAllTransactions(
+    private List<Transaction> searchTransactionsForDates(
             UUID userId,
             Integer walletId,
             List<CategoryType> types,
@@ -118,10 +140,11 @@ public class TransactionService {
             LocalDate startDate,
             LocalDate endDate,
             String q,
+            List<LocalDate> dates,
             Sort sort
     ) {
-        Specification<Transaction> spec = TransactionSpecifications.buildSpecification(
-                userId, walletId, types, categoryIds, importances, startDate, endDate, q
+        Specification<Transaction> spec = TransactionSpecifications.buildSpecificationForDates(
+                userId, walletId, types, categoryIds, importances, startDate, endDate, q, dates
         );
         return transactionRepository.findAll(spec, sort);
     }
@@ -137,41 +160,76 @@ public class TransactionService {
                 .toList();
     }
 
-    private GroupedPaginationResult paginateTransactionGroups(
-            List<TransactionDateGroupResponse> groups,
+    private GroupedPaginationPlan paginateDateCounts(
+            List<TransactionDateCountProjection> dateCounts,
             int requestedPage,
-            int pageSize
+            int pageSize,
+            Sort.Direction dateDirection
     ) {
-        long totalRows = groups.stream().mapToLong(g -> g.transactions().size()).sum();
+        List<DateBucket> buckets = dateCounts.stream()
+                .map(row -> new DateBucket(row.getDate(), row.getTransactionCount()))
+                .sorted((left, right) -> dateDirection == Sort.Direction.ASC
+                        ? left.date().compareTo(right.date())
+                        : right.date().compareTo(left.date()))
+                .toList();
+
+        long totalRows = buckets.stream().mapToLong(DateBucket::transactionCount).sum();
         if (totalRows == 0) {
-            return new GroupedPaginationResult(List.of(), 0L, 0, 0);
+            return new GroupedPaginationPlan(List.of(), 0L, 0, 0);
         }
 
-        List<List<TransactionDateGroupResponse>> pages = new ArrayList<>();
-        List<TransactionDateGroupResponse> bucket = new ArrayList<>();
-        int bucketRows = 0;
+        List<List<DateBucket>> pages = new ArrayList<>();
+        List<DateBucket> pageBucket = new ArrayList<>();
+        long pageRows = 0;
 
-        for (TransactionDateGroupResponse group : groups) {
-            int groupRows = group.transactions().size();
-            if (!bucket.isEmpty() && bucketRows + groupRows > pageSize) {
-                pages.add(bucket);
-                bucket = new ArrayList<>();
-                bucketRows = 0;
+        for (DateBucket bucket : buckets) {
+            long groupRows = bucket.transactionCount();
+            if (!pageBucket.isEmpty() && pageRows + groupRows > pageSize) {
+                pages.add(pageBucket);
+                pageBucket = new ArrayList<>();
+                pageRows = 0;
             }
-            bucket.add(group);
-            bucketRows += groupRows;
+            pageBucket.add(bucket);
+            pageRows += groupRows;
         }
-        if (!bucket.isEmpty()) {
-            pages.add(bucket);
+        if (!pageBucket.isEmpty()) {
+            pages.add(pageBucket);
         }
 
         int totalPages = pages.size();
         int activePage = Math.min(requestedPage, totalPages - 1);
-        return new GroupedPaginationResult(pages.get(activePage), totalRows, totalPages, activePage);
+        List<LocalDate> dates = pages.get(activePage).stream()
+                .map(DateBucket::date)
+                .toList();
+        return new GroupedPaginationPlan(dates, totalRows, totalPages, activePage);
     }
 
-    private record GroupedPaginationResult(
-            List<TransactionDateGroupResponse> groups,
+    private Sort.Direction dateDirection(Sort sort) {
+        Sort.Order order = sort.getOrderFor("transactionDate");
+        return order == null ? Sort.Direction.DESC : order.getDirection();
+    }
+
+    private List<CategoryType> safeTypes(List<CategoryType> types) {
+        return types == null || types.isEmpty() ? List.of(CategoryType.EXPENSE) : types;
+    }
+
+    private List<Integer> safeCategoryIds(List<Integer> categoryIds) {
+        return categoryIds == null || categoryIds.isEmpty() ? List.of(-1) : categoryIds;
+    }
+
+    private List<Importance> safeImportances(List<Importance> importances) {
+        return importances == null || importances.isEmpty() ? List.of(Importance.ESSENTIAL) : importances;
+    }
+
+    private String queryPattern(String q) {
+        return q == null || q.isBlank() ? "" : "%" + q.toLowerCase() + "%";
+    }
+
+    private record DateBucket(LocalDate date, long transactionCount) {
+    }
+
+    private record GroupedPaginationPlan(
+            List<LocalDate> dates,
             long totalElements,
             int totalPages,
             int activePage
@@ -231,6 +289,7 @@ public class TransactionService {
         BigDecimal oldAmount = existingTransaction.getAmount();
         CategoryType oldType = existingTransaction.getCategory().getType();
         Wallet oldWallet = existingTransaction.getWallet();
+        LocalDate oldTransactionDate = existingTransaction.getTransactionDate();
 
         Wallet newWallet = oldWallet;
         if (!request.walletId().equals(oldWallet.getId())) {
@@ -253,7 +312,7 @@ public class TransactionService {
         walletBalanceService.adjustForTransactionEdit(
                 oldWallet, oldAmount, oldType,
                 newWallet, updatedTransaction.getAmount(), newCategory.getType(),
-                updatedTransaction.getId(), updatedTransaction.getTransactionDate()
+                updatedTransaction.getId(), oldTransactionDate, updatedTransaction.getTransactionDate()
         );
 
         log.info("Transaction updated: transactionId={}, userId={}, walletId={}, categoryId={}, amount={}",

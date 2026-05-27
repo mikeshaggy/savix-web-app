@@ -21,15 +21,7 @@ import java.util.UUID;
 public class FixedPaymentOccurrenceService {
 
     private final FixedPaymentOccurrenceRepository occurrenceRepository;
-    private final FixedPaymentOccurrenceGenerationService generationService;
     private final Clock clock;
-
-    @Transactional
-    public void prepareOccurrencesForDashboard(UUID userId) {
-        generationService.ensureOccurrencesGenerated(userId);
-        generationService.markOverdueOccurrences(userId);
-        log.info("Fixed payment dashboard preparation completed: userId={}", userId);
-    }
 
     @Transactional
     public void markOccurrenceAsPaid(Long occurrenceId, Transaction savedTransaction, UUID userId) {
