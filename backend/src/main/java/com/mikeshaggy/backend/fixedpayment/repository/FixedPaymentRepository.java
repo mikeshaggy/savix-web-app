@@ -36,6 +36,13 @@ public interface FixedPaymentRepository extends JpaRepository<FixedPayment, Inte
     );
 
     @Query("""
+        SELECT DISTINCT w.user.id FROM FixedPayment fp
+        JOIN fp.wallet w
+        WHERE fp.activeTo IS NULL OR fp.activeTo >= :today
+    """)
+    List<UUID> findActiveUserIds(@Param("today") LocalDate today);
+
+    @Query("""
         SELECT fp FROM FixedPayment fp
         WHERE fp.wallet.id = :walletId
         AND fp.wallet.user.id = :userId
@@ -45,6 +52,20 @@ public interface FixedPaymentRepository extends JpaRepository<FixedPayment, Inte
             @Param("walletId") Integer walletId,
             @Param("userId") UUID userId,
             @Param("today") LocalDate today
+    );
+
+    @Query("""
+        SELECT fp FROM FixedPayment fp
+        WHERE fp.wallet.id = :walletId
+        AND fp.wallet.user.id = :userId
+        AND fp.activeFrom <= :to
+        AND (fp.activeTo IS NULL OR fp.activeTo >= :from)
+    """)
+    List<FixedPayment> findAllActiveInPeriodByWalletIdAndUserId(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
     );
 
     @Query("""
