@@ -44,15 +44,10 @@ export default function SpendingPacePanel({ projData, loading }) {
 
   const isActive = projData.projectionAvailable;
   const daysRemaining = projData.daysRemaining ?? 0;
-  const income = projData.incomeForPeriod ?? 0;
-  const spentSoFar = projData.expensesToDate ?? 0;
   const remainingFixed = projData.remainingFixedPayments ?? 0;
   const burnRate = projData.dailyBurnRate ?? 0;
 
-  // How much discretionary budget remains per day
-  const remainingDiscretionary = income - spentSoFar - remainingFixed;
-  const safeDailyBudget =
-    isActive && daysRemaining > 0 ? remainingDiscretionary / daysRemaining : null;
+  const safeDailyBudget = isActive ? (projData.safeToSpendPerDay ?? null) : null;
 
   // How much the user needs to cut per day vs current burn rate
   const reductionNeeded =
@@ -128,7 +123,7 @@ export default function SpendingPacePanel({ projData, loading }) {
         ))}
       </div>
 
-      {/* Safe to spend today — highlighted footer */}
+      {/* Safe to spend — highlighted footer */}
       {isActive && (
         <div className="mt-4 pt-4 border-t border-white/[0.08]">
           <div className="flex items-center justify-between">
@@ -141,14 +136,14 @@ export default function SpendingPacePanel({ projData, loading }) {
             <div
               className="font-mono text-xl font-bold"
               style={{
-                color: (projData.safeToSpendToday ?? 0) >= 0 ? '#4ade80' : '#f87171',
+                color: (projData.safeToSpendPerDay ?? 0) >= 0 ? '#4ade80' : '#f87171',
               }}
             >
-              {formatCurrency(projData.safeToSpendToday ?? 0)}
+              {`${formatCurrency(projData.safeToSpendPerDay ?? 0)} ${t('perDay')}`}
             </div>
           </div>
           <div className="text-xs text-white/30 mt-1 ml-[30px]">
-            {t('asOfToday')}
+            {`${formatCurrency(projData.safeToSpendToday ?? 0)} ${t('totalRemaining')}`}
           </div>
         </div>
       )}
