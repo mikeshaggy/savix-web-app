@@ -169,6 +169,8 @@
     "loadingWallets": "Loading wallets...",
     "loadingDashboard": "Loading dashboard...",
     "safeToSpend": "Safe to Spend",
+    "perDay": "/ day",
+    "safeToSpendTotal": "{amount} total remaining",
     "projectedEndBalance": "Projected End Balance",
     "spendingPace": "Spending Pace",
     "health_ON_TRACK": "On Track",
@@ -531,6 +533,8 @@
     "projectedEndBalance": "Projected End Balance",
     "remainingFixedPayments": "Remaining Fixed Payments",
     "safeToSpend": "Safe to Spend",
+    "perDay": "/ day",
+    "totalRemaining": "total remaining",
     "daysRemaining": "Days Remaining",
     "projectedVsIncome": "of period income",
     "basedOnPace": "Based on your current spending pace.",
@@ -565,7 +569,7 @@
     "today": "Today",
     "actualSpend": "Actual spend",
     "projectedSpend": "Projected",
-    "incomeLimit": "Income limit",
+    "incomeLimit": "Income",
     "safePace": "Safe pace",
     "safePaceToday": "Safe pace today",
     "overSafePace": "Over pace",
@@ -717,7 +721,8 @@
     "overviewKpiBalance": "Projected Balance",
     "overviewKpiBalanceHelper": "By end of period",
     "overviewKpiSafe": "Safe to Spend",
-    "overviewKpiSafeHelper": "Available today after commitments",
+    "overviewKpiSafeHelper": "per day until end of period",
+    "overviewKpiSafeTotalHelper": "{amount} total remaining",
     "overviewKpiBurn": "Daily Burn Rate",
     "overviewKpiBurnHelper": "Average daily spend",
     "overviewKpiSavings": "Projected Savings",
@@ -917,6 +922,26 @@
     "notActionable": "No action",
     "plannedShort": "Planned",
     "allCategories": "All Categories",
-    "allWallets": "All Wallets"
+    "allWallets": "All Wallets",
+    "timeline": {
+      "title": "Payment Timeline",
+      "subtitle": "Current cycle overview",
+      "today": "Today",
+      "paidOf": "{paid} of {total} paid",
+      "noPayments": "No payments scheduled this cycle",
+      "legend_paid": "Paid",
+      "legend_dueToday": "Due today",
+      "legend_dueSoon": "Due soon",
+      "legend_upcoming": "Upcoming",
+      "legend_overdue": "Overdue"
+    },
+    "events": {
+      "title": "Payment Events",
+      "subtitle": "Schedule for this cycle",
+      "today": "Today",
+      "paidOf": "{paid} of {total} paid",
+      "noEvents": "No events this cycle",
+      "editHint": "Click to edit"
+    }
   }
 }

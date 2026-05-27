@@ -409,13 +409,17 @@ class InsightEngineTest {
     }
 
     private SpendingProjectionDto projection(String safeToSpend) {
+        // daysRemaining = 16; safeToSpendPerDay = safeToSpend / 16
+        BigDecimal safeTotal = new BigDecimal(safeToSpend);
+        BigDecimal perDay = safeTotal.divide(new BigDecimal("16"), 2, java.math.RoundingMode.HALF_UP);
         return new SpendingProjectionDto(
                 PeriodType.CUSTOM, "Custom range",
                 LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
                 31, 15, 16,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                new BigDecimal(safeToSpend),
+                safeTotal,
+                perDay,
                 true, null);
     }
 

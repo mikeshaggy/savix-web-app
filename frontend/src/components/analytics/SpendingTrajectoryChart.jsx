@@ -33,7 +33,7 @@ function TrajectorySVG({
   const PT = 24; // top padding — room for "Today" label
   const PB = 20; // bottom padding — room for date labels
   const PL = 4;  // left padding
-  const PR = 52; // right padding — room for income label beside safe-pace end
+  const PR = 10; // right padding — small breathing room at end of period
 
   const CW = W - PL - PR; // chart width
   const CH = H - PT - PB; // chart height
@@ -164,11 +164,11 @@ function TrajectorySVG({
         </text>
       )}
 
-      {/* Income limit label to the right of the ceiling line */}
+      {/* Income limit label — anchored at the left side of the ceiling line */}
       {yIncome !== null && (
         <text
-          x={xEnd + 5}
-          y={yIncome + 4}
+          x={x0 + 4}
+          y={yIncome - 5}
           textAnchor="start"
           fill="#4ade80"
           fillOpacity={0.65}

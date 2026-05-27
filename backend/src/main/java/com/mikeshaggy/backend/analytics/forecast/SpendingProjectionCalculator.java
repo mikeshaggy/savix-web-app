@@ -44,6 +44,7 @@ public class SpendingProjectionCalculator {
                     money(input.incomeForPeriod().subtract(input.expensesToDate())),
                     money(BigDecimal.ZERO),
                     money(BigDecimal.ZERO),
+                    money(BigDecimal.ZERO),
                     false,
                     "Historical period");
         }
@@ -54,6 +55,8 @@ public class SpendingProjectionCalculator {
         BigDecimal safeToSpendToday = money(input.walletBalance()
                 .subtract(input.remainingFixedPayments())
                 .subtract(projectedRemainingVariableSpend));
+        BigDecimal safeToSpendPerDay = money(safeToSpendToday.divide(
+                BigDecimal.valueOf(Math.max(daysRemaining, 1)), SCALE, ROUNDING));
 
         return new ProjectionResult(
                 daysInPeriod,
@@ -64,6 +67,7 @@ public class SpendingProjectionCalculator {
                 projectedEndBalance,
                 money(input.remainingFixedPayments()),
                 safeToSpendToday,
+                safeToSpendPerDay,
                 true,
                 null);
     }
@@ -89,6 +93,7 @@ public class SpendingProjectionCalculator {
             BigDecimal projectedEndBalance,
             BigDecimal remainingFixedPayments,
             BigDecimal safeToSpendToday,
+            BigDecimal safeToSpendPerDay,
             boolean projectionAvailable,
             String projectionReason) {
     }

@@ -117,7 +117,7 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
 
   const balanceColor = (data.projectedEndBalance ?? 0) >= 0 ? '#4ade80' : '#f87171';
   const safeColor = isActive
-    ? ((data.safeToSpendToday ?? 0) >= 0 ? '#4ade80' : '#f87171')
+    ? ((data.safeToSpendPerDay ?? 0) >= 0 ? '#4ade80' : '#f87171')
     : '#ffffff';
 
   const periodLabel = data.periodLabel
@@ -158,9 +158,11 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
       key: 'safeToSpendToday',
       label: t('safeToSpend'),
       value: isActive
-        ? formatCurrency(data.safeToSpendToday ?? 0)
+        ? `${formatCurrency(data.safeToSpendPerDay ?? 0)} ${t('perDay')}`
         : t('projectionNotApplicable'),
-      subtext: isActive ? t('asOfToday') : null,
+      subtext: isActive
+        ? `${formatCurrency(data.safeToSpendToday ?? 0)} ${t('totalRemaining')}`
+        : null,
       icon: ShieldCheck,
       color: safeColor,
       dimmed: !isActive,

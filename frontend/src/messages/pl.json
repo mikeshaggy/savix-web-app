@@ -170,6 +170,8 @@
     "loadingWallets": "Ładowanie portfeli...",
     "loadingDashboard": "Ładowanie pulpitu...",
     "safeToSpend": "Bezpieczne do wydania",
+    "perDay": "/ dzień",
+    "safeToSpendTotal": "{amount} łącznie do końca cyklu",
     "projectedEndBalance": "Prognozowane saldo końcowe",
     "spendingPace": "Tempo wydatków",
     "health_ON_TRACK": "Na dobrej drodze",
@@ -532,6 +534,8 @@
     "projectedEndBalance": "Prognozowane saldo końcowe",
     "remainingFixedPayments": "Pozostałe stałe płatności",
     "safeToSpend": "Bezpieczne do wydania",
+    "perDay": "/ dzień",
+    "totalRemaining": "łącznie do końca cyklu",
     "daysRemaining": "Pozostałe dni",
     "projectedVsIncome": "przychodów okresu",
     "basedOnPace": "Na podstawie Twojego bieżącego tempa wydatków.",
@@ -566,7 +570,7 @@
     "today": "Dziś",
     "actualSpend": "Wydano",
     "projectedSpend": "Prognoza",
-    "incomeLimit": "Limit dochodów",
+    "incomeLimit": "Przychód",
     "safePace": "Bezpieczne tempo",
     "safePaceToday": "Bezpieczne tempo dziś",
     "overSafePace": "Powyżej tempa",
@@ -718,7 +722,8 @@
     "overviewKpiBalance": "Prognozowane saldo",
     "overviewKpiBalanceHelper": "Na koniec okresu",
     "overviewKpiSafe": "Bezpieczne do wydania",
-    "overviewKpiSafeHelper": "Dostępne dziś po zobowiązaniach",
+    "overviewKpiSafeHelper": "dziennie do końca okresu",
+    "overviewKpiSafeTotalHelper": "{amount} łącznie do końca cyklu",
     "overviewKpiBurn": "Dzienne tempo wydatków",
     "overviewKpiBurnHelper": "Średnie dzienne wydatki",
     "overviewKpiSavings": "Prognozowane oszczędności",
@@ -918,6 +923,26 @@
     "notActionable": "Bez akcji",
     "plannedShort": "Plan",
     "allCategories": "Wszystkie kategorie",
-    "allWallets": "Wszystkie portfele"
+    "allWallets": "Wszystkie portfele",
+    "timeline": {
+      "title": "Harmonogram płatności",
+      "subtitle": "Przegląd bieżącego cyklu",
+      "today": "Dziś",
+      "paidOf": "{paid} z {total} opłacone",
+      "noPayments": "Brak płatności zaplanowanych w tym cyklu",
+      "legend_paid": "Opłacone",
+      "legend_dueToday": "Termin dziś",
+      "legend_dueSoon": "Wkrótce",
+      "legend_upcoming": "Nadchodzące",
+      "legend_overdue": "Zaległe"
+    },
+    "events": {
+      "title": "Zdarzenia płatnicze",
+      "subtitle": "Harmonogram bieżącego cyklu",
+      "today": "Dziś",
+      "paidOf": "{paid} z {total} opłacone",
+      "noEvents": "Brak zdarzeń w tym cyklu",
+      "editHint": "Kliknij, aby edytować"
+    }
   }
 }

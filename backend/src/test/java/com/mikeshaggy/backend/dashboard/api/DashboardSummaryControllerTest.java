@@ -130,6 +130,7 @@ class DashboardSummaryControllerTest {
                         DashboardHealthStatus.ON_TRACK,
                         new BigDecimal("2500.00"),
                         new BigDecimal("620.00"),
+                        new BigDecimal("124.00"),
                         new BigDecimal("740.00"),
                         new BigDecimal("120.00"),
                         new BigDecimal("8.50"),
