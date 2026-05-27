@@ -169,7 +169,7 @@ function AppLayoutContent({
                 />
 
                 {/* Main Content Area */}
-                <div className="flex-1 p-4 md:p-5 lg:p-7 overflow-y-auto">
+                <div className="flex-1 p-4 md:p-5 lg:p-7 overflow-y-auto dashboard-scroll">
                     {children}
                 </div>
             </main>
