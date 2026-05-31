@@ -23,7 +23,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
                     <h2 className="text-xl font-semibold mb-2">{t('errors.errorLoadingSettings')}</h2>
-                    <p className="text-gray-400">{t('errors.tryRefreshing')}</p>
+                    <p className="text-white/40">{t('errors.tryRefreshing')}</p>
                 </div>
             </div>
         );

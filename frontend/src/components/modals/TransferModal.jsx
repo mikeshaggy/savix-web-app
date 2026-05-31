@@ -4,6 +4,8 @@ import { useWallets } from "@/contexts/WalletContext";
 import { useTranslations } from "next-intl";
 import { useLanguage } from "@/i18n";
 import { formatCurrency } from "@/utils/helpers";
+import Button from "@/components/common/Button";
+import { INPUT_MD, SELECT_MD, TEXTAREA_MD } from "@/components/common/formControls";
 
 const QUICK_AMOUNTS = [50, 100, 200, 500];
 
@@ -195,6 +197,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] hover:bg-[#1a1a2e] transition-all"
+            aria-label={t('common.close')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -217,7 +220,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                     onChange={(e) =>
                       handleChange("fromWalletId", e.target.value)
                     }
-                    className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                    className={`${SELECT_MD} w-full ${
                       errors.fromWalletId
                         ? "border-red-500"
                         : "border-white/[0.055]"
@@ -243,6 +246,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                   onClick={handleSwapWallets}
                   className="w-10 h-10 rounded-full bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-purple-300 hover:border-purple-500 hover:bg-purple-500/10 transition-all cursor-pointer mb-[2px]"
                   title={t("transfer.swapWallets")}
+                  aria-label={t("transfer.swapWallets")}
                 >
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -258,7 +262,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                     onChange={(e) =>
                       handleChange("toWalletId", e.target.value)
                     }
-                    className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                    className={`${SELECT_MD} w-full ${
                       errors.toWalletId
                         ? "border-red-500"
                         : "border-white/[0.055]"
@@ -361,7 +365,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                   min="0"
                   value={formData.amount}
                   onChange={(e) => handleChange("amount", e.target.value)}
-                  className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                  className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder:text-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
                     errors.amount ? "border-red-500" : "border-white/[0.055]"
                   }`}
                   placeholder="0.00"
@@ -398,7 +402,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                 onChange={(e) =>
                   handleChange("transferDate", e.target.value)
                 }
-                className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] [color-scheme:dark] ${
+                className={`${INPUT_MD} w-full [color-scheme:dark] ${
                   errors.transferDate
                     ? "border-red-500"
                     : "border-white/[0.055]"
@@ -450,7 +454,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                 value={formData.notes}
                 onChange={(e) => handleChange("notes", e.target.value)}
                 rows={3}
-                className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-[15px] text-white placeholder-white/25 outline-none transition-all resize-y min-h-[70px] max-h-[120px] leading-relaxed focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                className={`${TEXTAREA_MD} w-full border-white/[0.055] min-h-[70px] max-h-[120px]`}
                 placeholder={t("transfer.notesPlaceholder")}
               />
             </div>
@@ -461,29 +465,19 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
             >
               {t("common.cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
-              style={{
-                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                boxShadow: "0 4px 20px rgba(124,58,237,0.3)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 8px 32px rgba(124,58,237,0.3)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 4px 20px rgba(124,58,237,0.3)";
-              }}
             >
               {submitting ? (
                 <>
@@ -498,7 +492,7 @@ export default function TransferModal({ isOpen, onClose, onSave }) {
                   {t("transfer.saveTransfer")}
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

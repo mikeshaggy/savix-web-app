@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { formatCurrency } from "@/utils/helpers";
 import { useLanguage } from "@/i18n";
 import NewActionDropdown from "@/components/common/NewActionDropdown";
+import ErrorState from "@/components/common/ErrorState";
 
 export default function TransactionsView({
   // Server-driven data
@@ -79,7 +80,7 @@ export default function TransactionsView({
           <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">
             {t("nav.allTransactions")}
           </div>
-          <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px] flex items-center gap-0 flex-wrap">
+          <div className="text-[13px] sm:text-[14px] text-white/25 mt-[3px] flex items-center gap-0 flex-wrap">
             <span>
               {totalElements} {t("transaction.transactions")}
             </span>
@@ -94,7 +95,10 @@ export default function TransactionsView({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-[7px] px-4 py-[10px] rounded-[10px] text-[14px] font-semibold cursor-pointer border border-white/[0.055] bg-[#131325] text-white/50 transition-all hover:border-white/[0.12] hover:text-white">
+          <button
+            disabled
+            className="flex items-center gap-[7px] px-4 py-[10px] rounded-[10px] text-[14px] font-semibold border border-white/[0.055] bg-[#131325] text-white/30 opacity-50 cursor-not-allowed"
+          >
             <Download className="w-[14px] h-[14px]" />
             {t("common.export")}
           </button>
@@ -130,17 +134,12 @@ export default function TransactionsView({
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-[14px] px-5 py-4 flex items-center justify-between">
-          <span className="text-red-400 text-[14px] font-medium">{error}</span>
-          {onRetry && (
-            <button
-              onClick={onRetry}
-              className="text-[13px] font-semibold text-red-400 hover:text-red-300 transition-colors"
-            >
-              {t("common.retry")}
-            </button>
-          )}
-        </div>
+        <ErrorState
+          variant="inline"
+          title={error}
+          onRetry={onRetry}
+          retryLabel={t("common.retry")}
+        />
       )}
 
       {/* Loading skeleton */}

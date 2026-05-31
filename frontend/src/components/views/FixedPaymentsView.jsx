@@ -13,6 +13,8 @@ import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
 import FixedPaymentModal from '@/components/modals/FixedPaymentModal';
+import { CHIP_BASE, CHIP_DEFAULT, PAGE_CTA } from '@/components/common/formControls';
+import { Loading } from '@/components/common/Loading';
 import TransactionModal from '@/components/modals/TransactionModal';
 import FixedPaymentEventsStrip from './FixedPaymentEventsStrip';
 
@@ -348,12 +350,7 @@ export default function FixedPaymentsView() {
   };
 
   if (loading && !tileData && fixedPayments.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-3" />
-        <div className="text-[12px] text-white/25">{t('common.loading')}</div>
-      </div>
-    );
+    return <Loading message={t('common.loading')} />;
   }
 
   return (
@@ -364,7 +361,7 @@ export default function FixedPaymentsView() {
           <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">
             {t('fixedPayments.viewTitle')}
           </div>
-          <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px]">
+          <div className="text-[13px] sm:text-[14px] text-white/25 mt-[3px]">
             {t('fixedPayments.viewSubtitle')}
           </div>
         </div>
@@ -372,8 +369,9 @@ export default function FixedPaymentsView() {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="w-[34px] h-[34px] rounded-[8px] border border-white/[0.055] bg-transparent flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:border-white/[0.12] hover:text-[#9898b8] disabled:opacity-50"
+            className="w-[34px] h-[34px] rounded-[8px] border border-white/[0.055] bg-transparent flex items-center justify-center cursor-pointer text-white/35 transition-all hover:border-white/[0.12] hover:text-white/50 disabled:opacity-50"
             title={t('common.refresh')}
+            aria-label={t('common.refresh')}
           >
             <RefreshCw className={`w-[14px] h-[14px] ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -382,7 +380,7 @@ export default function FixedPaymentsView() {
               setEditingPayment(null);
               setShowPaymentModal(true);
             }}
-            className="bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border-none rounded-[8px] px-4 py-2 text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
+            className={PAGE_CTA}
           >
             <Plus className="w-[13px] h-[13px]" strokeWidth={2.5} />
             {t('fixedPayments.addPayment')}
@@ -401,7 +399,7 @@ export default function FixedPaymentsView() {
       {tileData && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-px bg-white/[0.06] rounded-[14px] overflow-hidden border border-white/[0.06]">
           {/* Planned */}
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#94a3b8] opacity-80" />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.planned')}</div>
             <div className="font-bold text-[18px] tracking-[-0.01em] leading-none text-white">
@@ -412,7 +410,7 @@ export default function FixedPaymentsView() {
             </div>
           </div>
           {/* Paid */}
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-green-400 opacity-80" />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.paid')}</div>
             <div className="font-bold text-[18px] tracking-[-0.01em] leading-none text-green-400">
@@ -423,7 +421,7 @@ export default function FixedPaymentsView() {
             </div>
           </div>
           {/* Remaining */}
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#7c6af7] opacity-80" />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.remaining')}</div>
             <div className="font-bold text-[18px] tracking-[-0.01em] leading-none text-purple-400">
@@ -434,7 +432,7 @@ export default function FixedPaymentsView() {
             </div>
           </div>
           {/* Balance After */}
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${balanceAfterFixed < 0 ? 'bg-red-400' : 'bg-amber-400'}`} />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.balanceAfter')}</div>
             <div className={`font-bold text-[18px] tracking-[-0.01em] leading-none ${balanceAfterFixed < 0 ? 'text-red-400' : 'text-amber-400'}`}>
@@ -443,7 +441,7 @@ export default function FixedPaymentsView() {
             <div className="text-[10px] text-white/25 mt-1.5">{t('fixedPayments.afterAllFixed')}</div>
           </div>
           {/* Progress */}
-          <div className="bg-[#13131f] p-4 relative col-span-2 md:col-span-1">
+          <div className="bg-[#0e0e1c] p-4 relative col-span-2 md:col-span-1">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-purple-400 opacity-80" />
             <div className="text-[9px] tracking-[0.1em] uppercase text-white/25 mb-1.5">{t('fixedPayments.progressLabel')}</div>
             <div className="font-bold text-[18px] tracking-[-0.01em] leading-none text-purple-400">
@@ -519,7 +517,7 @@ export default function FixedPaymentsView() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="bg-[#131325] border border-white/[0.055] rounded-[8px] px-3 py-2 text-[12px] text-white/50 outline-none appearance-none cursor-pointer hover:border-white/[0.12] transition-all"
+            className={`${CHIP_BASE} ${CHIP_DEFAULT}`}
           >
             <option value="all">{t('fixedPayments.allCategories')}</option>
             {(categories || []).filter(c => c.type === 'EXPENSE').map(c => (
@@ -531,7 +529,7 @@ export default function FixedPaymentsView() {
       </div>
 
       {/* Occurrence schedule */}
-      <div className="bg-[#10101c] border border-white/[0.06] rounded-[14px] overflow-hidden">
+      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] overflow-hidden">
         {scheduleGroups.length === 0 || tabOccurrences.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-white/25">
             <Calendar className="w-8 h-8 mb-3 opacity-40" />
@@ -543,7 +541,7 @@ export default function FixedPaymentsView() {
               <div
                 key={group.key}
                 className="px-3 py-3 sm:px-4 sm:py-4"
-                style={{ animation: `fadeUp 0.3s ease both`, animationDelay: `${0.04 * groupIndex}s` }}
+                style={{ animation: `fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both`, animationDelay: `${0.04 * groupIndex}s` }}
               >
                 <div className="flex items-start justify-between gap-3 px-1 pb-3">
                   <div className="min-w-0">
@@ -553,7 +551,7 @@ export default function FixedPaymentsView() {
                       }`} />
                       <div className="text-[13px] sm:text-[14px] font-semibold text-white">{group.title}</div>
                     </div>
-                    <div className="text-[11px] sm:text-[12px] text-white/28 mt-1">{group.subtitle}</div>
+                    <div className="text-[11px] sm:text-[12px] text-white/30 mt-1">{group.subtitle}</div>
                   </div>
                   <div className="text-[11px] text-white/30 bg-white/[0.035] border border-white/[0.06] rounded-full px-2.5 py-1 shrink-0">
                     {t('fixedPayments.countItems', { count: group.items.length })}
@@ -569,10 +567,10 @@ export default function FixedPaymentsView() {
                         className={`group/row grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border px-3.5 py-3 transition-colors ${
                           occ.isOverdue
                             ? 'bg-red-500/[0.045] border-red-500/15 hover:bg-red-500/[0.07]'
-                            : 'bg-[#151525] border-white/[0.055] hover:bg-[#1a1a2d]'
+                            : 'bg-[#131325] border-white/[0.055] hover:bg-[#1a1a2e]'
                         }`}
                       >
-                        <div className="w-[38px] h-[38px] bg-[#1c1c30] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-[15px] shrink-0">
+                        <div className="w-[38px] h-[38px] bg-[#1a1a2e] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-[15px] shrink-0">
                           {occ.categoryEmoji || '🔁'}
                         </div>
 
@@ -675,6 +673,7 @@ export default function FixedPaymentsView() {
               <button
                 onClick={closeDeactivateConfirmation}
                 disabled={isDeactivating}
+                aria-label={t('common.close')}
                 className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <X className="w-3 h-3" />
@@ -738,6 +737,7 @@ export default function FixedPaymentsView() {
               <div className="text-lg font-bold tracking-[-0.3px]">{t('fixedPayments.markAsPaid')}</div>
               <button
                 onClick={handleCloseMarkPaid}
+                aria-label={t('common.close')}
                 className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] transition-all"
               >
                 <X className="w-3 h-3" />
@@ -745,7 +745,7 @@ export default function FixedPaymentsView() {
             </div>
             <div className="px-4 sm:px-7 py-5">
               <div className="flex items-center gap-3 bg-[#131325] border border-white/[0.06] rounded-xl p-4">
-                <div className="w-10 h-10 bg-[#1a1a2a] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
+                <div className="w-10 h-10 bg-[#1a1a2e] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
                   {markPaidOccurrence.categoryEmoji || '🔁'}
                 </div>
                 <div className="flex-1">
@@ -771,11 +771,7 @@ export default function FixedPaymentsView() {
               </button>
               <button
                 onClick={handleOpenTransactionModal}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all hover:-translate-y-px"
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                  boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-px"
               >
                 {t('fixedPayments.openTransaction')}
                 <ArrowRight className="w-4 h-4" />

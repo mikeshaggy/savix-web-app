@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useWallets } from '@/contexts/WalletContext';
-import { Wallet, Plus, Edit3, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wallet, Plus, Edit3, Trash2, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import { Loading } from '@/components/common/Loading';
 import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n';
+import { PAGE_CTA, INPUT_MD } from '@/components/common/formControls';
+import SectionLabel from '@/components/common/SectionLabel';
+import EmptyState from '@/components/common/EmptyState';
+import ErrorState from '@/components/common/ErrorState';
 
 export default function WalletManagementView() {
   const t = useTranslations();
@@ -112,20 +116,12 @@ export default function WalletManagementView() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">{t('errors.failedToLoadWallets')}</h2>
-          <p className="text-[#6b6b8a] mb-4">{error}</p>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[8px] text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] mx-auto shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
-          >
-            <RefreshCw className="w-4 h-4" />
-            {t('common.tryAgain')}
-          </button>
-        </div>
-      </div>
+      <ErrorState
+        title={t('errors.failedToLoadWallets')}
+        description={error}
+        onRetry={handleRefresh}
+        retryLabel={t('common.tryAgain')}
+      />
     );
   }
 
@@ -137,7 +133,7 @@ export default function WalletManagementView() {
           <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">
             {t('wallet.wallets')}
           </div>
-          <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px]">
+          <div className="text-[13px] sm:text-[14px] text-white/25 mt-[3px]">
             {t('wallet.switchWalletDesc')}
           </div>
         </div>
@@ -145,14 +141,15 @@ export default function WalletManagementView() {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="w-[34px] h-[34px] rounded-[8px] border border-white/[0.055] bg-transparent flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:border-white/[0.12] hover:text-[#9898b8] disabled:opacity-50"
+            className="w-[34px] h-[34px] rounded-[8px] border border-white/[0.055] bg-transparent flex items-center justify-center cursor-pointer text-white/35 transition-all hover:border-white/[0.12] hover:text-white/50 disabled:opacity-50"
             title={t('wallet.refreshWallets')}
+            aria-label={t('wallet.refreshWallets')}
           >
             <RefreshCw className={`w-[14px] h-[14px] ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border-none rounded-[8px] px-4 py-2 text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
+            className={PAGE_CTA}
           >
             <Plus className="w-[13px] h-[13px]" strokeWidth={2.5} />
             {t('wallet.addWallet')}
@@ -162,7 +159,7 @@ export default function WalletManagementView() {
 
       {/* Active wallet banner */}
       {currentWallet && (
-        <div className="relative bg-[#13131f] border border-white/[0.06] rounded-[14px] px-5 md:px-7 py-5 md:py-[22px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden">
+        <div className="relative bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] px-5 md:px-7 py-5 md:py-[22px] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-purple-400/70" />
           <div className="absolute top-0 -right-20 w-[200px] h-[200px] bg-[#7c3aed]/10 blur-3xl pointer-events-none" />
 
@@ -171,7 +168,7 @@ export default function WalletManagementView() {
               <Wallet className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mb-[3px]">
+              <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-white/35 mb-[3px]">
                 {t('wallet.currentWallet')}
               </div>
               <div className="text-[18px] font-semibold text-white">
@@ -180,7 +177,7 @@ export default function WalletManagementView() {
             </div>
           </div>
           <div className="text-right flex flex-col items-end gap-2">
-            <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mb-[3px]">
+            <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-white/35 mb-[3px]">
               {t('wallet.balance')}
             </div>
             <div className="font-mono text-[24px] font-bold text-white tracking-[-0.5px]">
@@ -188,7 +185,7 @@ export default function WalletManagementView() {
             </div>
             <button
               onClick={() => handleViewHistory(currentWallet)}
-              className="text-[12px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+              className="text-[12px] text-white/35 cursor-pointer border-none bg-transparent transition-colors hover:text-white/50 underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
             >
               {t('wallet.viewHistory')}
             </button>
@@ -197,9 +194,9 @@ export default function WalletManagementView() {
       )}
 
       {/* Section label */}
-      <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#6b6b8a] mt-1">
+      <SectionLabel className="font-mono mt-1">
         {t('wallet.allWallets')}
-      </div>
+      </SectionLabel>
 
       {/* Wallets grid */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[14px]">
@@ -211,10 +208,10 @@ export default function WalletManagementView() {
           return (
             <div
               key={wallet.id}
-              className={`group relative bg-[#13131f] border rounded-[14px] p-5 cursor-pointer transition-all overflow-hidden
+              className={`group relative bg-[#0e0e1c] border rounded-[14px] p-5 cursor-pointer transition-all overflow-hidden
                 ${isActive
                   ? 'border-[rgba(124,58,237,0.4)]'
-                  : 'border-white/[0.06] hover:border-white/[0.12] hover:bg-[#1a1a2a] hover:-translate-y-[2px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
+                  : 'border-white/[0.06] hover:border-white/[0.12] hover:bg-[#1a1a2e] hover:-translate-y-[2px] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]'
                 }`}
               onClick={() => handleWalletSelect(wallet)}
             >
@@ -233,7 +230,7 @@ export default function WalletManagementView() {
                     <div className="text-[14px] font-semibold text-white mb-[2px]">
                       {wallet.name}
                     </div>
-                    <div className="text-[11.5px] text-[#6b6b8a]">
+                    <div className="text-[11.5px] text-white/35">
                       {t('wallet.created', { date: new Date(wallet.createdAt).toLocaleDateString() })}
                     </div>
                   </div>
@@ -246,8 +243,9 @@ export default function WalletManagementView() {
                       e.stopPropagation();
                       setEditingWallet(wallet);
                     }}
-                    className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-white/[0.08] hover:text-white"
+                    className="w-7 h-7 rounded-[7px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-white/35 transition-all hover:bg-white/[0.08] hover:text-white"
                     title={t('wallet.editWallet')}
+                    aria-label={t('wallet.editWallet')}
                   >
                     <Edit3 className="w-3 h-3" />
                   </button>
@@ -256,8 +254,9 @@ export default function WalletManagementView() {
                       e.stopPropagation();
                       setDeletingWallet(wallet);
                     }}
-                    className="w-7 h-7 rounded-[7px] bg-white/[0.05] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:bg-[rgba(244,63,94,0.15)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.3)]"
+                    className="w-7 h-7 rounded-[7px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-white/35 transition-all hover:bg-[rgba(244,63,94,0.15)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.3)]"
                     title={t('wallet.deleteWallet')}
+                    aria-label={t('wallet.deleteWallet')}
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -270,7 +269,7 @@ export default function WalletManagementView() {
               {/* Card bottom: balance + active badge / edit balance */}
               <div className="flex items-end justify-between">
                 <div>
-                  <div className="font-mono text-[11px] uppercase tracking-[1px] text-[#6b6b8a] mb-[2px]">
+                  <div className="font-mono text-[11px] uppercase tracking-[1px] text-white/35 mb-[2px]">
                     {t('wallet.balance')}
                   </div>
                   <div className="font-mono text-[20px] font-bold text-white tracking-[-0.3px]">
@@ -289,7 +288,7 @@ export default function WalletManagementView() {
                       e.stopPropagation();
                       setBalanceEditWallet(wallet);
                     }}
-                    className="text-[11.5px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+                    className="text-[11.5px] text-white/35 cursor-pointer border-none bg-transparent transition-colors hover:text-white/50 underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
                   >
                     {t('wallet.editBalance')}
                   </button>
@@ -298,7 +297,7 @@ export default function WalletManagementView() {
                       e.stopPropagation();
                       handleViewHistory(wallet);
                     }}
-                    className="text-[11.5px] text-[#6b6b8a] cursor-pointer border-none bg-transparent transition-colors hover:text-[#9898b8] underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+                    className="text-[11.5px] text-white/35 cursor-pointer border-none bg-transparent transition-colors hover:text-white/50 underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
                   >
                     {t('wallet.viewHistory')}
                   </button>
@@ -311,7 +310,7 @@ export default function WalletManagementView() {
         {/* Add wallet card */}
         <div
           onClick={() => setShowCreateModal(true)}
-          className="bg-transparent border border-dashed border-white/10 rounded-[14px] p-5 cursor-pointer transition-all flex items-center justify-center gap-[10px] min-h-[130px] text-[#6b6b8a] text-[13.5px] hover:border-[rgba(124,58,237,0.3)] hover:bg-[rgba(124,58,237,0.05)] hover:text-[#a855f7] group/add"
+          className="bg-transparent border border-dashed border-white/10 rounded-[14px] p-5 cursor-pointer transition-all flex items-center justify-center gap-[10px] min-h-[130px] text-white/35 text-[13.5px] hover:border-[rgba(124,58,237,0.3)] hover:bg-[rgba(124,58,237,0.05)] hover:text-[#a855f7] group/add"
         >
           <div className="w-8 h-8 rounded-[8px] bg-white/[0.05] border border-white/[0.08] flex items-center justify-center transition-all group-hover/add:bg-[rgba(124,58,237,0.2)] group-hover/add:border-[rgba(124,58,237,0.3)]">
             <Plus className="w-[15px] h-[15px]" strokeWidth={2.5} />
@@ -321,10 +320,13 @@ export default function WalletManagementView() {
 
         {/* Empty state (no wallets at all) */}
         {wallets.length === 0 && (
-          <div className="col-span-full text-center py-12">
-            <Wallet className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">{t('wallet.noWalletsFound')}</h3>
-            <p className="text-[#6b6b8a] mb-4">{t('wallet.switchWalletDesc')}</p>
+          <div className="col-span-full">
+            <EmptyState
+              variant="card"
+              icon={Wallet}
+              title={t('wallet.noWalletsFound')}
+              description={t('wallet.switchWalletDesc')}
+            />
           </div>
         )}
       </div>
@@ -357,26 +359,26 @@ export default function WalletManagementView() {
 
       {/* Delete Confirmation Modal */}
       {deletingWallet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-[rgba(244,63,94,0.15)] rounded-[10px] flex items-center justify-center">
                 <Trash2 className="w-6 h-6 text-[#f43f5e]" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold">{t('wallet.deleteWallet')}</h3>
-                <p className="text-[#6b6b8a] text-sm">{t('category.cannotBeUndone')}</p>
+                <p className="text-white/35 text-sm">{t('category.cannotBeUndone')}</p>
               </div>
             </div>
-            
-            <p className="text-[#9898b8] mb-6">
+
+            <p className="text-white/50 mb-6">
               {t('wallet.deleteConfirmMsg', { name: deletingWallet.name })}
             </p>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingWallet(null)}
-                className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
+                className="flex-1 px-4 py-2 bg-[#131325] border border-white/[0.06] hover:border-white/[0.12] text-white/50 rounded-[8px] transition-colors cursor-pointer"
               >
                 {t('common.cancel')}
               </button>
@@ -439,8 +441,8 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-4">
+      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-[rgba(124,58,237,0.2)] rounded-[10px] flex items-center justify-center">
             <Wallet className="w-6 h-6 text-[#a855f7]" />
@@ -449,7 +451,7 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
             <h3 className="text-lg font-semibold">
               {wallet ? t('wallet.editWallet') : t('wallet.createNewWallet')}
             </h3>
-            <p className="text-[#6b6b8a] text-sm">
+            <p className="text-white/35 text-sm">
               {wallet ? t('wallet.editWalletDesc') : t('wallet.createWalletDesc')}
             </p>
           </div>
@@ -457,21 +459,21 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-[#9898b8] mb-2">
+            <label className="block text-sm font-medium text-white/50 mb-2">
               {t('wallet.walletNameLabel')}
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
+              className={`${INPUT_MD} w-full border-white/[0.07]`}
               placeholder={t('wallet.walletNamePlaceholder')}
             />
             {errors.name && <p className="text-[#f43f5e] text-sm mt-1">{errors.name}</p>}
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-[#9898b8] mb-2">
+            <label className="block text-sm font-medium text-white/50 mb-2">
               {t('wallet.initialBalance')}
             </label>
             <input
@@ -480,7 +482,7 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
               min="0"
               value={formData.balance}
               onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
-              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
+              className={`${INPUT_MD} w-full border-white/[0.07]`}
               placeholder="0.00"
             />
             {errors.balance && <p className="text-[#f43f5e] text-sm mt-1">{errors.balance}</p>}
@@ -494,14 +496,14 @@ function WalletModal({ isOpen, onClose, onSave, wallet = null }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
+              className="flex-1 px-4 py-2 bg-[#131325] border border-white/[0.06] hover:border-white/[0.12] text-white/50 rounded-[8px] transition-colors cursor-pointer"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] disabled:opacity-50 text-white rounded-[8px] transition-all cursor-pointer shadow-[0_4px_16px_rgba(124,58,237,0.25)] hover:opacity-90"
+              className={`${PAGE_CTA} flex-1 justify-center disabled:opacity-50`}
             >
               {submitting ? t('common.saving') : (wallet ? t('common.update') : t('common.create'))}
             </button>
@@ -542,21 +544,21 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-sm">
+    <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-4">
+      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-[rgba(124,58,237,0.2)] rounded-[10px] flex items-center justify-center">
             <Wallet className="w-6 h-6 text-[#a855f7]" />
           </div>
           <div>
             <h3 className="text-lg font-semibold">{t('wallet.updateBalance')}</h3>
-            <p className="text-[#6b6b8a] text-sm">{wallet?.name}</p>
+            <p className="text-white/35 text-sm">{wallet?.name}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-[#9898b8] mb-2">
+            <label className="block text-sm font-medium text-white/50 mb-2">
               {t('wallet.newBalance')}
             </label>
             <input
@@ -568,7 +570,7 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
                 setBalance(e.target.value);
                 setError(null);
               }}
-              className="w-full px-3 py-2 bg-[#1a1a2a] border border-white/[0.06] rounded-[8px] focus:outline-none focus:border-[#7c3aed] text-white"
+              className={`${INPUT_MD} w-full border-white/[0.07]`}
               autoFocus
             />
             {error && <p className="text-[#f43f5e] text-sm mt-1">{error}</p>}
@@ -578,14 +580,14 @@ function BalanceModal({ isOpen, onClose, onSave, wallet }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
+              className="flex-1 px-4 py-2 bg-[#131325] border border-white/[0.06] hover:border-white/[0.12] text-white/50 rounded-[8px] transition-colors cursor-pointer"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] disabled:opacity-50 text-white rounded-[8px] transition-all cursor-pointer shadow-[0_4px_16px_rgba(124,58,237,0.25)] hover:opacity-90"
+              className={`${PAGE_CTA} flex-1 justify-center disabled:opacity-50`}
             >
               {submitting ? t('common.updating') : t('common.update')}
             </button>
