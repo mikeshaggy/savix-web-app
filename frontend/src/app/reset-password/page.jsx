@@ -7,7 +7,6 @@ import {
   Loader2,
   Lock,
   AlertCircle,
-  Wallet,
   CheckCircle,
   ArrowLeft,
 } from "lucide-react";
@@ -94,18 +93,18 @@ function ResetPasswordForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-        <div className="w-full max-w-md text-center">
+      <div className="min-h-dvh bg-[#06060f] flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center" style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-4">
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
             {t("auth.passwordReset")}
           </h1>
-          <p className="text-gray-400 mb-6">{t("auth.passwordResetSuccess")}</p>
+          <p className="text-white/45 mb-6">{t("auth.passwordResetSuccess")}</p>
           <Link
             href="/login"
-            className="inline-flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+            className="inline-flex items-center justify-center gap-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)] hover:-translate-y-px active:scale-[0.98] text-white font-semibold py-3 px-6 rounded-xl transition-all"
           >
             {t("auth.signIn")}
           </Link>
@@ -116,18 +115,18 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-        <div className="w-full max-w-md text-center">
+      <div className="min-h-dvh bg-[#06060f] flex items-center justify-center px-4">
+        <div className="w-full max-w-md text-center" style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">
             {t("auth.invalidLink")}
           </h1>
-          <p className="text-gray-400 mb-6">{t("auth.invalidLinkDesc")}</p>
+          <p className="text-white/45 mb-6">{t("auth.invalidLinkDesc")}</p>
           <Link
             href="/forgot-password"
-            className="inline-flex items-center justify-center gap-2 bg-violet-500 hover:bg-violet-600 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+            className="inline-flex items-center justify-center gap-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)] hover:-translate-y-px active:scale-[0.98] text-white font-semibold py-3 px-6 rounded-xl transition-all"
           >
             {t("auth.requestNewLink")}
           </Link>
@@ -137,8 +136,8 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-dvh bg-[#06060f] flex items-center justify-center px-4">
+      <div className="w-full max-w-md" style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-18 h-18 rounded-3xl mb-4">
@@ -153,15 +152,15 @@ function ResetPasswordForm() {
           <h1 className="text-2xl font-bold text-white">
             {t("auth.setNewPassword")}
           </h1>
-          <p className="text-gray-400 mt-2">{t("auth.passwordHint")}</p>
+          <p className="text-white/45 mt-2">{t("auth.passwordHint")}</p>
         </div>
 
         {/* Reset Password Form */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Error Alert */}
             {error && (
-              <div className="flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
+              <div className="flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
                 <AlertCircle className="w-5 h-5 shrink-0" />
                 <p className="text-sm">{error}</p>
               </div>
@@ -171,12 +170,12 @@ function ResetPasswordForm() {
             <div>
               <label
                 htmlFor="newPassword"
-                className="block text-sm font-medium text-gray-300 mb-2"
+                className="block text-sm font-medium text-white/70 mb-2"
               >
                 {t("auth.newPassword")}
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/25" />
                 <input
                   type="password"
                   id="newPassword"
@@ -186,7 +185,7 @@ function ResetPasswordForm() {
                   placeholder="••••••••"
                   required
                   autoComplete="new-password"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] pl-10 pr-4 py-3 text-base text-white placeholder:text-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e]"
                 />
               </div>
             </div>
@@ -195,12 +194,12 @@ function ResetPasswordForm() {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-300 mb-2"
+                className="block text-sm font-medium text-white/70 mb-2"
               >
                 {t("auth.confirmNewPassword")}
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/25" />
                 <input
                   type="password"
                   id="confirmPassword"
@@ -210,7 +209,7 @@ function ResetPasswordForm() {
                   placeholder="••••••••"
                   required
                   autoComplete="new-password"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors"
+                  className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] pl-10 pr-4 py-3 text-base text-white placeholder:text-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e]"
                 />
               </div>
             </div>
@@ -219,7 +218,7 @@ function ResetPasswordForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-violet-500 hover:bg-violet-600 disabled:bg-violet-500/50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)] hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)] hover:-translate-y-px active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -233,7 +232,7 @@ function ResetPasswordForm() {
           </form>
 
           {/* Back to Login Link */}
-          <div className="mt-6 pt-6 border-t border-gray-800 text-center">
+          <div className="mt-6 pt-6 border-t border-white/[0.055] text-center">
             <Link
               href="/login"
               className="inline-flex items-center gap-2 text-violet-400 hover:text-violet-300 transition-colors"
@@ -252,7 +251,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="min-h-dvh bg-[#06060f] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
         </div>
       }
