@@ -36,32 +36,8 @@ export default function NewActionDropdown({
         onClick={() => setIsOpen(!isOpen)}
         className={
           isInline
-            ? "flex items-center gap-2 px-[18px] py-[10px] rounded-[10px] text-[14px] font-bold cursor-pointer border-none text-white transition-all hover:-translate-y-px"
+            ? "flex items-center gap-2 px-[18px] py-[10px] rounded-[10px] text-[14px] font-bold cursor-pointer border-none text-white bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)]"
             : "w-full bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[13px] py-[13px] flex items-center justify-center gap-2 text-[14px] font-bold text-white cursor-pointer border-none shadow-[0_4px_20px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_8px_32px_rgba(124,58,237,0.3)]"
-        }
-        style={
-          isInline
-            ? {
-                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                boxShadow: "0 4px 20px rgba(124,58,237,0.3)",
-              }
-            : undefined
-        }
-        onMouseEnter={
-          isInline
-            ? (e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 8px 32px rgba(124,58,237,0.3)";
-              }
-            : undefined
-        }
-        onMouseLeave={
-          isInline
-            ? (e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 4px 20px rgba(124,58,237,0.3)";
-              }
-            : undefined
         }
       >
         <Plus className="w-[14px] h-[14px]" strokeWidth={2.5} />

@@ -238,7 +238,7 @@ export default function CommandPalette({
             }}
             onKeyDown={handleInputKeyDown}
             placeholder={t('commandPalette.searchPlaceholder')}
-            className="w-full bg-transparent text-[14px] text-white outline-none placeholder:text-white/30"
+            className="w-full bg-transparent border border-transparent rounded text-[14px] text-white outline-none placeholder:text-white/30 transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
           />
           <div className="hidden items-center gap-1 rounded-md border border-white/[0.1] bg-white/[0.02] px-2 py-1 text-[10px] text-white/35 md:flex">
             <Command className="h-3 w-3" />

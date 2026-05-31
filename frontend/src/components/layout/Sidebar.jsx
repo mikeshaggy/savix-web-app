@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import } from 'lucide-react';
+import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -143,7 +143,7 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
                         const itemClassName = `flex items-center gap-2.5 px-3 py-2.5 rounded-[11px] text-[14px] font-medium transition-all select-none w-full text-left ${
                             isActive
                                 ? 'text-[#c084fc] bg-[rgba(124,58,237,0.15)] shadow-[inset_0_0_0_1px_rgba(124,58,237,0.25)]'
-                                : 'text-white/25 hover:text-white hover:bg-white/[0.04]'
+                                : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                         }`;
 
                         return (
@@ -160,7 +160,7 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
                                             <item.icon className="w-4 h-4" />
                                         </span>
                                         <span className="flex-1">{item.label}</span>
-                                        <span className={`text-[9px] text-white/25 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 opacity-50 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                     </button>
                                 ) : (
                                     <Link
@@ -179,7 +179,7 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
                                     <div
                                         id={`${item.id}-submenu`}
                                         className={`overflow-hidden transition-all duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                                            isExpanded ? 'max-h-[200px]' : 'max-h-0'
+                                            isExpanded ? 'max-h-[300px]' : 'max-h-0'
                                         }`}
                                     >
                                         {item.submenu.map(subItem => (
@@ -189,7 +189,7 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
                                                 className={`flex items-center gap-2.5 py-2 px-3 pl-10 rounded-[9px] text-[13px] font-medium transition-all ${
                                                     isSubItemActive(subItem)
                                                         ? 'text-[#c084fc] bg-[rgba(124,58,237,0.12)]'
-                                                        : 'text-white/25 hover:text-white hover:bg-white/[0.03]'
+                                                        : 'text-white/50 hover:text-white hover:bg-white/[0.03]'
                                                 }`}
                                             >
                                                 <span className="w-4 flex-shrink-0 flex items-center justify-center">

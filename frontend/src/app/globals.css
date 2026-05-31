@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #06060f;
+  --foreground: #f0f0f8;
 }
 
 @theme inline {
@@ -10,20 +10,49 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-outfit);
   --font-mono: var(--font-dm-mono);
-  --font-serif: var(--font-playfair);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* ── Surface tokens ─────────────────────────────────────────────────────────
+     Three dark surface levels for the Savix palette.
+     Available as bg-surface-1, bg-surface-2, bg-surface-3 in Tailwind.
+     ────────────────────────────────────────────────────────────────────────── */
+  --color-surface-1: #0e0e1c;   /* card backgrounds */
+  --color-surface-2: #131325;   /* inputs, interactive elements */
+  --color-surface-3: #1a1a2e;   /* hover states, elevated surfaces */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-outfit), 'Outfit', sans-serif;
+}
+
+/* ── Keyboard focus ring ──────────────────────────────────────────────────────
+   Provides a visible violet ring for keyboard navigation on any interactive
+   element that does not define its own focus-visible treatment.
+   Mouse/pointer focus is unaffected because :focus-visible only fires for
+   keyboard and programmatic focus.
+   ──────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  *:focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.75);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────────
+   Honour the OS "reduce motion" preference by collapsing all animations and
+   transitions. Individual components rely on fadeUp / animate-* utilities
+   which will become instant under this rule.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes fadeUp {

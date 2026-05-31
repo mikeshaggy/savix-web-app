@@ -131,7 +131,7 @@ function AppLayoutContent({
                 <div className="flex flex-col items-center gap-4 text-center max-w-md">
                     <AlertCircle className="w-12 h-12 text-red-500" />
                     <h2 className="text-xl font-semibold">{t('errors.unableToConnectBackend')}</h2>
-                    <p className="text-gray-400">
+                    <p className="text-white/40">
                         {categoriesError}
                     </p>
                     <button
@@ -141,7 +141,7 @@ function AppLayoutContent({
                         <RefreshCw className="w-4 h-4" />
                         {t('common.tryAgain')}
                     </button>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-white/30">
                         {t('errors.backendHint')}
                     </p>
                 </div>

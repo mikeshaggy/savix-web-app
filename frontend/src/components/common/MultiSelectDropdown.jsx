@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, Search } from 'lucide-react';
+import { DROPDOWN_SEARCH, CHIP_BASE, CHIP_DEFAULT, CHIP_ACTIVE } from '@/components/common/formControls';
 
 export default function MultiSelectDropdown({
     options = [],
@@ -66,20 +67,13 @@ export default function MultiSelectDropdown({
         displayLabel = nSelectedLabel ? nSelectedLabel(selected.length) : `${selected.length} selected`;
     }
 
-    const chipBase =
-        'appearance-none outline-none rounded-[10px] px-[13px] py-[7px] text-[13px] font-medium cursor-pointer transition-all whitespace-nowrap';
-    const chipDefault =
-        'bg-[#0e0e1c] border border-white/[0.055] text-white/50 hover:border-white/[0.12] hover:text-white';
-    const chipActive =
-        'bg-[rgba(124,58,237,0.14)] border border-[rgba(124,58,237,0.35)] text-purple-300';
-
     return (
         <div className={`relative ${className}`} ref={ref}>
             {/* Trigger button */}
             <button
                 type="button"
                 onClick={() => setOpen((prev) => !prev)}
-                className={`${chipBase} ${isActive ? chipActive : chipDefault} flex items-center gap-1.5`}
+                className={`${CHIP_BASE} ${isActive ? CHIP_ACTIVE : CHIP_DEFAULT} flex items-center gap-1.5`}
             >
                 <span className="truncate max-w-[160px]">{displayLabel}</span>
                 <ChevronDown
@@ -103,7 +97,7 @@ export default function MultiSelectDropdown({
                                         value={query}
                                         onChange={(e) => setQuery(e.target.value)}
                                         placeholder={searchPlaceholder}
-                                        className="w-full bg-[#0e0e1c] border border-white/[0.07] rounded-lg pl-8 pr-2.5 py-1.5 text-[12px] text-white placeholder:text-white/28 outline-none focus:border-violet-500/40"
+                                        className={`${DROPDOWN_SEARCH} w-full pl-8`}
                                     />
                                 </div>
                             </div>

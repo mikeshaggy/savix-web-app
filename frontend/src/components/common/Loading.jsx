@@ -12,47 +12,47 @@ export const Loading = ({ message = 'Loading...', size = 'md' }) => {
         <div className="flex items-center justify-center p-8">
             <div className="flex flex-col items-center gap-3">
                 <Loader2 className={`${sizeClasses[size]} animate-spin text-violet-500`} />
-                <p className="text-gray-400 text-sm">{message}</p>
+                <p className="text-white/40 text-sm">{message}</p>
             </div>
         </div>
     );
 };
 
 export const PageLoading = ({ message = 'Loading your data...' }) => (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+    <div className="min-h-screen bg-[#06060f] text-white flex items-center justify-center">
         <Loading message={message} size="lg" />
     </div>
 );
 
 export const CardLoading = () => (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 animate-pulse">
+    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-6 animate-pulse">
         <div className="flex items-center justify-between mb-4">
-            <div className="h-4 bg-gray-800 rounded w-24"></div>
-            <div className="w-10 h-10 bg-gray-800 rounded-lg"></div>
+            <div className="h-4 bg-white/[0.06] rounded w-24"></div>
+            <div className="w-10 h-10 bg-white/[0.06] rounded-lg"></div>
         </div>
-        <div className="h-8 bg-gray-800 rounded w-32 mb-2"></div>
-        <div className="h-3 bg-gray-800 rounded w-20"></div>
+        <div className="h-8 bg-white/[0.06] rounded w-32 mb-2"></div>
+        <div className="h-3 bg-white/[0.06] rounded w-20"></div>
     </div>
 );
 
 export const TableLoading = ({ rows = 5, columns = 4 }) => (
     <div className="space-y-3">
         {Array.from({ length: rows }).map((_, index) => (
-            <div key={index} className="flex gap-4 p-4 bg-gray-900 rounded-lg animate-pulse">
+            <div key={index} className="flex gap-4 p-4 bg-[#0e0e1c] border border-white/[0.055] rounded-xl animate-pulse">
                 {Array.from({ length: columns }).map((_, colIndex) => (
-                    <div key={colIndex} className="h-4 bg-gray-800 rounded flex-1"></div>
+                    <div key={colIndex} className="h-4 bg-white/[0.06] rounded flex-1"></div>
                 ))}
             </div>
         ))}
     </div>
 );
 
-export const ButtonLoading = ({ children, loading, ...props }) => (
+export const ButtonLoading = ({ children, loading, label = 'Loading…', ...props }) => (
     <button disabled={loading} {...props}>
         {loading ? (
             <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Loading...
+                {label}
             </div>
         ) : (
             children
