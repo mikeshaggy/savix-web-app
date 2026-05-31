@@ -22,7 +22,7 @@ export default function TopCategories({ categories }) {
 
     return (
         <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden relative transition-colors hover:border-white/[0.12] w-full flex flex-col"
-             style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.2s' }}>
+             style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.2s' }}>
             {/* Header */}
             <div className="px-6 pt-5 pb-0 flex items-start gap-3 mb-4">
                 <div>

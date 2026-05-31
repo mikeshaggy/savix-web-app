@@ -59,7 +59,7 @@ export default function PreviousCyclePreview({ preview, period }) {
   return (
     <div
       className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] overflow-hidden"
-      style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.26s', minHeight: '220px' }}
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.26s', minHeight: '220px' }}
     >
       {/* Header */}
       <div className="px-5 py-4 border-b border-white/[0.07]">

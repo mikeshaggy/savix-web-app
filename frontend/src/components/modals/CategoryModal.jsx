@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import Button from '@/components/common/Button';
+import { INPUT_SM } from '@/components/common/formControls';
 
 export default function CategoryModal({ isOpen, onClose, onSave, category = null, loading = false }) {
   const t = useTranslations();
@@ -173,6 +175,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
           <button
             onClick={handleClose}
             className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] hover:bg-[#1a1a2e] transition-all"
+            aria-label={t('common.close')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -226,7 +229,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 maxLength={50}
-                className={`w-full bg-[#131325] border rounded-[10px] px-3.5 py-2.5 text-[15px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                className={`${INPUT_SM} w-full ${
                   errors.name ? 'border-red-500' : 'border-white/[0.055]'
                 }`}
                 placeholder={t('category.categoryNamePlaceholder')}
@@ -252,7 +255,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                   value={formData.emoji}
                   onChange={(e) => handleChange('emoji', e.target.value)}
                   maxLength={16}
-                  className={`flex-1 bg-[#131325] border rounded-[10px] px-3.5 py-2.5 text-[15px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                  className={`${INPUT_SM} flex-1 ${
                     errors.emoji ? 'border-red-500' : 'border-white/[0.055]'
                   }`}
                   placeholder={t('category.emojiPlaceholder')}
@@ -293,23 +296,19 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={handleClose}
-              className="px-[18px] py-2.5 bg-[#131325] border border-white/[0.055] rounded-[10px] text-[14px] font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
             >
               {t('common.cancel')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              size="sm"
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] border-none text-[14px] font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
-              style={{
-                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                boxShadow: '0 4px 20px rgba(124,58,237,0.3)'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.3)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.3)'; }}
             >
               {submitting ? (
                 <>
@@ -324,7 +323,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                   {t('common.save')}
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

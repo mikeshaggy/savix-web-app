@@ -64,7 +64,7 @@ export default function ForecastBreakdown({ projData, loading }) {
         {/* Right: projected totals */}
         <div className="flex flex-col justify-center gap-3 md:border-l md:border-white/[0.06] md:pl-6 pt-2 md:pt-0">
           <div>
-            <div className="text-xs text-white/35 uppercase tracking-wide mb-1">
+            <div className="text-xs text-white/35 uppercase tracking-[0.12em] mb-1">
               {t('projectedTotalSpend')}
             </div>
             <div className="font-mono text-lg font-semibold text-red-400">
@@ -73,7 +73,7 @@ export default function ForecastBreakdown({ projData, loading }) {
           </div>
           <div className="h-px bg-white/[0.07]" />
           <div>
-            <div className="text-xs text-white/35 uppercase tracking-wide mb-1">
+            <div className="text-xs text-white/35 uppercase tracking-[0.12em] mb-1">
               {t('projectedEndBalance')}
             </div>
             <div className="font-mono text-2xl font-bold" style={{ color: balanceColor }}>

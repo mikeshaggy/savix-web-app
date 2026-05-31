@@ -3,6 +3,7 @@ import { Pencil, Trash2, Receipt } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency, formatDate, getImportanceKey } from '@/utils/helpers';
 import { useLanguage } from '@/i18n';
+import EmptyState from '@/components/common/EmptyState';
 
 export default function TransactionTable({ 
     groups = [],
@@ -38,11 +39,12 @@ export default function TransactionTable({
     if (!groups.length) {
         return (
             <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden">
-                <div className="text-center py-16">
-                    <Receipt className="w-12 h-12 text-white/[0.12] mx-auto mb-4" />
-                    <p className="text-white/50 text-base font-medium">{t('table.noTransactionsFound')}</p>
-                    <p className="text-white/22 text-sm mt-2">{t('table.tryAdjustingFilters')}</p>
-                </div>
+                <EmptyState
+                    variant="card"
+                    icon={Receipt}
+                    title={t('table.noTransactionsFound')}
+                    description={t('table.tryAdjustingFilters')}
+                />
             </div>
         );
     }
@@ -61,10 +63,10 @@ export default function TransactionTable({
                     <React.Fragment key={dateLabel}>
                         {/* Date group header */}
                         <div className="flex items-center gap-3 px-4 md:px-[22px] py-[11px] bg-[rgba(6,6,15,0.35)] border-b border-white/[0.055]">
-                            <span className="text-[13px] md:text-[14px] font-bold tracking-[0.1em] uppercase text-white/22 whitespace-nowrap">{dateLabel}</span>
+                            <span className="text-[13px] md:text-[14px] font-bold tracking-[0.1em] uppercase text-white/25 whitespace-nowrap">{dateLabel}</span>
                             <div className="flex-1 h-px bg-white/[0.055]" />
                             <span className={`font-mono text-[14px] md:text-[15px] font-medium whitespace-nowrap ${
-                                dayTotal < 0 ? 'text-red-400/70' : dayTotal > 0 ? 'text-green-400/70' : 'text-white/22'
+                                dayTotal < 0 ? 'text-red-400/70' : dayTotal > 0 ? 'text-green-400/70' : 'text-white/25'
                             }`}>
                                 {dayTotal >= 0 ? '+' : ''}{formatCurrency(dayTotal, lang)}
                             </span>
@@ -109,7 +111,7 @@ export default function TransactionTable({
                                                 </span>
                                                 {/* Importance pill — hide on small screens */}
                                                 {txn.importance && (
-                                                    <span className={`hidden sm:inline-flex text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
+                                                    <span className={`inline-flex text-[13px] font-medium rounded-full px-2.5 py-[2px] border whitespace-nowrap ${
                                                         importanceColors[txn.importance] || 'bg-white/[0.04] border-white/[0.06] text-white/40'
                                                     }`}>
                                                         {t(`importance.${getImportanceKey(txn.importance)}`)}
@@ -133,18 +135,20 @@ export default function TransactionTable({
                                         }`}>
                                             {isIncome ? '+ ' : '- '}{formatCurrency(amount, lang)}
                                         </span>
-                                        <div className="hidden md:flex items-center gap-[5px] opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                        <div className="flex items-center gap-[5px] md:opacity-0 md:group-hover:opacity-100 transition-opacity ml-2">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onEdit?.(txn); }}
-                                                className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#131325] border border-white/[0.055] cursor-pointer text-white/22 transition-all hover:text-white hover:border-white/[0.12]"
+                                                className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#131325] border border-white/[0.055] cursor-pointer text-white/25 transition-all hover:text-white hover:border-white/[0.12]"
                                                 title={t('common.edit')}
+                                                aria-label={t('common.edit')}
                                             >
                                                 <Pencil className="w-3 h-3" />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onDelete?.(txn); }}
-                                                className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#131325] border border-white/[0.055] cursor-pointer text-white/22 transition-all hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/[0.08]"
+                                                className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#131325] border border-white/[0.055] cursor-pointer text-white/25 transition-all hover:text-red-400 hover:border-red-400/30 hover:bg-red-400/[0.08]"
                                                 title={t('common.delete')}
+                                                aria-label={t('common.delete')}
                                             >
                                                 <Trash2 className="w-3 h-3" />
                                             </button>

@@ -34,7 +34,7 @@ export default function AnalyticsSubNav() {
           <Link
             key={id}
             href={fullHref}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-[9px] text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-400/60 ${
               isActive
                 ? 'bg-purple-600 text-white shadow-[0_2px_12px_rgba(124,58,237,0.3)]'
                 : 'text-white/30 hover:text-white/60 hover:bg-white/[0.04]'

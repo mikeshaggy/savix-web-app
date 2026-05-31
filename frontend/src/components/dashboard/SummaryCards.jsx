@@ -60,7 +60,7 @@ export default function SummaryCards({ kpis }) {
   return (
     <div
       className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.07] bg-[#0e0e1c]"
-      style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.08s' }}
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.08s' }}
     >
       {segments.map((seg, index) => {
         const delta = seg.deltaPercent;
@@ -73,6 +73,12 @@ export default function SummaryCards({ kpis }) {
             key={seg.key}
             className="relative py-5 sm:py-7 px-4 sm:px-6 overflow-hidden transition-colors hover:bg-white/[0.02] cursor-default"
           >
+            {/* Top accent bar */}
+            <div
+              className="absolute top-0 left-0 right-0 h-[2px]"
+              style={{ background: seg.dotColor, opacity: 0.65 }}
+            />
+
             {/* Divider */}
             {index > 0 && (
               <div className="absolute left-0 top-[15%] bottom-[15%] w-px bg-white/[0.07]" />
@@ -141,11 +147,6 @@ export default function SummaryCards({ kpis }) {
               <div className="text-[11px] text-white/25">{t('dashboard.noComparison')}</div>
             )}
 
-            {/* Floor line */}
-            <div
-              className="absolute bottom-0 left-0 right-0 h-0.5 opacity-60"
-              style={{ backgroundColor: seg.floorColor }}
-            />
           </div>
         );
       })}

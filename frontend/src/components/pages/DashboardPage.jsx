@@ -1,10 +1,11 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus } from 'lucide-react';
+import { Wallet } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
-import { Loading } from '../common/Loading';
+import EmptyState from '../common/EmptyState';
+import ErrorState from '../common/ErrorState';
 import { dashboardApi } from '@/lib/api';
 import DashboardHeader from '../dashboard/DashboardHeader';
 import CycleHealthHero from '../dashboard/CycleHealthHero';
@@ -14,6 +15,88 @@ import InsightsCard from '../dashboard/InsightsCard';
 import CategoryPressureCard from '../dashboard/CategoryPressureCard';
 import PreviousCyclePreview from '../dashboard/PreviousCyclePreview';
 import { useTranslations } from 'next-intl';
+
+// ─── Dashboard skeleton ───────────────────────────────────────────────────────
+// Shown during walletsLoading and dashboard data loading.
+// Mirrors the real dashboard layout shape without real data.
+function DashboardSkeleton() {
+  return (
+    <div className="animate-pulse">
+
+      {/* Header: title + wallet name left, period selector right */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+        <div className="flex flex-col gap-2">
+          <div className="h-8 w-32 bg-white/[0.06] rounded-lg" />
+          <div className="h-4 w-24 bg-white/[0.04] rounded" />
+        </div>
+        <div className="flex flex-col items-start md:items-end gap-2">
+          <div className="h-9 w-56 bg-white/[0.04] rounded-xl" />
+          <div className="h-9 w-72 bg-white/[0.04] rounded-xl" />
+        </div>
+      </div>
+
+      {/* CycleHealthHero shape */}
+      <div className="w-full bg-[#0e0e1c] border border-white/[0.06] rounded-[18px] overflow-hidden mb-5">
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-white/[0.06]">
+          <div className="h-3 w-20 bg-white/[0.06] rounded" />
+          <div className="h-3 w-24 bg-white/[0.04] rounded" />
+        </div>
+        {/* Metrics grid: primary balance + 3 secondary */}
+        <div className="grid grid-cols-3 gap-px bg-white/[0.035] md:[grid-template-columns:minmax(0,1.35fr)_repeat(3,minmax(0,0.9fr))]">
+          <div className="col-span-3 md:col-span-1 bg-[#0e0e1c] px-6 md:px-8 py-6 md:py-8">
+            <div className="h-2.5 w-16 bg-white/[0.05] rounded mb-3" />
+            <div className="h-10 w-40 bg-white/[0.07] rounded-lg" />
+          </div>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
+              <div className="h-2 w-14 bg-white/[0.05] rounded mb-2.5" />
+              <div className="h-7 w-24 bg-white/[0.06] rounded-lg" />
+            </div>
+          ))}
+        </div>
+        {/* Progress strip */}
+        <div className="flex items-center gap-3 px-6 py-3 border-t border-white/[0.04]">
+          <div className="h-2 w-16 bg-white/[0.04] rounded" />
+          <div className="flex-1 h-[3px] bg-white/[0.06] rounded-full" />
+          <div className="h-2 w-12 bg-white/[0.04] rounded" />
+        </div>
+      </div>
+
+      {/* SummaryCards row: 4 equal cells */}
+      <div className="mb-5 bg-[#0e0e1c] border border-white/[0.07] rounded-[20px] overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="relative py-5 sm:py-7 px-4 sm:px-6">
+              {/* Top accent bar placeholder */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/[0.06]" />
+              {/* Vertical divider (mirrors real SummaryCards) */}
+              {i > 0 && (
+                <div className="absolute left-0 top-[15%] bottom-[15%] w-px bg-white/[0.07]" />
+              )}
+              <div className="h-2.5 w-16 bg-white/[0.05] rounded mb-4" />
+              <div className="h-8 w-28 bg-white/[0.07] rounded-lg mb-3" />
+              <div className="h-2.5 w-14 bg-white/[0.04] rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Operational grid — exact template from real dashboard */}
+      <div className="grid grid-cols-1 gap-5 lg:[grid-template-columns:minmax(0,1.35fr)_minmax(360px,0.95fr)]">
+        {/* Row 1 left — FixedTransactionsTile */}
+        <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] h-[320px]" />
+        {/* Row 1 right — CategoryPressureCard */}
+        <div className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] h-[320px]" />
+        {/* Row 2 left — PreviousCyclePreview */}
+        <div className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] h-[220px]" />
+        {/* Row 2 right — InsightsCard */}
+        <div className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] h-[220px]" />
+      </div>
+
+    </div>
+  );
+}
 
 export default function DashboardPage() {
     const t = useTranslations();
@@ -81,70 +164,43 @@ export default function DashboardPage() {
     };
 
     if (walletsLoading) {
-        return <Loading message={t('dashboard.loadingWallets')} />;
+        return <DashboardSkeleton />;
     }
 
     if (!walletsLoading && wallets.length === 0) {
         return (
-            <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center max-w-md">
-                    <div className="mb-6">
-                        <Wallet className="w-16 h-16 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-2xl font-semibold text-white mb-2">{t('dashboard.welcomeToSavix')}</h2>
-                        <p className="text-gray-400 mb-6">{t('dashboard.noWalletsYet')}</p>
-                    </div>
-                    <button
-                        onClick={() => router.push('/wallets')}
-                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        {t('dashboard.createFirstWallet')}
-                    </button>
-                    <p className="text-sm text-gray-500 mt-4">{t('dashboard.walletHelp')}</p>
-                </div>
-            </div>
+            <EmptyState
+                icon={Wallet}
+                title={t('dashboard.welcomeToSavix')}
+                description={t('dashboard.noWalletsYet')}
+                action={{ label: t('dashboard.createFirstWallet'), onClick: () => router.push('/wallets') }}
+            />
         );
     }
 
     if (!currentWallet && wallets.length > 0) {
         return (
-            <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center max-w-md">
-                    <div className="mb-6">
-                        <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-xl font-semibold text-white mb-2">{t('dashboard.noWalletSelected')}</h2>
-                        <p className="text-gray-400 mb-6">{t('dashboard.selectWalletDashboard')}</p>
-                    </div>
-                    <button
-                        onClick={() => router.push('/wallets')}
-                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
-                    >
-                        <Wallet className="w-5 h-5 mr-2" />
-                        {t('topbar.manageWallets')}
-                    </button>
-                </div>
-            </div>
+            <EmptyState
+                icon={Wallet}
+                title={t('dashboard.noWalletSelected')}
+                description={t('dashboard.selectWalletDashboard')}
+                action={{ label: t('topbar.manageWallets'), onClick: () => router.push('/wallets') }}
+            />
         );
     }
 
     if (loading) {
-        return <Loading message={t('dashboard.loadingDashboard')} />;
+        return <DashboardSkeleton />;
     }
 
     if (error) {
         return (
-            <div className="flex items-center justify-center p-8">
-                <div className="text-center">
-                    <h2 className="text-xl font-semibold text-white mb-2">{t('errors.errorLoadingDashboard')}</h2>
-                    <p className="text-gray-400 mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
-                    >
-                        {t('common.retry')}
-                    </button>
-                </div>
-            </div>
+            <ErrorState
+                title={t('errors.errorLoadingDashboard')}
+                description={error}
+                onRetry={() => window.location.reload()}
+                retryLabel={t('common.retry')}
+            />
         );
     }
 

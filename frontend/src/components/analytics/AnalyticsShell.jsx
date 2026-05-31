@@ -1,12 +1,14 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
 import PeriodSelector from '@/components/common/PeriodSelector';
+import { Loading } from '@/components/common/Loading';
+import EmptyState from '@/components/common/EmptyState';
 import AnalyticsSubNav from './AnalyticsSubNav';
 
 // Map each analytics subpage path to its title/subtitle translation keys.
@@ -80,26 +82,18 @@ export default function AnalyticsShell({ children }) {
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (walletsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <BarChart2 className="w-8 h-8 animate-pulse text-violet-500" />
-          <p className="text-gray-400 text-sm">{t('loadingAnalytics')}</p>
-        </div>
-      </div>
-    );
+    return <Loading message={t('loadingAnalytics')} />;
   }
 
   // ── No wallet ──────────────────────────────────────────────────────────────
   if (!currentWallet) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center max-w-sm">
-          <Wallet className="w-14 h-14 text-violet-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-white mb-2">{t('noWallet')}</h3>
-          <p className="text-gray-400 text-sm">{t('noWalletDesc')}</p>
-        </div>
-      </div>
+      <EmptyState
+        variant="page"
+        icon={Wallet}
+        title={t('noWallet')}
+        description={t('noWalletDesc')}
+      />
     );
   }
 
@@ -110,7 +104,7 @@ export default function AnalyticsShell({ children }) {
       {/* ── Page header: title left · period selector right ───────────────── */}
       <div
         className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-5"
-        style={{ animation: 'fadeUp 0.3s ease both' }}
+        style={{ animation: 'fadeUp 0.3s cubic-bezier(0.4,0,0.2,1) both' }}
       >
         {/* Left — page title + subtitle (driven by current pathname) */}
         <div>

@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { getPresetDateRange } from '@/utils/dateFilters';
 import MultiSelectDropdown from '@/components/common/MultiSelectDropdown';
+import { FILTER_SEARCH, FILTER_DATE, CHIP_BASE, CHIP_DEFAULT, CHIP_ACTIVE } from '@/components/common/formControls';
 
 export default function TransactionFilters({
     // Server-driven filter state
@@ -121,10 +122,6 @@ export default function TransactionFilters({
 
     const hasActiveFilters = activeFilterCount > 0;
 
-    const chipBase = "appearance-none outline-none rounded-[10px] px-[13px] py-[7px] text-[13px] font-medium cursor-pointer transition-all whitespace-nowrap";
-    const chipDefault = "bg-[#0e0e1c] border border-white/[0.055] text-white/50 hover:border-white/[0.12] hover:text-white";
-    const chipActive = "bg-[rgba(124,58,237,0.14)] border border-[rgba(124,58,237,0.35)] text-purple-300";
-
     const categoryIdStrings = React.useMemo(
         () => categoryIds.map(String),
         [categoryIds]
@@ -140,12 +137,13 @@ export default function TransactionFilters({
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder={t('search.placeholder')}
-                    className="w-full bg-[#0e0e1c] border border-white/[0.055] rounded-[12px] pl-10 pr-10 py-[10px] text-[14px] text-white placeholder:text-white/22 outline-none transition-all focus:border-violet-500/40 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.08)]"
+                    className={`${FILTER_SEARCH} w-full border-white/[0.055] pl-10 pr-10 py-[10px]`}
                 />
                 {searchInput && (
                     <button
                         onClick={clearSearch}
                         className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all"
+                        aria-label={t('common.clear')}
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -186,13 +184,13 @@ export default function TransactionFilters({
                 />
 
                 {/* Separator */}
-                <div className="w-px h-6 bg-white/[0.12] mx-0.5" />
+                <div className="hidden sm:block w-px h-6 bg-white/[0.12] mx-0.5" />
 
                 {/* Date filter */}
                 <select
                     value={datePreset}
                     onChange={(e) => handleDatePresetChange(e.target.value)}
-                    className={`${chipBase} ${datePreset !== 'all_time' ? chipActive : chipDefault}`}
+                    className={`${CHIP_BASE} ${datePreset !== 'all_time' ? CHIP_ACTIVE : CHIP_DEFAULT}`}
                 >
                     <option value="all_time">{t('filters.allTime')}</option>
                     <option value="this_week">{t('filters.thisWeek')}</option>
@@ -205,7 +203,7 @@ export default function TransactionFilters({
                 {hasActiveFilters && (
                     <button
                         onClick={() => { setCustomRangeOpen(false); clearAllFilters(); }}
-                        className="text-[12px] font-semibold text-white/22 bg-transparent border-none cursor-pointer px-[10px] py-[7px] transition-colors hover:text-red-400 flex items-center gap-1.5"
+                        className="text-[12px] font-semibold text-white/25 bg-transparent border-none cursor-pointer px-[10px] py-[7px] transition-colors hover:text-red-400 flex items-center gap-1.5"
                     >
                         <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-violet-500/20 text-violet-300 text-[11px] font-bold">
                             {activeFilterCount}
@@ -218,7 +216,7 @@ export default function TransactionFilters({
                 <select
                     value={currentSortDisplay}
                     onChange={(e) => handleSortChange(e.target.value)}
-                    className={`${chipBase} ${chipDefault} ml-auto`}
+                    className={`${CHIP_BASE} ${CHIP_DEFAULT} ml-auto flex-shrink-0`}
                 >
                     <option value="date:desc">{t('sort.date')} ↓</option>
                     <option value="date:asc">{t('sort.date')} ↑</option>
@@ -231,19 +229,19 @@ export default function TransactionFilters({
 
             {/* Custom date range inputs */}
             {datePreset === 'custom' && (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
                     <input
                         type="date"
                         value={startDate}
                         onChange={(e) => updateStartDate(e.target.value)}
-                        className="bg-[#131325] border border-white/[0.055] rounded-[10px] px-3.5 py-[7px] text-[13px] text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] [color-scheme:dark]"
+                        className={`${FILTER_DATE} border-white/[0.055] w-full sm:w-auto`}
                     />
-                    <span className="text-white/22 text-xs">→</span>
+                    <span className="hidden sm:block text-white/25 text-xs">→</span>
                     <input
                         type="date"
                         value={endDate}
                         onChange={(e) => updateEndDate(e.target.value)}
-                        className="bg-[#131325] border border-white/[0.055] rounded-[10px] px-3.5 py-[7px] text-[13px] text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] [color-scheme:dark]"
+                        className={`${FILTER_DATE} border-white/[0.055] w-full sm:w-auto`}
                     />
                 </div>
             )}

@@ -24,7 +24,7 @@ export default function DashboardHeader({
   return (
     <div
       className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6"
-      style={{ animation: 'fadeUp 0.4s ease both' }}
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
     >
       <div>
         <div className="text-[27px] font-bold tracking-[-0.5px] text-white leading-tight">

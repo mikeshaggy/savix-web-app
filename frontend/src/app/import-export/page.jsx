@@ -4,8 +4,8 @@ export default function ImportExportPage() {
     return (
         <div className="p-6">
             <h1 className="text-2xl font-semibold">Import / Export</h1>
-            <p className="mt-2 text-gray-400">This view will be implemented here.</p>
-            <p className="mt-1 text-sm text-gray-500">Coming soon.</p>
+            <p className="mt-2 text-white/40">This view will be implemented here.</p>
+            <p className="mt-1 text-sm text-white/30">Coming soon.</p>
         </div>
     );
 }

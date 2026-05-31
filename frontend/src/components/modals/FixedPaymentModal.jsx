@@ -4,6 +4,8 @@ import { X, Save, Loader2, Trash2 } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import { useTranslations } from 'next-intl';
+import Button from '@/components/common/Button';
+import { INPUT_MD, TEXTAREA_MD } from '@/components/common/formControls';
 
 const CYCLE_OPTIONS = [
   { value: 'WEEKLY', labelKey: 'fixedPayments.weekly' },
@@ -340,6 +342,7 @@ export default function FixedPaymentModal({
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] hover:bg-[#1a1a2e] transition-all"
+            aria-label={t('common.close')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -361,7 +364,7 @@ export default function FixedPaymentModal({
                 value={formData.title}
                 onChange={(e) => handleChange('title', e.target.value)}
                 maxLength={50}
-                className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                className={`${INPUT_MD} w-full ${
                   errors.title ? 'border-red-500' : 'border-white/[0.055]'
                 }`}
                 placeholder={t('fixedPayments.titlePlaceholder')}
@@ -385,7 +388,7 @@ export default function FixedPaymentModal({
                   min="0"
                   value={formData.amount}
                   onChange={(e) => handleChange('amount', e.target.value)}
-                  className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                  className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder:text-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
                     errors.amount ? 'border-red-500' : 'border-white/[0.055]'
                   }`}
                   placeholder="0.00"
@@ -431,7 +434,7 @@ export default function FixedPaymentModal({
                       setActiveIndex(filteredCategories.length ? 0 : -1);
                     }}
                     onKeyDown={handleCategoryInputKeyDown}
-                    className={`flex-1 bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                    className={`${INPUT_MD} flex-1 ${
                       errors.categoryId ? 'border-red-500' : 'border-white/[0.055]'
                     }`}
                     placeholder={t('transaction.searchCategory')}
@@ -454,12 +457,12 @@ export default function FixedPaymentModal({
                         : { top: dropdownPosition.top }),
                     }}
                   >
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] text-gray-500 text-xs">
-                      <span className="text-gray-400">{filteredCategories.length} {t('transaction.items')}</span>
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] text-white/30 text-xs">
+                      <span className="text-white/40">{filteredCategories.length} {t('transaction.items')}</span>
                     </div>
                     <div className="overflow-y-auto pb-2" style={{ maxHeight: dropdownPosition.maxHeight }}>
                       {filteredCategories.length === 0 ? (
-                        <div className="px-4 py-4 text-gray-400 text-sm">{t('transaction.noMatches')}</div>
+                        <div className="px-4 py-4 text-white/40 text-sm">{t('transaction.noMatches')}</div>
                       ) : (
                         filteredCategories.map((cat, idx) => (
                           <div
@@ -503,7 +506,7 @@ export default function FixedPaymentModal({
                 type="date"
                 value={formData.anchorDate}
                 onChange={(e) => handleChange('anchorDate', e.target.value)}
-                className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] [color-scheme:dark] ${
+                className={`${INPUT_MD} w-full [color-scheme:dark] ${
                   errors.anchorDate ? 'border-red-500' : 'border-white/[0.055]'
                 }`}
               />
@@ -550,7 +553,7 @@ export default function FixedPaymentModal({
                   type="date"
                   value={formData.activeFrom}
                   onChange={(e) => handleChange('activeFrom', e.target.value)}
-                  className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] [color-scheme:dark]"
+                  className={`${INPUT_MD} w-full border-white/[0.055] [color-scheme:dark]`}
                 />
               </div>
             )}
@@ -565,7 +568,7 @@ export default function FixedPaymentModal({
                 type="date"
                 value={formData.activeTo}
                 onChange={(e) => handleChange('activeTo', e.target.value)}
-                className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] [color-scheme:dark]"
+                className={`${INPUT_MD} w-full border-white/[0.055] [color-scheme:dark]`}
               />
               <p className="text-[12px] text-white/25 mt-1.5">{t('fixedPayments.activeToHint')}</p>
             </div>
@@ -579,7 +582,7 @@ export default function FixedPaymentModal({
                 value={formData.notes}
                 onChange={(e) => handleChange('notes', e.target.value)}
                 rows={3}
-                className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-[15px] text-white placeholder-white/25 outline-none transition-all resize-y min-h-[70px] max-h-[120px] leading-relaxed focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                className={`${TEXTAREA_MD} w-full border-white/[0.055] min-h-[70px] max-h-[120px]`}
                 placeholder={t('fixedPayments.notesPlaceholder')}
               />
             </div>
@@ -606,23 +609,19 @@ export default function FixedPaymentModal({
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
             <div className="flex items-center gap-2.5 ml-auto">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="md"
                 onClick={onClose}
-                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
               >
                 {t('common.cancel')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
+                variant="primary"
+                size="md"
                 disabled={submitting}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                  boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,58,237,0.3)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.3)'; }}
               >
                 {submitting ? (
                   <>
@@ -637,7 +636,7 @@ export default function FixedPaymentModal({
                     {t('common.save')}
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </form>

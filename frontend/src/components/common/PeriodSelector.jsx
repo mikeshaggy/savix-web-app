@@ -96,7 +96,7 @@ export default function PeriodSelector({
             type="month"
             value={selectedMonth}
             onChange={(e) => onMonthChange(e.target.value)}
-            className="bg-transparent border-0 text-white outline-none text-xs font-medium [color-scheme:dark]"
+            className="bg-transparent border border-transparent rounded text-white outline-none text-xs font-medium [color-scheme:dark] transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
           />
         </div>
 
@@ -118,14 +118,14 @@ export default function PeriodSelector({
         <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-purple-500/30 bg-[#0e0e1c] shadow-[0_0_0_3px_rgba(124,58,237,0.1)]">
           <input
             type="date"
-            className="bg-transparent border-0 text-white outline-none text-xs font-medium [color-scheme:dark]"
+            className="bg-transparent border border-transparent rounded text-white outline-none text-xs font-medium [color-scheme:dark] transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
             value={tempStart}
             onChange={(e) => setTempStart(e.target.value)}
           />
           <span className="w-[3px] h-[3px] rounded-full bg-white/25" />
           <input
             type="date"
-            className="bg-transparent border-0 text-white outline-none text-xs font-medium [color-scheme:dark]"
+            className="bg-transparent border border-transparent rounded text-white outline-none text-xs font-medium [color-scheme:dark] transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
             value={tempEnd}
             onChange={(e) => setTempEnd(e.target.value)}
           />

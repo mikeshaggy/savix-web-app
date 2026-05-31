@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BarChart2, AlertCircle, MousePointerClick } from 'lucide-react';
+import { BarChart2, MousePointerClick } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { analyticsApi } from '@/lib/api';
 import { formatCurrency } from '@/utils/helpers';
+import ErrorState from '@/components/common/ErrorState';
 
 // ─── chart constants ──────────────────────────────────────────────────────────
 
@@ -293,7 +294,7 @@ function DaySummaryPanel({ dayData, t }) {
 
           {/* Transaction-level placeholder */}
           <div className="pt-2 border-t border-white/[0.05] mt-auto">
-            <p className="text-[10px] text-white/18 italic leading-relaxed">
+            <p className="text-[10px] text-white/20 italic leading-relaxed">
               {t('dailyDayTxPlaceholder')}
             </p>
           </div>
@@ -409,23 +410,19 @@ export default function SpendingHeatmap({ walletId, periodType, startDate, endDa
 
       {/* ── Error state ───────────────────────────────────────────────────────── */}
       {error && (
-        <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <AlertCircle className="w-7 h-7 text-red-400/70" />
-          <p className="text-sm text-white/40">{error}</p>
-          <button
-            onClick={() => fetchHeatmap(walletId, periodType, startDate, endDate)}
-            className="px-3 py-1.5 bg-violet-600/80 text-white text-xs rounded-lg hover:bg-violet-600 transition-colors"
-          >
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="inline"
+          title={error}
+          onRetry={() => fetchHeatmap(walletId, periodType, startDate, endDate)}
+          retryLabel={t('retry')}
+        />
       )}
 
       {!error && (
         <>
           {/* ── KPI chips ─────────────────────────────────────────────────────── */}
           {hasData && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-5 gap-2 mb-5">
               <KpiChip
                 label={t('dailyKpiHighest')}
                 value={formatCurrency(stats.highestDay?.total ?? 0)}

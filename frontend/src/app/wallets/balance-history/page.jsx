@@ -345,7 +345,7 @@ function BalanceHistoryChart({ chartData, lang, t, rangeLabel, emptyTitle, empty
 
 function SummaryCard({ title, value, accentClass, hint, valueClassName = 'text-white' }) {
     return (
-        <div className="rounded-[12px] border border-white/[0.06] bg-[#13131f] px-4 py-3.5">
+        <div className="rounded-[12px] border border-white/[0.06] bg-[#0e0e1c] px-4 py-3.5">
             <div className={`h-[2px] w-7 rounded-full ${accentClass} mb-3`} />
             <div className="text-[10px] tracking-[0.12em] uppercase text-white/35 mb-2">{title}</div>
             <div className={`font-mono tabular-nums text-[19px] font-semibold tracking-[-0.02em] leading-none ${valueClassName}`}>
@@ -410,7 +410,7 @@ function BalanceHistoryRangeSelector({
                                     onChange={(event) => onCustomRangeChange('from', event.target.value)}
                                     className="bg-[#131325] border border-white/[0.055] rounded-[10px] px-3.5 py-[7px] text-[13px] text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] [color-scheme:dark]"
                                 />
-                                <span className="text-white/22 text-xs hidden sm:inline">→</span>
+                                <span className="text-white/25 text-xs hidden sm:inline">→</span>
                                 <input
                                     type="date"
                                     value={customRangeDraft.to}
@@ -745,15 +745,15 @@ export default function BalanceHistoryPage() {
             <div className="flex flex-col gap-[18px]">
                 <div>
                     <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">{t('nav.balanceHistory')}</div>
-                    <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px]">
+                    <div className="text-[13px] sm:text-[14px] text-white/25 mt-[3px]">
                         {t('wallet.balanceHistorySubtitleNoWallet')}
                     </div>
                 </div>
 
-                <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] px-6 py-10 text-center">
-                    <Wallet className="w-14 h-14 text-[#6b6b8a] mx-auto mb-4" />
+                <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] px-6 py-10 text-center">
+                    <Wallet className="w-14 h-14 text-white/35 mx-auto mb-4" />
                     <h2 className="text-lg font-semibold text-white mb-2">{t('wallet.noWalletSelected')}</h2>
-                    <p className="text-[14px] text-[#6b6b8a] mb-5">
+                    <p className="text-[14px] text-white/35 mb-5">
                         {t('wallet.balanceHistorySelectWalletHint')}
                     </p>
                     <Link
@@ -772,13 +772,13 @@ export default function BalanceHistoryPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <div className="text-xl sm:text-[26px] font-bold tracking-[-0.4px]">{t('nav.balanceHistory')}</div>
-                    <div className="text-[13px] sm:text-[14px] text-white/22 mt-[3px]">
+                    <div className="text-[13px] sm:text-[14px] text-white/25 mt-[3px]">
                         {t('wallet.balanceHistorySubtitleSelected', { walletName: currentWallet.name })}
                     </div>
                 </div>
-                <div className="rounded-[12px] border border-white/[0.08] bg-[#13131f] px-4 py-3 text-right">
+                <div className="rounded-[12px] border border-white/[0.08] bg-[#0e0e1c] px-4 py-3 text-right">
                     <div className="text-[11px] text-white/35 mb-[3px]">{currentWallet.name}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-[1.5px] text-[#7d7d9c] mb-1">
+                    <div className="font-mono text-[10px] uppercase tracking-[1.5px] text-white/35 mb-1">
                         {t('dashboard.currentBalance')}
                     </div>
                     <div className="font-mono tabular-nums text-[21px] font-semibold text-white tracking-[-0.3px]">
@@ -860,11 +860,11 @@ export default function BalanceHistoryPage() {
 
             {loading && !hasData && (
                 <div className="space-y-3">
-                    <div className="bg-[#0f0f1d] border border-white/[0.06] rounded-[16px] p-4 sm:p-5 animate-pulse">
+                    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[16px] p-4 sm:p-5 animate-pulse">
                         <div className="h-3 w-36 bg-white/[0.06] rounded mb-4" />
                         <div className="h-[220px] bg-white/[0.04] rounded-[12px]" />
                     </div>
-                    <div className="bg-[#0f0f1d] border border-white/[0.06] rounded-[16px] p-4 sm:p-5 animate-pulse">
+                    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[16px] p-4 sm:p-5 animate-pulse">
                         <div className="h-3 w-40 bg-white/[0.06] rounded mb-4" />
                         {Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="h-12 bg-white/[0.04] rounded-[10px] mb-2.5 last:mb-0" />
@@ -874,20 +874,20 @@ export default function BalanceHistoryPage() {
             )}
 
             {!loading && !error && !hasData && (
-                <div className="bg-[#13131f] border border-white/[0.08] rounded-[16px] px-6 py-10 text-center">
+                <div className="bg-[#0e0e1c] border border-white/[0.08] rounded-[16px] px-6 py-10 text-center">
                     <div className="w-12 h-12 mx-auto rounded-[12px] border border-white/[0.1] bg-white/[0.03] flex items-center justify-center mb-4">
                         <Activity className="w-5 h-5 text-white/45" />
                     </div>
                     <h3 className="text-lg font-semibold text-white mb-2">{emptyStateTitle}</h3>
-                    <p className="text-[14px] text-[#8a8aa7] max-w-[420px] mx-auto">
+                    <p className="text-[14px] text-white/35 max-w-[420px] mx-auto">
                         {emptyStateHint}
                     </p>
                 </div>
             )}
 
             {hasData && (
-                <div className="relative bg-[#0f0f1d] border border-white/[0.06] rounded-[18px] overflow-hidden p-4 sm:p-5">
-                    <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-[#8383a1] mb-5">
+                <div className="relative bg-[#0e0e1c] border border-white/[0.06] rounded-[18px] overflow-hidden p-4 sm:p-5">
+                    <div className="font-mono text-[11px] uppercase tracking-[1.5px] text-white/35 mb-5">
                         {t('wallet.activityTimeline')}
                     </div>
 
@@ -1005,7 +1005,7 @@ export default function BalanceHistoryPage() {
             )}
 
             {loading && hasData && (
-                <div className="fixed bottom-6 right-6 bg-[#13131f] border border-white/[0.08] rounded-[10px] px-3 py-2 flex items-center gap-2 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                <div className="fixed bottom-6 right-6 bg-[#0e0e1c] border border-white/[0.08] rounded-[10px] px-3 py-2 flex items-center gap-2 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                     <RefreshCw className="w-3.5 h-3.5 text-[#a855f7] animate-spin" />
                     <span className="text-[12px] text-white/70">{t('common.loading')}</span>
                 </div>

@@ -1,11 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit3, Trash2, Tag, AlertCircle, RefreshCw, Search, ArrowUpDown, Anchor, EyeOff, CalendarDays } from 'lucide-react';
+import { Plus, Edit3, Trash2, Tag, RefreshCw, Search, ArrowUpDown, Anchor, EyeOff, CalendarDays } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import CategoryModal from '@/components/modals/CategoryModal';
 import { Loading } from '@/components/common/Loading';
 import { useTranslations } from 'next-intl';
+import { PAGE_CTA, FILTER_SEARCH, FILTER_DATE, CHIP_BASE, CHIP_DEFAULT, CHIP_ACTIVE } from '@/components/common/formControls';
+import EmptyState from '@/components/common/EmptyState';
+import ErrorState from '@/components/common/ErrorState';
 
 const TYPE_STYLES = {
   INCOME: 'bg-green-400/10 border-green-400/25 text-green-300',
@@ -119,36 +122,22 @@ export default function CategoryManagementView() {
 
   if (!currentWallet) {
     return (
-      <div className="flex items-center justify-center min-h-[400px] p-8">
-        <div className="text-center max-w-md">
-          <div className="mb-6">
-            <Tag className="w-16 h-16 text-[#a855f7] mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-white mb-2">{t('category.noWalletSelected')}</h2>
-            <p className="text-[#6b6b8a] mb-6">
-              {t('category.selectWalletManage')}
-            </p>
-          </div>
-        </div>
-      </div>
+      <EmptyState
+        icon={Tag}
+        title={t('category.noWalletSelected')}
+        description={t('category.selectWalletManage')}
+      />
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <AlertCircle className="w-16 h-16 text-[#f43f5e] mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">{t('errors.failedToLoadCategories')}</h2>
-          <p className="text-[#6b6b8a] mb-4">{error}</p>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[8px] text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] mx-auto shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
-          >
-            <RefreshCw className="w-4 h-4" />
-            {t('common.tryAgain')}
-          </button>
-        </div>
-      </div>
+      <ErrorState
+        title={t('errors.failedToLoadCategories')}
+        description={error}
+        onRetry={handleRefresh}
+        retryLabel={t('common.tryAgain')}
+      />
     );
   }
 
@@ -159,7 +148,7 @@ export default function CategoryManagementView() {
           <div className="text-xl sm:text-[22px] font-semibold tracking-[-0.3px] mb-1">
             {t('category.management')}
           </div>
-          <div className="text-[13px] text-[#6b6b8a]">
+          <div className="text-[13px] text-white/40">
             {currentWallet
               ? t('category.managingFor', { wallet: currentWallet.name, count: categories.length })
               : t('category.noWalletCategoryMsg')}
@@ -170,14 +159,15 @@ export default function CategoryManagementView() {
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="w-[34px] h-[34px] rounded-[8px] bg-[#13131f] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#6b6b8a] transition-all hover:border-white/[0.12] hover:text-[#9898b8] disabled:opacity-50"
+              className="w-[34px] h-[34px] rounded-[8px] bg-transparent border border-white/[0.06] flex items-center justify-center cursor-pointer text-white/35 transition-all hover:border-white/[0.12] hover:text-white/50 disabled:opacity-50"
               title={t('category.refreshCategories')}
+              aria-label={t('category.refreshCategories')}
             >
               <RefreshCw className={`w-[14px] h-[14px] ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={openCreateModal}
-              className="bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border-none rounded-[8px] px-4 py-2 text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
+              className={PAGE_CTA}
             >
               <Plus className="w-[13px] h-[13px]" strokeWidth={2.5} />
               {t('category.addCategory')}
@@ -196,10 +186,8 @@ export default function CategoryManagementView() {
             <button
               key={filter.value}
               onClick={() => setTypeFilter(filter.value)}
-              className={`flex items-center gap-[7px] px-[13px] py-[7px] rounded-[8px] text-[13px] font-medium cursor-pointer transition-all ${
-                typeFilter === filter.value
-                  ? 'bg-gradient-to-br from-[#7c3aed] to-[#a855f7] border border-transparent text-white shadow-[0_4px_16px_rgba(124,58,237,0.25)]'
-                  : 'bg-[#13131f] border border-white/[0.06] text-[#6b6b8a] hover:border-white/[0.12] hover:text-[#9898b8]'
+              className={`${CHIP_BASE} flex items-center gap-[7px] ${
+                typeFilter === filter.value ? CHIP_ACTIVE : CHIP_DEFAULT
               }`}
             >
               {filter.dot && <div className={`w-[7px] h-[7px] rounded-full ${filter.dot}`} />}
@@ -221,7 +209,7 @@ export default function CategoryManagementView() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={t('category.searchPlaceholder')}
-              className="w-full h-10 bg-[#13131f] border border-white/[0.06] rounded-[9px] pl-9 pr-3 text-[13.5px] text-white placeholder:text-[#6b6b8a] outline-none transition-all focus:border-purple-400/45 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
+              className={`${FILTER_SEARCH} w-full h-10 pl-9 pr-3 border-white/[0.06]`}
             />
           </label>
           <label className="relative sm:w-[190px]">
@@ -229,7 +217,7 @@ export default function CategoryManagementView() {
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value)}
-              className="w-full h-10 appearance-none bg-[#13131f] border border-white/[0.06] rounded-[9px] pl-9 pr-3 text-[13.5px] text-white outline-none transition-all focus:border-purple-400/45 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.12)]"
+              className={`${FILTER_DATE} w-full h-10 appearance-none pl-9 pr-3 border-white/[0.06]`}
             >
               {SORT_OPTIONS.map(option => (
                 <option key={option} value={option}>{t(`category.sort.${option}`)}</option>
@@ -252,37 +240,29 @@ export default function CategoryManagementView() {
       </div>
 
       {filteredCategories.length === 0 && categories.length > 0 && (
-        <div className="text-center py-12">
-          <Tag className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">{searchQuery ? t('category.noMatchingCategories') : t('category.noTypeCategories', { type: typeFilter.toLowerCase() })}</h3>
-          <p className="text-[#6b6b8a] mb-4">
-            {searchQuery ? t('category.noMatchingCategoriesDesc') : t('category.noTypeCategoriesDesc', { type: typeFilter.toLowerCase() })}
-          </p>
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[8px] text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] mx-auto shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
-          >
-            <Plus className="w-4 h-4" />
-            {t('category.createTypeCategory', { type: typeFilter.toLowerCase() })}
-          </button>
-        </div>
+        <EmptyState
+          variant="card"
+          icon={Tag}
+          title={searchQuery ? t('category.noMatchingCategories') : t('category.noTypeCategories', { type: typeFilter.toLowerCase() })}
+          description={searchQuery ? t('category.noMatchingCategoriesDesc') : t('category.noTypeCategoriesDesc', { type: typeFilter.toLowerCase() })}
+          action={{
+            label: t('category.createTypeCategory', { type: typeFilter.toLowerCase() }),
+            onClick: openCreateModal,
+          }}
+        />
       )}
 
       {categories.length === 0 && (
-        <div className="text-center py-12">
-          <Tag className="w-16 h-16 text-[#6b6b8a] mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">{t('category.noCategoriesYet')}</h3>
-          <p className="text-[#6b6b8a] mb-4">
-            {t('category.noCategoriesDesc')}
-          </p>
-          <button
-            onClick={openCreateModal}
-            className="px-4 py-2 bg-gradient-to-br from-[#7c3aed] to-[#a855f7] rounded-[8px] text-white text-[13.5px] font-medium cursor-pointer flex items-center gap-[6px] mx-auto shadow-[0_4px_16px_rgba(124,58,237,0.25)] transition-all hover:opacity-90 hover:-translate-y-[1px]"
-          >
-            <Plus className="w-4 h-4" />
-            {t('category.createFirstCategory')}
-          </button>
-        </div>
+        <EmptyState
+          variant="card"
+          icon={Tag}
+          title={t('category.noCategoriesYet')}
+          description={t('category.noCategoriesDesc')}
+          action={{
+            label: t('category.createFirstCategory'),
+            onClick: openCreateModal,
+          }}
+        />
       )}
 
       <CategoryModal
@@ -294,26 +274,26 @@ export default function CategoryManagementView() {
       />
 
       {deletingCategory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#13131f] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-[rgba(4,4,12,0.85)] backdrop-blur-[8px] flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] p-6 w-full max-w-md">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-[rgba(244,63,94,0.15)] rounded-[10px] flex items-center justify-center">
                 <Trash2 className="w-6 h-6 text-[#f43f5e]" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold">{t('category.deleteCategory')}</h3>
-                <p className="text-[#6b6b8a] text-sm">{t('category.cannotBeUndone')}</p>
+                <p className="text-white/35 text-sm">{t('category.cannotBeUndone')}</p>
               </div>
             </div>
 
-            <p className="text-[#9898b8] mb-6">
+            <p className="text-white/50 mb-6">
               {t('category.deleteCategoryConfirm', { name: `${deletingCategory.emoji ? `${deletingCategory.emoji} ` : ''}${deletingCategory.name}` })}
             </p>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingCategory(null)}
-                className="flex-1 px-4 py-2 bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-[#9898b8] rounded-[8px] transition-colors cursor-pointer"
+                className="flex-1 px-4 py-2 bg-[#131325] border border-white/[0.06] hover:border-white/[0.12] text-white/50 rounded-[8px] transition-colors cursor-pointer"
               >
                 {t('common.cancel')}
               </button>
@@ -335,7 +315,7 @@ function CategoryCard({ category, t, onEdit, onDelete }) {
   const isIncome = category.type === 'INCOME';
 
   return (
-    <div className="group bg-[#13131f] border border-white/[0.06] rounded-[12px] p-3.5 flex flex-col gap-3 transition-all hover:border-white/[0.12] hover:bg-[#171729] hover:-translate-y-[1px] hover:shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
+    <div className="group bg-[#0e0e1c] border border-white/[0.06] rounded-[12px] p-3.5 flex flex-col gap-3 transition-all hover:border-white/[0.12] hover:bg-[#131325] hover:-translate-y-[1px] hover:shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
       <div className="flex items-start gap-3">
         <div className={`w-11 h-11 shrink-0 rounded-[12px] flex items-center justify-center text-[24px] leading-none shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${
           isIncome ? 'bg-green-400/[0.09]' : 'bg-rose-400/[0.1]'
@@ -349,7 +329,7 @@ function CategoryCard({ category, t, onEdit, onDelete }) {
               {isIncome ? t('categoryType.income') : t('categoryType.expense')}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 mt-1 text-[12px] text-[#6b6b8a]">
+          <div className="flex items-center gap-1.5 mt-1 text-[12px] text-white/25">
             <CalendarDays className="w-3.5 h-3.5" />
             {t('wallet.created', { date: category.createdAt ? new Date(category.createdAt).toLocaleDateString() : '-' })}
           </div>
@@ -357,15 +337,17 @@ function CategoryCard({ category, t, onEdit, onDelete }) {
         <div className="flex gap-1 shrink-0">
           <button
             onClick={() => onEdit(category)}
-            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#9898b8] transition-all hover:bg-white/[0.08] hover:text-white"
+            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-white/40 transition-all hover:bg-white/[0.08] hover:text-white"
             title={t('category.editCategory')}
+            aria-label={t('category.editCategory')}
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onDelete(category)}
-            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-[#9898b8] transition-all hover:bg-[rgba(244,63,94,0.12)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.25)]"
+            className="w-8 h-8 rounded-[8px] bg-white/[0.04] border border-white/[0.06] flex items-center justify-center cursor-pointer text-white/40 transition-all hover:bg-[rgba(244,63,94,0.12)] hover:text-[#f43f5e] hover:border-[rgba(244,63,94,0.25)]"
             title={t('category.deleteCategory')}
+            aria-label={t('category.deleteCategory')}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

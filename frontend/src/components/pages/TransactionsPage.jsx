@@ -1,13 +1,14 @@
 'use client';
 import React, { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus, Receipt, AlertTriangle } from 'lucide-react';
+import { Wallet, Receipt, AlertTriangle } from 'lucide-react';
 import TransactionsView from '@/components/views/TransactionsView';
 import TransactionModal from '@/components/modals/TransactionModal';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
 import { useServerTransactions } from '@/hooks/useServerTransactions';
 import { Loading } from '@/components/common/Loading';
+import EmptyState from '@/components/common/EmptyState';
 import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n/LanguageProvider';
 
@@ -95,47 +96,23 @@ function TransactionsPageInner() {
 
     if (!walletsLoading && wallets.length === 0) {
         return (
-            <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center max-w-md">
-                    <div className="mb-6">
-                        <Receipt className="w-16 h-16 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-2xl font-semibold text-white mb-2">{t('transactionsPage.noTransactionsYet')}</h2>
-                        <p className="text-gray-400 mb-6">
-                            {t('transactionsPage.createFirstWallet')}
-                        </p>
-                    </div>
-                    <button 
-                        onClick={() => router.push('/wallets')}
-                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        {t('transactionsPage.createYourFirstWallet')}
-                    </button>
-                </div>
-            </div>
+            <EmptyState
+                icon={Receipt}
+                title={t('transactionsPage.noTransactionsYet')}
+                description={t('transactionsPage.createFirstWallet')}
+                action={{ label: t('transactionsPage.createYourFirstWallet'), onClick: () => router.push('/wallets') }}
+            />
         );
     }
 
     if (!currentWallet && wallets.length > 0) {
         return (
-            <div className="flex items-center justify-center min-h-[400px] p-8">
-                <div className="text-center max-w-md">
-                    <div className="mb-6">
-                        <Wallet className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-                        <h2 className="text-xl font-semibold text-white mb-2">{t('transactionsPage.noWalletSelected')}</h2>
-                        <p className="text-gray-400 mb-6">
-                            {t('transactionsPage.selectWalletPrompt')}
-                        </p>
-                    </div>
-                    <button 
-                        onClick={() => router.push('/wallets')}
-                        className="inline-flex items-center px-6 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors font-medium"
-                    >
-                        <Wallet className="w-5 h-5 mr-2" />
-                        {t('transactionsPage.manageWallets')}
-                    </button>
-                </div>
-            </div>
+            <EmptyState
+                icon={Wallet}
+                title={t('transactionsPage.noWalletSelected')}
+                description={t('transactionsPage.selectWalletPrompt')}
+                action={{ label: t('transactionsPage.manageWallets'), onClick: () => router.push('/wallets') }}
+            />
         );
     }
 
@@ -219,18 +196,14 @@ function TransactionsPageInner() {
                             <button
                                 onClick={() => setDeleteConfirm(null)}
                                 disabled={deleteLoading}
-                                className="flex-1 px-4 py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 transition-all hover:border-white/[0.12] hover:text-white disabled:opacity-50"
+                                className="flex-1 px-4 py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 transition-all hover:border-white/[0.12] hover:text-white disabled:opacity-50 cursor-pointer"
                             >
                                 {t('transactionsPage.cancel')}
                             </button>
                             <button
                                 onClick={handleConfirmDelete}
                                 disabled={deleteLoading}
-                                className="flex-1 px-4 py-3 rounded-xl text-base font-bold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:-translate-y-px"
-                                style={{
-                                    background: 'linear-gradient(135deg, #ef4444, #f87171)',
-                                    boxShadow: '0 4px 20px rgba(248,113,113,0.3)'
-                                }}
+                                className="flex-1 px-4 py-3 rounded-xl text-base font-bold text-white bg-[linear-gradient(135deg,#ef4444,#f87171)] shadow-[0_4px_20px_rgba(248,113,113,0.3)] transition-all disabled:opacity-50 flex items-center justify-center gap-2 hover:-translate-y-px cursor-pointer"
                             >
                                 {deleteLoading ? t('transactionsPage.deleting') : t('transactionsPage.delete')}
                             </button>

@@ -14,6 +14,7 @@ import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
 import { formatCurrency } from '@/utils/helpers';
 import InsightCards from '@/components/analytics/InsightCards';
+import ErrorState from '@/components/common/ErrorState';
 
 // ─── status config ────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ function KpiChip({ icon: Icon, label, value, helper, color }) {
           className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
           style={{ background: `${color}18` }}
         >
-          <Icon className="w-3 h-3" style={{ color }} />
+          <Icon className="w-3.5 h-3.5" style={{ color }} />
         </div>
         <span className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/25 truncate">
           {label}
@@ -151,7 +152,7 @@ function ExploreCard({ href, icon: Icon, color, title, desc, valueLine, qs }) {
         )}
       </div>
 
-      <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-white/30 transition-colors flex-shrink-0 mt-1" />
+      <ChevronRight className="w-4 h-4 text-white/[0.15] group-hover:text-white/30 transition-colors flex-shrink-0 mt-1" />
     </Link>
   );
 }
@@ -249,23 +250,20 @@ export default function AnalyticsOverviewPage() {
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ animation: 'fadeUp 0.35s ease both' }}>
+    <div style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
 
       {/* Loading state */}
       {loading && <OverviewSkeleton />}
 
       {/* Error state */}
       {error && !loading && (
-        <div className="flex items-center gap-2 bg-[#0e0e1c] border border-white/[0.06] rounded-xl px-4 py-3 mb-5">
-          <AlertCircle className="w-4 h-4 text-red-400/60 flex-shrink-0" />
-          <p className="text-[12px] text-white/30 flex-1">{error}</p>
-          <button
-            onClick={() => fetchSummary(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
-            className="text-[11px] text-violet-400/60 hover:text-violet-300 transition-colors"
-          >
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="inline"
+          title={error}
+          onRetry={() => fetchSummary(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
+          retryLabel={t('common.retry')}
+          className="mb-5"
+        />
       )}
 
       {/* Main content */}
@@ -316,7 +314,7 @@ export default function AnalyticsOverviewPage() {
 
           {/* Explore section */}
           <div>
-            <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/20 mb-3">
+            <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/30 mb-3">
               {t('exploreMore')}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

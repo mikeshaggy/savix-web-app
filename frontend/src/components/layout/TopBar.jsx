@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Bell, Wallet, Check, LogOut, Settings, Menu } from 'lucide-react';
+import { RefreshCw, Bell, Wallet, Check, LogOut, Settings, Menu, ChevronDown } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
 import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'next/navigation';
@@ -81,7 +81,7 @@ export default function TopBar({
                     <span className="text-[13px] font-medium hidden sm:inline">
                         {currentWallet ? currentWallet.name : t('topbar.noWalletSelected')}
                     </span>
-                    <span className="text-white/25 text-[10px]">▾</span>
+                    <ChevronDown className="w-3 h-3 opacity-40" />
                 </button>
 
                 {/* Wallet Dropdown */}
@@ -147,16 +147,19 @@ export default function TopBar({
                     onClick={onRefresh}
                     className="w-[34px] h-[34px] flex items-center justify-center bg-[#131325] border border-white/[0.055] rounded-[10px] cursor-pointer text-white/50 transition-all hover:text-white hover:border-white/[0.12]"
                     title={t('topbar.refreshData')}
+                    aria-label={t('topbar.refreshData')}
                 >
                     <RefreshCw className="w-[13px] h-[13px]" />
                 </button>
 
-                {/* Notifications */}
+                {/* Notifications — not yet implemented */}
                 <button
-                    className="w-[34px] h-[34px] flex items-center justify-center bg-[#131325] border border-white/[0.055] rounded-[10px] cursor-pointer text-white/50 transition-all hover:text-white hover:border-white/[0.12] relative"
+                    disabled
+                    aria-label={t('settings.notifications')}
+                    title={t('settings.notifications')}
+                    className="w-[34px] h-[34px] flex items-center justify-center bg-[#131325] border border-white/[0.055] rounded-[10px] text-white/30 opacity-50 cursor-not-allowed relative"
                 >
                     <Bell className="w-[13px] h-[13px]" />
-                    <div className="absolute top-[5px] right-[5px] w-1.5 h-1.5 rounded-full bg-[#a855f7] shadow-[0_0_6px_#a855f7]" />
                 </button>
 
                 {/* User Chip */}
@@ -171,7 +174,7 @@ export default function TopBar({
                         <div className="hidden sm:block">
                             <div className="text-[12px] font-semibold leading-tight">{user?.username || 'User'}</div>
                         </div>
-                        <span className="text-white/25 text-[10px] ml-0.5 hidden sm:inline">▾</span>
+                        <ChevronDown className="w-3 h-3 opacity-40 hidden sm:block" />
                     </button>
 
                     {/* User Dropdown */}

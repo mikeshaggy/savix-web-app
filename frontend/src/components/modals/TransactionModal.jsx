@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Save, Loader2, Plus } from "lucide-react";
+import { X, Save, Loader2, Plus, Pin } from "lucide-react";
 import { useCategories } from "@/hooks/useApi";
 import { useWallets } from "@/contexts/WalletContext";
 import { useUser } from "@/contexts/UserContext";
@@ -14,6 +14,8 @@ import { useTranslations } from "next-intl";
 import { useLanguage } from "@/i18n";
 import { formatCurrency } from "@/utils/helpers";
 import CategoryModal from "./CategoryModal";
+import Button from "@/components/common/Button";
+import { INPUT_MD, SELECT_MD, TEXTAREA_MD } from "@/components/common/formControls";
 
 // Importance options matching backend Importance enum
 const IMPORTANCE_OPTIONS = [
@@ -475,6 +477,7 @@ export default function TransactionModal({
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] hover:bg-[#1a1a2e] transition-all"
+            aria-label={t('common.close')}
           >
             <X className="w-3 h-3" />
           </button>
@@ -483,7 +486,7 @@ export default function TransactionModal({
         {/* Prefill banner */}
         {prefill && !isEditing && (
           <div className="mx-4 sm:mx-7 mt-4 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-[13px] text-purple-300 flex items-center gap-2">
-            <span>📌</span>
+            <Pin className="w-3.5 h-3.5 shrink-0" />
             <span>{t('fixedPayments.prefillBanner')}</span>
           </div>
         )}
@@ -504,7 +507,7 @@ export default function TransactionModal({
                   value={formData.title}
                   onChange={(e) => handleChange("title", e.target.value)}
                   maxLength={50}
-                  className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base font-normal text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                  className={`${INPUT_MD} w-full font-normal ${
                     errors.title ? "border-red-500" : "border-white/[0.055]"
                   }`}
                   placeholder={t("transaction.titlePlaceholder")}
@@ -532,7 +535,7 @@ export default function TransactionModal({
                     min="0"
                     value={formData.amount}
                     onChange={(e) => handleChange("amount", e.target.value)}
-                    className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
+                    className={`w-full bg-[#131325] border rounded-[11px] pl-14 pr-3.5 py-3 font-mono text-xl font-medium tracking-[-0.5px] text-white placeholder:text-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] ${
                       errors.amount ? "border-red-500" : "border-white/[0.055]"
                     }`}
                     placeholder="0.00"
@@ -569,7 +572,7 @@ export default function TransactionModal({
                   onChange={(e) =>
                     handleChange("transactionDate", e.target.value)
                   }
-                  className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] focus:bg-[#1a1a2e] [color-scheme:dark] ${
+                  className={`${INPUT_MD} w-full [color-scheme:dark] ${
                     errors.transactionDate
                       ? "border-red-500"
                       : "border-white/[0.055]"
@@ -621,7 +624,7 @@ export default function TransactionModal({
                 <select
                   value={formData.walletId}
                   onChange={(e) => handleChange("walletId", e.target.value)}
-                  className={`w-full bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                  className={`${SELECT_MD} w-full ${
                     errors.walletId
                       ? "border-red-500"
                       : "border-white/[0.055]"
@@ -675,7 +678,7 @@ export default function TransactionModal({
                       setActiveIndex(keyboardNavigableCategories.length ? 0 : -1);
                     }}
                     onKeyDown={handleCategoryInputKeyDown}
-                    className={`flex-1 bg-[#131325] border rounded-[11px] px-3.5 py-3 text-base text-white placeholder-white/25 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+                    className={`${INPUT_MD} flex-1 ${
                       errors.categoryId
                         ? "border-red-500"
                         : "border-white/[0.055]"
@@ -713,6 +716,7 @@ export default function TransactionModal({
                     onClick={() => setShowCategoryModal(true)}
                     className="w-10 h-10 shrink-0 rounded-[11px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-xl text-white/25 cursor-pointer hover:border-purple-500 hover:text-purple-300 hover:bg-purple-500/10 transition-all"
                     title={t("transaction.addCategory")}
+                    aria-label={t("transaction.addCategory")}
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -735,8 +739,8 @@ export default function TransactionModal({
                           : { top: dropdownPosition.top }),
                       }}
                     >
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] text-gray-500 text-xs">
-                        <span className="text-gray-400">
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04] text-white/30 text-xs">
+                        <span className="text-white/40">
                           {filteredCategories.length} {t("transaction.items")}
                         </span>
                       </div>
@@ -745,15 +749,15 @@ export default function TransactionModal({
                         style={{ maxHeight: dropdownPosition.maxHeight }}
                       >
                         {filteredCategories.length === 0 ? (
-                          <div className="flex items-center gap-3 px-4 py-4 text-gray-400">
+                          <div className="flex items-center gap-3 px-4 py-4 text-white/40">
                             <div className="w-9 h-9 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center text-lg">
                               🤷
                             </div>
                             <div>
-                              <div className="font-semibold text-sm text-gray-300">
+                              <div className="font-semibold text-sm text-white/70">
                                 {t("transaction.noMatches")}
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-white/30">
                                 {t("transaction.tryDifferent")}
                               </div>
                             </div>
@@ -900,7 +904,7 @@ export default function TransactionModal({
                   value={formData.notes}
                   onChange={(e) => handleChange("notes", e.target.value)}
                   rows={4}
-                  className="w-full bg-[#131325] border border-white/[0.055] rounded-[11px] px-3.5 py-3 text-[15px] text-white placeholder-white/25 outline-none transition-all resize-y min-h-[90px] max-h-[160px] leading-relaxed focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+                  className={`${TEXTAREA_MD} w-full border-white/[0.055] min-h-[90px] max-h-[160px]`}
                   placeholder={t("transaction.notesPlaceholder")}
                 />
               </div>
@@ -912,29 +916,19 @@ export default function TransactionModal({
             {errors.submit && (
               <p className="text-red-400 text-sm mr-auto">{errors.submit}</p>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
             >
               {t("common.cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              size="md"
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px"
-              style={{
-                background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                boxShadow: "0 4px 20px rgba(124,58,237,0.3)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 8px 32px rgba(124,58,237,0.3)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow =
-                  "0 4px 20px rgba(124,58,237,0.3)";
-              }}
             >
               {submitting ? (
                 <>
@@ -949,7 +943,7 @@ export default function TransactionModal({
                   {t("transaction.saveTransaction")}
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

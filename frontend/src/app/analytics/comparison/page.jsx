@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, GitCompareArrows, Minus, RefreshCcw, Sparkles, TrendingUp } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, CalendarDays, GitCompareArrows, Minus, Sparkles, TrendingUp } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   CartesianGrid,
@@ -16,6 +16,7 @@ import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/utils/helpers';
+import ErrorState from '@/components/common/ErrorState';
 
 const STATUS_META = {
   ABOVE_BASELINE: {
@@ -163,7 +164,6 @@ function SummaryCard({ label, value, subtext, icon: Icon, color }) {
         {value}
       </div>
       {subtext && <div className="text-[11px] text-white/30 leading-snug">{subtext}</div>}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-40" style={{ backgroundColor: color }} />
     </div>
   );
 }
@@ -172,7 +172,7 @@ function CycleComparisonTooltip({ active, payload, label, locale, t }) {
   if (!active || !payload?.length) return null;
   const point = payload[0]?.payload;
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-[#111121] px-3 py-2 shadow-xl">
+    <div className="rounded-lg border border-white/[0.08] bg-[#131325] px-3 py-2 shadow-xl">
       <div className="text-[11px] font-semibold text-white/60 mb-1">
         {t('cycleComparisonDayLabel', { day: label })}
         {point?.date ? ` · ${formatDate(point.date, locale)}` : ''}
@@ -320,7 +320,7 @@ function CategoryDeltas({ categories, baselineAvailable, baselineCycles, sortMod
           <select
             value={sortMode}
             onChange={(event) => setSortMode(event.target.value)}
-            className="bg-white/[0.04] border border-white/[0.08] text-white/70 text-xs rounded-lg px-2.5 py-1.5 outline-none [color-scheme:dark]"
+            className="bg-white/[0.04] border border-white/[0.08] text-white/70 text-xs rounded-lg px-2.5 py-1.5 outline-none [color-scheme:dark] focus-visible:ring-1 focus-visible:ring-violet-400/60"
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -583,7 +583,7 @@ export default function AnalyticsComparisonPage() {
   const hasHighlights = largestIncrease.length > 0 || largestDecrease.length > 0;
 
   return (
-    <div style={{ animation: 'fadeUp 0.35s ease both' }}>
+    <div style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-5">
         <div className="flex flex-col gap-1.5 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
@@ -643,17 +643,13 @@ export default function AnalyticsComparisonPage() {
       )}
 
       {error && !loading && (
-        <div className="flex flex-col items-center gap-4 py-10 text-center mb-5">
-          <AlertCircle className="w-9 h-9 text-red-400" />
-          <p className="text-white/60 text-sm max-w-xl">{error}</p>
-          <button
-            onClick={fetchComparison}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-xs rounded-lg hover:bg-violet-700 transition-colors"
-          >
-            <RefreshCcw className="w-3.5 h-3.5" />
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="page"
+          title={error}
+          onRetry={fetchComparison}
+          retryLabel={t('common.retry')}
+          className="mb-5"
+        />
       )}
 
       {!loading && !error && data && (

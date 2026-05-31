@@ -16,6 +16,9 @@ import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { transferApi } from '@/lib/api';
+import { QUICK_SELECT, QUICK_INPUT } from '@/components/common/formControls';
+import EmptyState from '@/components/common/EmptyState';
+import ErrorState from '@/components/common/ErrorState';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,8 +128,9 @@ function TransferCard({ transfer, lang, onDelete }) {
       {/* Delete — visible on hover */}
       <button
         onClick={() => onDelete(transfer)}
-        className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-[8px] bg-red-500/[0.08] border border-red-500/[0.18] flex items-center justify-center text-red-400/70 hover:text-red-400 hover:bg-red-500/[0.15] transition-all shrink-0"
+        className="md:opacity-0 md:group-hover:opacity-100 w-7 h-7 rounded-[8px] bg-red-500/[0.08] border border-red-500/[0.18] flex items-center justify-center text-red-400/70 hover:text-red-400 hover:bg-red-500/[0.15] transition-all shrink-0"
         title={t('transfersPage.deleteTooltip')}
+        aria-label={t('transfersPage.deleteTooltip')}
       >
         <Trash2 className="w-3 h-3" />
       </button>
@@ -220,9 +224,6 @@ function QuickTransferForm({ wallets, onSubmit }) {
     }
   };
 
-  const inputCls =
-    'w-full bg-[#0e0e1c] border rounded-[11px] px-3.5 py-2.5 text-sm text-white outline-none transition-all appearance-none cursor-pointer focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]';
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -231,11 +232,8 @@ function QuickTransferForm({ wallets, onSubmit }) {
       {/* Card header */}
       <div className="px-5 py-4 border-b border-white/[0.055]">
         <div className="flex items-center gap-2 mb-1.5">
-          <div
-            className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-            style={{ background: '#7c3aed18' }}
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5" style={{ color: '#a78bfa' }} />
+          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[rgba(124,58,237,0.09)]">
+            <ArrowLeftRight className="w-3.5 h-3.5 text-violet-400" />
           </div>
           <span className="text-[14px] font-bold text-white/85">
             {t('transfersPage.quickTransferHeader')}
@@ -256,7 +254,7 @@ function QuickTransferForm({ wallets, onSubmit }) {
           <select
             value={form.fromWalletId}
             onChange={(e) => handleChange('fromWalletId', e.target.value)}
-            className={`${inputCls} ${
+            className={`${QUICK_SELECT} w-full ${
               errors.fromWalletId ? 'border-red-500' : 'border-white/[0.055]'
             }`}
           >
@@ -281,7 +279,7 @@ function QuickTransferForm({ wallets, onSubmit }) {
           <select
             value={form.toWalletId}
             onChange={(e) => handleChange('toWalletId', e.target.value)}
-            className={`${inputCls} ${
+            className={`${QUICK_SELECT} w-full ${
               errors.toWalletId ? 'border-red-500' : 'border-white/[0.055]'
             }`}
           >
@@ -313,7 +311,7 @@ function QuickTransferForm({ wallets, onSubmit }) {
               min="0"
               value={form.amount}
               onChange={(e) => handleChange('amount', e.target.value)}
-              className={`w-full bg-[#0e0e1c] border rounded-[11px] pl-12 pr-3.5 py-2.5 font-mono text-base font-medium text-white placeholder-white/20 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
+              className={`w-full bg-[#0e0e1c] border rounded-[11px] pl-12 pr-3.5 py-2.5 font-mono text-base font-medium text-white placeholder:text-white/20 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)] ${
                 errors.amount ? 'border-red-500' : 'border-white/[0.055]'
               }`}
               placeholder="0.00"
@@ -378,7 +376,7 @@ function QuickTransferForm({ wallets, onSubmit }) {
             type="text"
             value={form.notes}
             onChange={(e) => handleChange('notes', e.target.value)}
-            className="w-full bg-[#0e0e1c] border border-white/[0.055] rounded-[11px] px-3.5 py-2.5 text-sm text-white placeholder-white/20 outline-none transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+            className={`${QUICK_INPUT} w-full border-white/[0.055]`}
             placeholder={t('transfer.notesPlaceholder')}
           />
         </div>
@@ -402,11 +400,7 @@ function QuickTransferForm({ wallets, onSubmit }) {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px active:translate-y-0"
-          style={{
-            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-            boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-          }}
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px active:translate-y-0 cursor-pointer bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)]"
         >
           {submitting ? (
             <>
@@ -556,11 +550,7 @@ export default function TransfersPage() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shrink-0 transition-all hover:-translate-y-px active:translate-y-0"
-          style={{
-            background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-            boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-          }}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shrink-0 transition-all hover:-translate-y-px active:translate-y-0 cursor-pointer bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)]"
         >
           <Plus className="w-4 h-4" />
           {t('transfersPage.newTransfer')}
@@ -630,31 +620,20 @@ export default function TransfersPage() {
             <SkeletonRows count={5} />
           ) : error ? (
             /* Error state */
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <AlertCircle className="w-7 h-7 text-red-400/40" />
-              <p className="text-[13px] text-white/30">{error}</p>
-              <button
-                onClick={fetchTransfers}
-                className="px-4 py-2 text-[13px] font-semibold text-purple-300 border border-purple-500/25 rounded-xl bg-purple-500/[0.08] hover:bg-purple-500/[0.15] transition-all"
-              >
-                {t('common.retry')}
-              </button>
-            </div>
+            <ErrorState
+              variant="page"
+              title={error}
+              onRetry={fetchTransfers}
+              retryLabel={t('common.retry')}
+            />
           ) : groupedTransfers.length === 0 ? (
             /* Empty state */
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/[0.08] border border-purple-500/[0.15] flex items-center justify-center">
-                <ArrowLeftRight className="w-5 h-5 text-purple-400/40" />
-              </div>
-              <div>
-                <p className="text-[14px] font-semibold text-white/30">
-                  {t('transfersPage.emptyTitle')}
-                </p>
-                <p className="text-[12px] text-white/20 mt-1 max-w-[240px] leading-relaxed">
-                  {t('transfersPage.emptyDesc')}
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              variant="page"
+              icon={ArrowLeftRight}
+              title={t('transfersPage.emptyTitle')}
+              description={t('transfersPage.emptyDesc')}
+            />
           ) : (
             /* Grouped history */
             <div className="flex flex-col gap-4">
@@ -689,7 +668,7 @@ export default function TransfersPage() {
             </div>
           ) : wallets.length < 2 ? (
             <div className="bg-[#131325] border border-white/[0.055] rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
-              <Wallet className="w-8 h-8 text-white/15" />
+              <Wallet className="w-8 h-8 text-white/[0.15]" />
               <p className="text-[13px] text-white/30 leading-relaxed">
                 {t('transfersPage.needMoreWallets')}
               </p>
@@ -741,14 +720,14 @@ export default function TransfersPage() {
                 <button
                   onClick={() => setDeleteTarget(null)}
                   disabled={deleteLoading}
-                  className="flex-1 py-2.5 bg-[#131325] border border-white/[0.055] rounded-xl text-sm font-semibold text-white/45 hover:text-white/75 hover:border-white/[0.1] transition-all"
+                  className="flex-1 py-2.5 bg-[#131325] border border-white/[0.055] rounded-xl text-sm font-semibold text-white/45 hover:text-white/75 hover:border-white/[0.1] transition-all cursor-pointer"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleConfirmDelete}
                   disabled={deleteLoading}
-                  className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-red-500/[0.12] border border-red-500/[0.25] rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/[0.2] transition-all disabled:opacity-50"
+                  className="flex-1 py-2.5 flex items-center justify-center gap-2 bg-red-500/[0.12] border border-red-500/[0.25] rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/[0.2] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {deleteLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

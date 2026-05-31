@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Receipt, TrendingUp, Repeat2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Receipt, TrendingUp, Repeat2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
@@ -8,6 +8,7 @@ import { analyticsApi } from '@/lib/api';
 import { formatCurrency } from '@/utils/helpers';
 import SpendingBreakdownSection from '@/components/analytics/SpendingBreakdownSection';
 import SpendingLeaksSection from '@/components/analytics/SpendingLeaksSection';
+import ErrorState from '@/components/common/ErrorState';
 
 // ─── KPI chip ─────────────────────────────────────────────────────────────────
 
@@ -119,19 +120,16 @@ export default function AnalyticsBreakdownPage() {
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ animation: 'fadeUp 0.35s ease both' }}>
+    <div style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
       {/* Error banner (only when both calls fail) */}
       {fetchError && !kpiLoading && (
-        <div className="flex items-center gap-2 bg-[#0e0e1c] border border-white/[0.06] rounded-xl px-4 py-3 mb-5">
-          <AlertCircle className="w-4 h-4 text-red-400/60 flex-shrink-0" />
-          <p className="text-[12px] text-white/30 flex-1">{fetchError}</p>
-          <button
-            onClick={() => fetchBreakdowns(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
-            className="text-[11px] text-violet-400/60 hover:text-violet-300 transition-colors"
-          >
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="inline"
+          title={fetchError}
+          onRetry={() => fetchBreakdowns(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
+          retryLabel={t('retry')}
+          className="mb-5"
+        />
       )}
 
       {/* ── KPI chips ──────────────────────────────────────────────────────────── */}

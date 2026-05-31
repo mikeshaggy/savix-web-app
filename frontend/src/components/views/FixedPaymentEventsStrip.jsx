@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
 import { Edit3 } from 'lucide-react';
+import SectionLabel from '@/components/common/SectionLabel';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -331,15 +332,15 @@ export default function FixedPaymentEventsStrip({
 
   return (
     <div
-      className="bg-[#13131f] border border-white/[0.06] rounded-[14px]"
-      style={{ animation: 'fadeUp 0.35s ease both' }}
+      className="bg-[#0e0e1c] border border-white/[0.06] rounded-[14px]"
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-white/[0.05]">
         <div>
-          <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/35">
+          <SectionLabel>
             {t('events.title')}
-          </div>
+          </SectionLabel>
           <div className="text-[10px] text-white/20 mt-0.5">
             {shortDate(periodStart, lang)} – {shortDate(periodEnd, lang)}
           </div>

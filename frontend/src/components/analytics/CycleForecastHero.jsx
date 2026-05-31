@@ -5,12 +5,22 @@ import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
 import { CardLoading } from '@/components/common/Loading';
 
+// Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
+// T12:00:00 prevents timezone drift when parsing date-only strings.
+function fmtShort(str) {
+  try {
+    return new Date(str + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return str ?? '';
+  }
+}
+
 export default function CycleForecastHero({ projData, loading, period }) {
   const t = useTranslations('analytics');
 
   if (loading) {
     return (
-      <div className="mb-6" style={{ animation: 'fadeUp 0.4s ease both' }}>
+      <div className="mb-6" style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
         <div className="rounded-2xl bg-[#0e0e1c] border border-white/[0.06] p-6 md:p-8 h-40 animate-pulse" />
       </div>
     );
@@ -42,7 +52,7 @@ export default function CycleForecastHero({ projData, loading, period }) {
       className={`rounded-2xl border ${borderClass} p-6 md:p-8 mb-6 relative overflow-hidden`}
       style={{
         background: bgGlow,
-        animation: 'fadeUp 0.4s ease both',
+        animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both',
       }}
     >
       {/* Radial glow behind the number */}
@@ -105,7 +115,7 @@ export default function CycleForecastHero({ projData, loading, period }) {
             <div className="flex items-center md:justify-end gap-1.5 text-sm text-white/40">
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="font-mono">
-                {period.startDate} – {period.endDate}
+                {fmtShort(period.startDate)} – {fmtShort(period.endDate)}
               </span>
             </div>
           )}

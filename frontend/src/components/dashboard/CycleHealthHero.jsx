@@ -71,11 +71,11 @@ export default function CycleHealthHero({ cycleHealth, period }) {
 
   return (
     <div
-      className="w-full bg-[#13131f] rounded-[18px] overflow-hidden mb-5"
+      className="w-full bg-[#0e0e1c] rounded-[18px] overflow-hidden mb-5"
       style={{
         border: `1px solid ${cfg.accent}${cfg.borderOpacity}`,
         boxShadow: `0 0 48px ${cfg.glow}`,
-        animation: 'fadeUp 0.45s ease both',
+        animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both',
         animationDelay: '0.04s',
       }}
     >
@@ -109,7 +109,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         className="grid grid-cols-3 gap-px bg-white/[0.035] md:[grid-template-columns:minmax(0,1.35fr)_repeat(3,minmax(0,0.9fr))]"
       >
         {/* Current Balance — primary block, spans full width on mobile */}
-        <div className="col-span-3 md:col-span-1 bg-[#13131f] px-6 md:px-8 py-6 md:py-8">
+        <div className="col-span-3 md:col-span-1 bg-[#0e0e1c] px-6 md:px-8 py-6 md:py-8">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-3">
             {t('dashboard.currentBalance')}
           </div>
@@ -122,7 +122,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         </div>
 
         {/* Safe to Spend */}
-        <div className="col-span-1 bg-[#13131f] px-4 md:px-5 py-5 md:py-6">
+        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
             {t('dashboard.safeToSpend')}
           </div>
@@ -144,7 +144,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         </div>
 
         {/* Projected End Balance */}
-        <div className="col-span-1 bg-[#13131f] px-4 md:px-5 py-5 md:py-6">
+        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
             {t('dashboard.projectedEndBalance')}
           </div>
@@ -175,7 +175,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         </div>
 
         {/* Spending Pace */}
-        <div className="col-span-1 bg-[#13131f] px-4 md:px-5 py-5 md:py-6">
+        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
             {t('dashboard.spendingPace')}
           </div>
