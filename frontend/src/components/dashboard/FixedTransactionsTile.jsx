@@ -74,8 +74,8 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
   if (!fixedPayments) {
     return (
       <div
-        className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col items-center justify-center py-16"
-        style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}
+        className="w-full bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col items-center justify-center py-16"
+        style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.14s' }}
       >
         <div className="text-[12px] text-white/25">{t('fixedPayments.noData')}</div>
       </div>
@@ -103,8 +103,8 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
   return (
     <>
       <div
-        className="w-full bg-[#13131f] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
-        style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.14s' }}
+        className="w-full bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
+        style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.14s' }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.055]">
@@ -138,7 +138,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
 
         {/* 4 stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/[0.07] border-b border-white/[0.07]">
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-slate-400 opacity-70" />
             <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.planned')}
@@ -150,7 +150,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
               {t('fixedPayments.countItems', { count: totalCount ?? 0 })}
             </div>
           </div>
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-400 opacity-80" />
             <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.paid')}
@@ -162,7 +162,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
               {t('fixedPayments.countItems', { count: paidCount ?? 0 })}
             </div>
           </div>
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-violet-500 opacity-80" />
             <div className="text-[8px] tracking-[0.1em] uppercase text-white/35 mb-2">
               {t('fixedPayments.remaining')}
@@ -171,7 +171,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
               {formatCurrency(remainingAmount ?? 0, lang)}
             </div>
           </div>
-          <div className="bg-[#13131f] p-4 relative">
+          <div className="bg-[#0e0e1c] p-4 relative">
             <div
               className={`absolute top-0 left-0 right-0 h-[2px] opacity-80 ${
                 balanceAfterFixed != null && balanceAfterFixed < 0 ? 'bg-rose-400' : 'bg-amber-400'
@@ -228,7 +228,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
               {npIsOverdue && (
                 <div className="w-[5px] h-[5px] rounded-full bg-red-400 shrink-0 animate-pulse" />
               )}
-              <div className="w-[30px] h-[30px] bg-[#1a1a2a] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
+              <div className="w-[30px] h-[30px] bg-[#1a1a2e] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
                 🔁
               </div>
               <div className="flex-1 min-w-0">
@@ -298,7 +298,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
                     <div className="w-[5px] h-[5px] rounded-full bg-red-400 shrink-0 animate-pulse" />
                   )}
 
-                  <div className="w-[30px] h-[30px] bg-[#1a1a2a] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
+                  <div className="w-[30px] h-[30px] bg-[#1a1a2e] border border-white/[0.06] rounded-[9px] flex items-center justify-center text-[13px] shrink-0">
                     🔁
                   </div>
 
@@ -389,6 +389,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
               </div>
               <button
                 onClick={() => setMarkPaidOccurrence(null)}
+                aria-label={t('common.close')}
                 className="w-8 h-8 rounded-[10px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/25 hover:text-white hover:border-white/[0.12] transition-all"
               >
                 <X className="w-3 h-3" />
@@ -396,7 +397,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
             </div>
             <div className="px-4 sm:px-7 py-5">
               <div className="flex items-center gap-3 bg-[#131325] border border-white/[0.06] rounded-xl p-4">
-                <div className="w-10 h-10 bg-[#1a1a2a] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
+                <div className="w-10 h-10 bg-[#1a1a2e] border border-white/[0.06] rounded-[10px] flex items-center justify-center text-lg">
                   🔁
                 </div>
                 <div className="flex-1">
@@ -416,17 +417,13 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
             <div className="flex items-center justify-end gap-2.5 px-4 sm:px-7 py-[18px] border-t border-white/[0.055] bg-[rgba(6,6,15,0.4)]">
               <button
                 onClick={() => setMarkPaidOccurrence(null)}
-                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white transition-all"
+                className="px-[22px] py-3 bg-[#131325] border border-white/[0.055] rounded-xl text-base font-semibold text-white/50 cursor-pointer hover:border-white/[0.12] hover:text-white active:bg-[#0e0e1c] active:scale-[0.98] transition-all"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleOpenTransactionModal}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all hover:-translate-y-px"
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                  boxShadow: '0 4px 20px rgba(124,58,237,0.3)',
-                }}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl border-none text-base font-bold text-white cursor-pointer transition-all hover:-translate-y-px active:scale-[0.98] bg-gradient-to-br from-[#7c3aed] to-[#a855f7] shadow-[0_4px_20px_rgba(124,58,237,0.3)]"
               >
                 {t('fixedPayments.openTransaction')}
                 <ArrowRight className="w-4 h-4" />

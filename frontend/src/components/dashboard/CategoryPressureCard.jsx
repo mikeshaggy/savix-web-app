@@ -1,14 +1,15 @@
 'use client';
 import React from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
 
 const BAR_COLORS = ['#f43f5e', '#8b5cf6', '#f59e0b', '#10b981', '#0ea5e9'];
 
 const DIRECTION_CFG = {
-  UP: { textClass: 'text-rose-400', icon: '↑' },
-  DOWN: { textClass: 'text-emerald-400', icon: '↓' },
-  FLAT: { textClass: 'text-white/30', icon: '→' },
+  UP:   { textClass: 'text-rose-400',    Icon: TrendingUp },
+  DOWN: { textClass: 'text-emerald-400', Icon: TrendingDown },
+  FLAT: { textClass: 'text-white/30',    Icon: Minus },
 };
 
 export default function CategoryPressureCard({ categoryPressure }) {
@@ -18,7 +19,7 @@ export default function CategoryPressureCard({ categoryPressure }) {
   return (
     <div
       className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] overflow-hidden flex flex-col w-full"
-      style={{ animation: 'fadeUp 0.5s ease both', animationDelay: '0.22s' }}
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.22s' }}
     >
       {/* Header */}
       <div className="px-5 py-4 border-b border-white/[0.07] shrink-0">
@@ -58,15 +59,18 @@ export default function CategoryPressureCard({ categoryPressure }) {
                     {/* Delta */}
                     {deltaPercent != null && (
                       <span
-                        className={`text-[11px] font-semibold ${dcfg.textClass}`}
+                        className={`inline-flex items-center gap-[3px] text-[11px] font-semibold ${dcfg.textClass}`}
                         style={{ whiteSpace: 'nowrap' }}
                       >
-                        {dcfg.icon}{Math.abs(deltaPercent).toFixed(1)}%
+                        <dcfg.Icon className="w-3 h-3 shrink-0" />
+                        {Math.abs(deltaPercent).toFixed(1)}%
                       </span>
                     )}
-                    {/* Share */}
+                    {/* Share — semantic color: ≥30% rose, ≥15% amber, <15% muted */}
                     <span
-                      className="font-mono text-[13px] font-bold text-rose-400 tabular-nums"
+                      className={`font-mono text-[13px] font-bold tabular-nums ${
+                        share >= 30 ? 'text-rose-400' : share >= 15 ? 'text-amber-400' : 'text-white/40'
+                      }`}
                       style={{ whiteSpace: 'nowrap' }}
                     >
                       {share.toFixed(1)}%
