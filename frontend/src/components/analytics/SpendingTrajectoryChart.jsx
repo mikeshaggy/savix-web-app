@@ -3,6 +3,16 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
 
+// Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
+// T12:00:00 prevents timezone drift when parsing date-only strings.
+function fmtShort(str) {
+  try {
+    return new Date(str + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return str ?? '';
+  }
+}
+
 // ─── SVG Trajectory ──────────────────────────────────────────────────────────
 //
 // Coordinate system:
@@ -281,8 +291,8 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
 
       {/* Date axis labels */}
       <div className="flex justify-between text-[11px] font-mono text-white/25 -mt-1 mb-4 px-1">
-        <span>{projData.startDate ?? ''}</span>
-        <span>{projData.endDate ?? ''}</span>
+        <span>{fmtShort(projData.startDate)}</span>
+        <span>{fmtShort(projData.endDate)}</span>
       </div>
 
       {/* ── Legend ─────────────────────────────────────── */}
@@ -344,11 +354,6 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
         />
       </div>
 
-      {/* Bottom accent */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-0.5 opacity-25"
-        style={{ backgroundColor: statusColor }}
-      />
     </div>
   );
 }

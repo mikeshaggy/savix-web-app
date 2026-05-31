@@ -7,13 +7,15 @@ import {
   Lock,
   ShieldCheck,
   CalendarClock,
-  AlertCircle,
   InboxIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
 import AnalyticsMetricCard from './AnalyticsMetricCard';
 import { CardLoading } from '@/components/common/Loading';
+import ErrorState from '@/components/common/ErrorState';
+import EmptyState from '@/components/common/EmptyState';
+import SectionLabel from '@/components/common/SectionLabel';
 
 function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
   const t = useTranslations('analytics');
@@ -27,9 +29,9 @@ function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
   return (
     <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 col-span-2 md:col-span-3 relative overflow-hidden hover:bg-white/[0.02] transition-colors">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold tracking-[0.14em] uppercase text-white/25">
+        <SectionLabel variant="metric">
           {t('projectedPeriodSpend')} vs. {t('period')}
-        </span>
+        </SectionLabel>
         {rawPct !== null && (
           <span
             className="text-[11px] font-mono font-medium"
@@ -54,8 +56,6 @@ function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
         <span>{formatCurrency(projectedPeriodExpenses)}</span>
         <span>{safeIncome ? formatCurrency(safeIncome) : '—'}</span>
       </div>
-
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-40" style={{ backgroundColor: barColor }} />
     </div>
   );
 }
@@ -75,21 +75,12 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-4 py-12 text-center">
-        <AlertCircle className="w-10 h-10 text-red-400" />
-        <div>
-          <p className="text-white font-medium mb-1">{t('projectionErrorLoading')}</p>
-          <p className="text-gray-400 text-sm mb-4">{error}</p>
-          {onRetry && (
-            <button
-              onClick={onRetry}
-              className="px-4 py-2 bg-violet-600 text-white text-sm rounded-lg hover:bg-violet-700 transition-colors"
-            >
-              {t('retry')}
-            </button>
-          )}
-        </div>
-      </div>
+      <ErrorState
+        variant="inline"
+        title={t('projectionErrorLoading')}
+        onRetry={onRetry}
+        retryLabel={t('retry')}
+      />
     );
   }
 
@@ -103,13 +94,12 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
 
   if (allZero) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <InboxIcon className="w-10 h-10 text-gray-600" />
-        <p className="text-white font-medium">{t('projectionEmpty')}</p>
-        {data.startDate && data.endDate && (
-          <p className="text-gray-400 text-sm">{data.startDate} – {data.endDate}</p>
-        )}
-      </div>
+      <EmptyState
+        variant="card"
+        icon={InboxIcon}
+        title={t('projectionEmpty')}
+        description={data.startDate && data.endDate ? `${data.startDate} – ${data.endDate}` : undefined}
+      />
     );
   }
 

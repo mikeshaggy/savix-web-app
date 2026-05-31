@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertCircle } from 'lucide-react';
+import ErrorState from '@/components/common/ErrorState';
 import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
@@ -45,19 +45,16 @@ export default function AnalyticsForecastPage() {
   }, [currentWallet?.id, periodType, resolvedStart, resolvedEnd, fetchProjections]);
 
   return (
-    <div style={{ animation: 'fadeUp 0.35s ease both' }}>
+    <div style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}>
       {/* ── Error ───────────────────────────────────────────────────────────── */}
       {projError && !projLoading && (
-        <div className="flex flex-col items-center gap-4 py-10 text-center mb-5">
-          <AlertCircle className="w-9 h-9 text-red-400" />
-          <p className="text-white/60 text-sm">{projError}</p>
-          <button
-            onClick={() => fetchProjections(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
-            className="px-4 py-2 bg-violet-600 text-white text-xs rounded-lg hover:bg-violet-700 transition-colors"
-          >
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="page"
+          title={projError}
+          onRetry={() => fetchProjections(currentWallet.id, periodType, resolvedStart, resolvedEnd)}
+          retryLabel={t('retry')}
+          className="mb-5"
+        />
       )}
 
       {/* ── 1. Hero ─────────────────────────────────────────────────────────── */}

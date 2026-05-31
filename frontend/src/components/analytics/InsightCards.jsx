@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, AlertCircle, Info, CheckCircle, Lightbulb, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { analyticsApi } from '@/lib/api';
+import ErrorState from '@/components/common/ErrorState';
 
 /**
  * @typedef {'INFO' | 'WARN' | 'ALERT'} InsightSeverity
@@ -147,16 +148,12 @@ export default function InsightCards({ walletId, periodType, startDate, endDate 
   if (error) {
     return (
       <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl px-4 py-3 mb-5">
-        <div className="flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-400/50 flex-shrink-0" />
-          <p className="text-[12px] text-white/30">{t('insightsErrorLoading')}</p>
-          <button
-            onClick={() => fetchInsights(walletId, periodType, startDate, endDate)}
-            className="ml-auto text-[11px] text-violet-400/60 hover:text-violet-300 transition-colors"
-          >
-            {t('retry')}
-          </button>
-        </div>
+        <ErrorState
+          variant="inline"
+          title={t('insightsErrorLoading')}
+          onRetry={() => fetchInsights(walletId, periodType, startDate, endDate)}
+          retryLabel={t('retry')}
+        />
       </div>
     );
   }
@@ -187,7 +184,7 @@ export default function InsightCards({ walletId, periodType, startDate, endDate 
       {/* empty state */}
       {insights.length === 0 && (
         <div className="flex items-start gap-3 py-1">
-          <CheckCircle className="w-5 h-5 text-emerald-400/40 flex-shrink-0 mt-0.5" />
+          <CheckCircle className="w-5 h-5 text-emerald-400/60 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-[13px] font-medium text-white/50">{t('insightsEmpty')}</p>
             <p className="text-[12px] text-white/25 mt-0.5">{t('insightsEmptyDesc')}</p>
