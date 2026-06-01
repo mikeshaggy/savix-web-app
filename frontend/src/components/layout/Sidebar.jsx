@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown } from 'lucide-react';
+import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -41,6 +41,7 @@ const getNavItems = (t) => [
         hasSubmenu: true,
         submenu: [
             { id: 'overview',    label: t('nav.analyticsOverview'),    icon: LayoutDashboard,   href: '/analytics/overview' },
+            { id: 'budgets',     label: t('nav.budgets'),     icon: Target,            href: '/analytics/budgets' },
             { id: 'forecast',    label: t('nav.forecast'),    icon: TrendingUp,        href: '/analytics/forecast' },
             { id: 'breakdown',   label: t('nav.breakdown'),   icon: PieChart,          href: '/analytics/breakdown' },
             { id: 'comparison',  label: t('nav.comparison'),  icon: GitCompareArrows,  href: '/analytics/comparison' },

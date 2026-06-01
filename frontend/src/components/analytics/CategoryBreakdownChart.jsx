@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
+import BudgetProgressBar from '@/components/common/BudgetProgressBar';
 
 // Deterministic palette — same category always gets the same color
 const COLOR_PALETTE = [
@@ -21,14 +22,25 @@ function getCategoryColor(categoryId) {
   return COLOR_PALETTE[(categoryId ?? 0) % COLOR_PALETTE.length];
 }
 
-function CategoryRow({ cat, rank, totalForBar }) {
+const BUDGET_STATUS_LABEL_CLASS = {
+  EXCEEDED: 'text-rose-400',
+  WARNING:  'text-amber-400',
+  OK:       'text-emerald-400/70',
+};
+
+function CategoryRow({ cat, rank, budgetMap }) {
   const t = useTranslations('analytics');
   const color = getCategoryColor(cat.categoryId);
-  // For the bar width we always show share of total spend (amount-based)
   const barFill = Math.min(100, cat.share ?? 0);
 
+  const budget = budgetMap?.[cat.categoryId] ?? null;
+  const budgetPercent = budget ? Number(budget.usagePercent ?? 0) : 0;
+  const budgetStatus  = budget?.status ?? null;
+
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-b-0">
+    <div className={`flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-b-0 ${
+      budgetStatus === 'EXCEEDED' ? 'bg-rose-500/[0.03]' : ''
+    }`}>
       {/* Rank */}
       <span className="text-[12px] font-mono text-white/20 w-4 flex-shrink-0 text-right leading-none">
         {rank}
@@ -46,16 +58,28 @@ function CategoryRow({ cat, rank, totalForBar }) {
       <div className="flex-1 min-w-0">
         {/* Top row: name + amount */}
         <div className="flex items-baseline justify-between gap-2 mb-1">
-          <span className="text-[14px] font-medium text-white/80 truncate">
-            {cat.name}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[14px] font-medium text-white/80 truncate">
+              {cat.name}
+            </span>
+            {budgetStatus === 'EXCEEDED' && (
+              <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-full shrink-0">
+                {t('budgetExceeded')}
+              </span>
+            )}
+            {budgetStatus === 'WARNING' && (
+              <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full shrink-0">
+                {t('budgetWarning')}
+              </span>
+            )}
+          </div>
           <span className="text-[14px] font-semibold font-mono text-white/90 flex-shrink-0">
             {formatCurrency(cat.amount)}
           </span>
         </div>
 
-        {/* Bottom row: txn count + bar + share % */}
-        <div className="flex items-center gap-2">
+        {/* Spending share bar */}
+        <div className="flex items-center gap-2 mb-1">
           <span className="text-[11px] text-white/25 flex-shrink-0 whitespace-nowrap">
             {t('txnCount', { count: cat.transactionCount })}
           </span>
@@ -69,12 +93,27 @@ function CategoryRow({ cat, rank, totalForBar }) {
             {cat.share.toFixed(1)}%
           </span>
         </div>
+
+        {/* Budget overlay — only when budget exists */}
+        {budget && (
+          <div className="mt-0.5">
+            <BudgetProgressBar percent={budgetPercent} status={budgetStatus} height="h-[2px]" />
+            <div className="flex items-center justify-between mt-0.5">
+              <span className="text-[9px] text-white/25 font-mono">
+                {formatCurrency(Number(budget.spentAmount ?? 0))} / {formatCurrency(Number(budget.budgetAmount ?? 0))}
+              </span>
+              <span className={`text-[9px] font-semibold ${BUDGET_STATUS_LABEL_CLASS[budgetStatus] ?? 'text-white/30'}`}>
+                {budgetPercent.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export default function CategoryBreakdownChart({ data, loading }) {
+export default function CategoryBreakdownChart({ data, loading, budgetMap }) {
   const t = useTranslations('analytics');
   const [sortMode, setSortMode] = useState('amount'); // 'amount' | 'frequency'
 
@@ -143,7 +182,7 @@ export default function CategoryBreakdownChart({ data, loading }) {
           style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139,92,246,0.3) transparent' }}
         >
           {categories.map((cat, index) => (
-            <CategoryRow key={cat.categoryId} cat={cat} rank={index + 1} />
+            <CategoryRow key={cat.categoryId} cat={cat} rank={index + 1} budgetMap={budgetMap} />
           ))}
         </div>
       )}

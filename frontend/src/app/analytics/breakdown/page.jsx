@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
+import { useBudgetUsage } from '@/hooks/useBudgetUsage';
 import { formatCurrency } from '@/utils/helpers';
 import SpendingBreakdownSection from '@/components/analytics/SpendingBreakdownSection';
 import SpendingLeaksSection from '@/components/analytics/SpendingLeaksSection';
@@ -68,6 +69,16 @@ export default function AnalyticsBreakdownPage() {
   const [importanceData,    setImportanceData]    = useState(null);
   const [importanceLoading, setImportanceLoading] = useState(false);
   const [fetchError,        setFetchError]        = useState(null);
+
+  // Budget usage keyed by categoryId for overlay in the breakdown list
+  const { usage: budgetUsage } = useBudgetUsage(
+    currentWallet?.id,
+    { periodType, startDate: resolvedStart, endDate: resolvedEnd },
+  );
+  const budgetMap = useMemo(
+    () => Object.fromEntries((budgetUsage ?? []).map((u) => [u.categoryId, u])),
+    [budgetUsage],
+  );
 
   const fetchBreakdowns = useCallback(async (wId, pType, sDate, eDate) => {
     setCategoryLoading(true);
@@ -216,6 +227,7 @@ export default function AnalyticsBreakdownPage() {
           importanceData={importanceData}
           categoryLoading={categoryLoading}
           importanceLoading={importanceLoading}
+          budgetMap={budgetMap}
         />
       </div>
 
