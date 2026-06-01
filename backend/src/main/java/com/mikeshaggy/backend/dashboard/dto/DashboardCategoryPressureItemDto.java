@@ -10,6 +10,10 @@ public record DashboardCategoryPressureItemDto(
         BigDecimal shareOfExpensesPercent,
         BigDecimal deltaAmount,
         BigDecimal deltaPercent,
-        DashboardCategoryDirection direction
+        DashboardCategoryDirection direction,
+        // Budget enrichment — null when no active budget exists for this category
+        BigDecimal budgetAmount,
+        BigDecimal budgetUsagePercent,
+        String budgetStatus
 ) {
 }

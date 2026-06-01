@@ -4,6 +4,9 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
+import com.mikeshaggy.backend.budget.domain.CategoryBudget;
+import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
+import com.mikeshaggy.backend.common.calculation.budget.BudgetUsageCalculator;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.insight.InsightDto;
@@ -45,6 +48,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -74,6 +78,7 @@ public class DashboardSummaryService {
     private final FixedPaymentDashboardService fixedPaymentDashboardService;
     private final InsightEngine insightEngine;
     private final CategoryAggregationService categoryAggregationService;
+    private final CategoryBudgetRepository categoryBudgetRepository;
     private final Clock clock;
 
     public DashboardSummaryDto getSummary(Integer walletId, UUID userId,
@@ -122,8 +127,13 @@ public class DashboardSummaryService {
                         walletId, userId, comparison.startDate(), comparison.endDate(), resolvedCategoryMode)
                 : null;
 
+        Map<Integer, CategoryBudget> budgetByCategory = categoryBudgetRepository
+                .findActiveByWalletIdAndUserId(walletId, userId)
+                .stream()
+                .collect(Collectors.toMap(b -> b.getCategory().getId(), Function.identity()));
+
         List<DashboardCategoryPressureItemDto> categoryPressure = categoryPressure(
-                currentCategories, compareCategories, comparison, currentTotals.expenses());
+                currentCategories, compareCategories, comparison, currentTotals.expenses(), budgetByCategory);
 
         // Share precomputed categories with InsightEngine only when the mode matches what it uses internally
         CategoryAggregationResult insightCurrentCats = resolvedCategoryMode == CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES
@@ -289,7 +299,8 @@ public class DashboardSummaryService {
             CategoryAggregationResult current,
             CategoryAggregationResult compare,
             ComparisonWindow comparison,
-            BigDecimal currentExpenses) {
+            BigDecimal currentExpenses,
+            Map<Integer, CategoryBudget> budgetByCategory) {
         var compareByCategory = comparison.available() && compare != null
                 ? compare.categories()
                         .stream()
@@ -301,7 +312,8 @@ public class DashboardSummaryService {
                         category,
                         compareByCategory.get(category.categoryId()),
                         currentExpenses,
-                        comparison.available()))
+                        comparison.available(),
+                        budgetByCategory.get(category.categoryId())))
                 .sorted(Comparator
                         .comparing((DashboardCategoryPressureItemDto item) -> positiveDelta(item.deltaAmount()))
                         .reversed()
@@ -314,9 +326,25 @@ public class DashboardSummaryService {
     private DashboardCategoryPressureItemDto categoryPressureItem(CategoryAggregation current,
                                                                  CategoryAggregation compare,
                                                                  BigDecimal currentExpenses,
-                                                                 boolean comparisonAvailable) {
+                                                                 boolean comparisonAvailable,
+                                                                 CategoryBudget budget) {
         BigDecimal compareAmount = compare == null ? zero() : compare.amount();
         DeltaCalculator.Delta delta = delta(current.amount(), compareAmount, comparisonAvailable);
+
+        BigDecimal budgetAmount = null;
+        BigDecimal budgetUsagePercent = null;
+        String budgetStatus = null;
+
+        if (budget != null) {
+            budgetAmount = budget.getAmount();
+            budgetUsagePercent = budget.getAmount().compareTo(BigDecimal.ZERO) == 0
+                    ? zero()
+                    : money(current.amount()).multiply(HUNDRED).divide(budget.getAmount(), SCALE, ROUNDING);
+            budgetStatus = BudgetUsageCalculator
+                    .resolveStatus(budgetUsagePercent, budget.getWarningThresholdPercent())
+                    .name();
+        }
+
         return new DashboardCategoryPressureItemDto(
                 current.categoryId(),
                 current.name(),
@@ -325,8 +353,12 @@ public class DashboardSummaryService {
                 share(current.amount(), currentExpenses),
                 delta.amount(),
                 delta.percent(),
-                direction(delta.amount()));
+                direction(delta.amount()),
+                budgetAmount,
+                budgetUsagePercent,
+                budgetStatus);
     }
+
 
     private DashboardPreviousCyclePreviewDto previousCyclePreview(DashboardKpisDto kpis,
                                                                   List<DashboardCategoryPressureItemDto> categoryPressure,
