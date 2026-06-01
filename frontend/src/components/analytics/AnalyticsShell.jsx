@@ -16,6 +16,7 @@ import AnalyticsSubNav from './AnalyticsSubNav';
 // own header; the shell now owns the rendering so pages no longer need them.
 const PAGE_META = {
   '/analytics/overview':   { titleKey: 'overviewTitle',    subtitleKey: 'overviewSubtitle' },
+  '/analytics/budgets':    { titleKey: 'budgetsTitle',     subtitleKey: 'budgetsSubtitle' },
   '/analytics/forecast':   { titleKey: 'forecastTitle',    subtitleKey: 'forecastSubtitle' },
   '/analytics/breakdown':  { titleKey: 'breakdownTitle',   subtitleKey: 'breakdownSubtitle' },
   '/analytics/comparison': { titleKey: 'comparisonTitle',  subtitleKey: 'comparisonSubtitle' },

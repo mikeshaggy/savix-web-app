@@ -99,6 +99,21 @@ create table fixed_payment_occurrences (
     unique(fixed_payment_id, due_date)
 );
 
+create table category_budgets (
+    id serial primary key,
+    wallet_id int not null references wallets(id) on delete cascade,
+    category_id int not null references categories(id) on delete cascade,
+    amount numeric(12, 2) not null check (amount > 0),
+    warning_threshold_percent int not null default 80 check (warning_threshold_percent between 1 and 100),
+    active boolean not null default true,
+    created_at timestamp default NOW(),
+    updated_at timestamp default NOW()
+);
+
+create unique index uq_category_budgets_active
+    on category_budgets (wallet_id, category_id)
+    where active = true;
+
 -- transactions
 CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
@@ -136,3 +151,7 @@ CREATE INDEX idx_fpo_payment_status_date
 CREATE INDEX idx_fpo_transaction
     ON fixed_payment_occurrences(transaction_id)
     WHERE transaction_id IS NOT NULL;
+
+-- category budgets
+create index idx_category_budgets_wallet   on category_budgets (wallet_id);
+create index idx_category_budgets_category on category_budgets (category_id);

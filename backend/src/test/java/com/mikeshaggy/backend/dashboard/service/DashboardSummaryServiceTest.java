@@ -26,6 +26,7 @@ import com.mikeshaggy.backend.fixedpayment.dto.FixedSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.dto.RiskIndicatorDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
+import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +78,9 @@ class DashboardSummaryServiceTest {
     @Mock
     private com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService categoryAggregationService;
 
+    @Mock
+    private CategoryBudgetRepository categoryBudgetRepository;
+
     private DashboardSummaryService service;
 
     @BeforeEach
@@ -89,7 +93,11 @@ class DashboardSummaryServiceTest {
                 fixedPaymentDashboardService,
                 insightEngine,
                 categoryAggregationService,
+                categoryBudgetRepository,
                 CLOCK);
+        // default: no active budgets — keeps existing tests unaffected
+        when(categoryBudgetRepository.findActiveByWalletIdAndUserId(any(), any()))
+                .thenReturn(List.of());
     }
 
     @Test
