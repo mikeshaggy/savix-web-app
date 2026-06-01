@@ -115,6 +115,7 @@ export default function DashboardPage() {
     const [customStartDate, setCustomStartDate] = useState(null);
     const [customEndDate, setCustomEndDate] = useState(null);
 
+
     const fetchSummary = useCallback(async (walletId, pType, startDate, endDate) => {
         setLoading(true);
         setError(null);
@@ -242,7 +243,10 @@ export default function DashboardPage() {
                     walletId={currentWallet?.id}
                 />
                 {/* Row 1 – right: Category Pressure (fills to match Fixed Payments height) */}
-                <CategoryPressureCard categoryPressure={summary.categoryPressure} />
+                <CategoryPressureCard
+                  categoryPressure={summary.categoryPressure}
+                  onManageBudgets={() => router.push('/analytics/budgets')}
+                />
 
                 {/* Row 2 – left: VS Previous Cycle */}
                 <PreviousCyclePreview
@@ -252,6 +256,8 @@ export default function DashboardPage() {
                 {/* Row 2 – right: Insights (fills to match VS Previous Cycle height) */}
                 <InsightsCard insights={summary.insights} />
             </div>
+
+
         </div>
     );
 }
