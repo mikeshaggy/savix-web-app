@@ -443,6 +443,33 @@ export const fixedPaymentApi = {
   deactivate: (id) => del(`/fixed-payments/${id}`),
 };
 
+export const categoryBudgetsApi = {
+  // active=true (default) | active=false (archived) | active=null (all)
+  getAll: (walletId, active = true) => {
+    const params = new URLSearchParams({ walletId: String(walletId) });
+    if (active !== null) params.set('active', String(active));
+    return get(`/category-budgets?${params.toString()}`);
+  },
+
+  create: (data) => post('/category-budgets', data),
+
+  update: (id, data) => put(`/category-budgets/${id}`, data),
+
+  deactivate: (id) => patch(`/category-budgets/${id}/deactivate`),
+
+  reactivate: (id) => patch(`/category-budgets/${id}/reactivate`),
+
+  deletePermanently: (id) => del(`/category-budgets/${id}`),
+
+  getUsage: (walletId, params = {}) => {
+    const searchParams = new URLSearchParams({ walletId: String(walletId) });
+    if (params.periodType) searchParams.set('periodType', params.periodType);
+    if (params.startDate) searchParams.set('startDate', params.startDate);
+    if (params.endDate) searchParams.set('endDate', params.endDate);
+    return get(`/category-budgets/usage?${searchParams.toString()}`);
+  },
+};
+
 export const transferApi = {
   getAllTransfers: () => get('/transfers'),
 
