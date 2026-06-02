@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target } from 'lucide-react';
+import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target, PiggyBank } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -31,6 +31,16 @@ const getNavItems = (t) => [
             { id: 'all-wallets', label: t('nav.allWallets'), icon: Wallet, href: '/wallets' },
             { id: 'balance-history', label: t('nav.balanceHistory'), icon: History, href: '/wallets/balance-history' },
             { id: 'transfers', label: t('nav.transfers'), icon: ArrowLeftRight, href: '/wallets/transfers' }
+        ]
+    },
+    {
+        id: 'planning',
+        label: t('nav.planning'),
+        icon: Target,
+        href: '/funds',
+        hasSubmenu: true,
+        submenu: [
+            { id: 'funds', label: t('nav.funds'), icon: PiggyBank, href: '/funds' },
         ]
     },
     {
@@ -68,6 +78,11 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
             setExpandedMenus(prev => ({ ...prev, wallets: true }));
         } else {
             setExpandedMenus(prev => ({ ...prev, wallets: false }));
+        }
+        if (pathname.startsWith('/funds')) {
+            setExpandedMenus(prev => ({ ...prev, planning: true }));
+        } else {
+            setExpandedMenus(prev => ({ ...prev, planning: false }));
         }
         if (pathname.startsWith('/analytics')) {
             setExpandedMenus(prev => ({ ...prev, analytics: true }));
