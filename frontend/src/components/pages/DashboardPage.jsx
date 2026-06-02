@@ -14,6 +14,7 @@ import FixedTransactionsTile from '../dashboard/FixedTransactionsTile';
 import InsightsCard from '../dashboard/InsightsCard';
 import CategoryPressureCard from '../dashboard/CategoryPressureCard';
 import PreviousCyclePreview from '../dashboard/PreviousCyclePreview';
+import FundsSummaryWidget from '../dashboard/FundsSummaryWidget';
 import { useTranslations } from 'next-intl';
 
 // ─── Dashboard skeleton ───────────────────────────────────────────────────────
@@ -93,6 +94,9 @@ function DashboardSkeleton() {
         {/* Row 2 right — InsightsCard */}
         <div className="bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] h-[220px]" />
       </div>
+
+      {/* FundsSummaryWidget placeholder */}
+      <div className="mt-5 bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] h-[145px]" />
 
     </div>
   );
@@ -257,7 +261,10 @@ export default function DashboardPage() {
                 <InsightsCard insights={summary.insights} />
             </div>
 
-
+            {/* Funds summary — independent fetch, full width below the main grid */}
+            <div className="mt-5">
+                <FundsSummaryWidget />
+            </div>
         </div>
     );
 }
