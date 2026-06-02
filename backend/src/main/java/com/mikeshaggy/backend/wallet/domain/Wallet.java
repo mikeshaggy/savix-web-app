@@ -9,8 +9,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "wallets",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "name"}))
+@Table(name = "wallets")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,6 +31,10 @@ public class Wallet {
     @Column(nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
+
+    @Column(name = "is_fund", nullable = false)
+    @Builder.Default
+    private boolean isFund = false;
 
     @Version
     private Integer version;

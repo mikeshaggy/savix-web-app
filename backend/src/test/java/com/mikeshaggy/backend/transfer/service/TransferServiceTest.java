@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -49,6 +50,7 @@ class TransferServiceTest {
     private User user;
     private Wallet fromWallet;
     private Wallet toWallet;
+    private Wallet fundWallet;
 
     @BeforeEach
     void setUp() {
@@ -65,6 +67,14 @@ class TransferServiceTest {
                         .id(2)
                         .name("Savings")
                         .balance(new BigDecimal("5000.00"))
+                        .user(user)
+                        .build();
+        fundWallet =
+                Wallet.builder()
+                        .id(7)
+                        .name("Emergency Fund")
+                        .balance(new BigDecimal("0.00"))
+                        .isFund(true)
                         .user(user)
                         .build();
     }
@@ -584,6 +594,386 @@ class TransferServiceTest {
             // then
             assertThatThrownBy(() -> transferService.getTransfersByWalletIdForUser(99, USER_ID))
                     .isInstanceOf(EntityNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class FundWalletGuard {
+
+        @Test
+        void createTransfer_fromFundWallet_rejected() {
+            // given — regular transfer using a fund wallet as the source must be blocked
+            TransferCreateRequest request =
+                    new TransferCreateRequest(7, 2, new BigDecimal("100.00"), DATE, null);
+
+            when(walletService.getWalletEntityByIdForUser(7, USER_ID)).thenReturn(fundWallet);
+            when(walletService.getWalletEntityByIdForUser(2, USER_ID)).thenReturn(toWallet);
+
+            // when
+            // then
+            assertThatThrownBy(() -> transferService.createTransfer(request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verifyNoInteractions(walletBalanceService);
+            verify(transferRepository, never()).save(any());
+        }
+
+        @Test
+        void createTransfer_toFundWallet_rejected() {
+            // given — regular transfer using a fund wallet as the destination must be blocked
+            TransferCreateRequest request =
+                    new TransferCreateRequest(1, 7, new BigDecimal("100.00"), DATE, null);
+
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(fromWallet);
+            when(walletService.getWalletEntityByIdForUser(7, USER_ID)).thenReturn(fundWallet);
+
+            // when
+            // then
+            assertThatThrownBy(() -> transferService.createTransfer(request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verifyNoInteractions(walletBalanceService);
+            verify(transferRepository, never()).save(any());
+        }
+
+        @Test
+        void createTransfer_normalWallets_notBlocked() {
+            // given — a normal transfer between two non-fund wallets must still succeed
+            TransferCreateRequest request =
+                    new TransferCreateRequest(1, 2, new BigDecimal("300.00"), DATE, null);
+
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(fromWallet);
+            when(walletService.getWalletEntityByIdForUser(2, USER_ID)).thenReturn(toWallet);
+            when(transferRepository.save(any(Transfer.class)))
+                    .thenAnswer(inv -> {
+                        Transfer t = inv.getArgument(0);
+                        t.setId(10L);
+                        return t;
+                    });
+
+            // when
+            TransferResponse response = transferService.createTransfer(request, USER_ID);
+
+            // then
+            assertThat(response.fromWalletId()).isEqualTo(1);
+            assertThat(response.toWalletId()).isEqualTo(2);
+            verify(walletBalanceService).applyTransfer(eq(1), eq(2), any(), eq(USER_ID), anyLong(), eq(DATE));
+        }
+    }
+
+    @Nested
+    class FundTransferGuardOnMutation {
+
+        @Test
+        void updateTransfer_withFundWalletAsFrom_rejected() {
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fundWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(7, 2, new BigDecimal("500.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> transferService.updateTransfer(50L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verify(transferRepository, never()).save(any());
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
+        void updateTransfer_withFundWalletAsTo_rejected() {
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(fundWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(1, 7, new BigDecimal("500.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> transferService.updateTransfer(50L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verify(transferRepository, never()).save(any());
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
+        void updateTransfer_repointFromWalletToFund_rejected() {
+            // existing transfer is between two normal wallets; request repoints source to a fund wallet
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(7, 2, new BigDecimal("500.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+            when(walletService.getWalletEntityByIdForUser(7, USER_ID)).thenReturn(fundWallet);
+
+            assertThatThrownBy(() -> transferService.updateTransfer(50L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verify(transferRepository, never()).save(any());
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
+        void updateTransfer_repointToWalletToFund_rejected() {
+            // existing transfer is between two normal wallets; request repoints destination to a fund wallet
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(1, 7, new BigDecimal("500.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+            when(walletService.getWalletEntityByIdForUser(7, USER_ID)).thenReturn(fundWallet);
+
+            assertThatThrownBy(() -> transferService.updateTransfer(50L, request, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verify(transferRepository, never()).save(any());
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
+        void updateTransfer_repointToDifferentNormalWallet_succeeds() {
+            // repointing the destination to another non-fund wallet must still pass the guard
+            Wallet otherNormalWallet =
+                    Wallet.builder()
+                            .id(3)
+                            .name("Holiday")
+                            .balance(new BigDecimal("100.00"))
+                            .user(user)
+                            .build();
+
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(1, 3, new BigDecimal("500.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+            when(walletService.getWalletEntityByIdForUser(3, USER_ID)).thenReturn(otherNormalWallet);
+            when(transferRepository.save(any(Transfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            TransferResponse response = transferService.updateTransfer(50L, request, USER_ID);
+
+            assertThat(response.toWalletId()).isEqualTo(3);
+            verify(transferRepository).save(any(Transfer.class));
+        }
+
+        @Test
+        void deleteTransfer_withFundWalletInvolved_rejected() {
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(fundWallet)
+                            .amount(new BigDecimal("300.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+
+            assertThatThrownBy(() -> transferService.deleteTransfer(50L, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fund wallets");
+
+            verifyNoInteractions(walletBalanceService);
+            verify(transferRepository, never()).delete(any());
+        }
+
+        @Test
+        void updateTransfer_normalWallets_succeeds() {
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            TransferUpdateRequest request =
+                    new TransferUpdateRequest(1, 2, new BigDecimal("750.00"), DATE, null);
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+            when(transferRepository.save(any(Transfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            TransferResponse response = transferService.updateTransfer(50L, request, USER_ID);
+
+            assertThat(response.amount()).isEqualByComparingTo("750.00");
+        }
+
+        @Test
+        void deleteTransfer_normalWallets_succeeds() {
+            Transfer existing =
+                    Transfer.builder()
+                            .id(50L)
+                            .fromWallet(fromWallet)
+                            .toWallet(toWallet)
+                            .amount(new BigDecimal("500.00"))
+                            .transferDate(DATE)
+                            .build();
+
+            when(transferRepository.findByIdAndUserId(50L, USER_ID)).thenReturn(Optional.of(existing));
+
+            transferService.deleteTransfer(50L, USER_ID);
+
+            verify(walletBalanceService).reverseTransfer(
+                    eq(1), eq(2), eq(new BigDecimal("500.00")), eq(USER_ID), eq(50L), eq(DATE));
+            verify(transferRepository).delete(existing);
+        }
+    }
+
+    @Nested
+    class CreateFundTransfer {
+
+        @Test
+        void deposit_spendingToFund_succeeds() {
+            // given — FundService depositing from a normal wallet into a fund wallet
+            when(walletService.getWalletEntityByIdInternal(1)).thenReturn(fromWallet);
+            when(walletService.getWalletEntityByIdInternal(7)).thenReturn(fundWallet);
+            when(transferRepository.save(any(Transfer.class)))
+                    .thenAnswer(inv -> {
+                        Transfer t = inv.getArgument(0);
+                        t.setId(99L);
+                        return t;
+                    });
+
+            // when
+            Transfer saved = transferService.createFundTransfer(
+                    1, 7, new BigDecimal("500.00"), USER_ID, DATE, "Monthly savings");
+
+            // then
+            assertThat(saved.getId()).isEqualTo(99L);
+            assertThat(saved.getFromWallet().getId()).isEqualTo(1);
+            assertThat(saved.getToWallet().getId()).isEqualTo(7);
+            assertThat(saved.getAmount()).isEqualByComparingTo("500.00");
+
+            verify(transferRepository).save(any(Transfer.class));
+            verify(walletBalanceService)
+                    .applyTransfer(eq(1), eq(7), eq(new BigDecimal("500.00")), eq(USER_ID), eq(99L), eq(DATE));
+        }
+
+        @Test
+        void withdrawal_fundToSpending_succeeds() {
+            // given — FundService withdrawing from a fund wallet back to a normal wallet
+            when(walletService.getWalletEntityByIdInternal(7)).thenReturn(fundWallet);
+            when(walletService.getWalletEntityByIdInternal(1)).thenReturn(fromWallet);
+            when(transferRepository.save(any(Transfer.class)))
+                    .thenAnswer(inv -> {
+                        Transfer t = inv.getArgument(0);
+                        t.setId(100L);
+                        return t;
+                    });
+
+            // when
+            Transfer saved = transferService.createFundTransfer(
+                    7, 1, new BigDecimal("200.00"), USER_ID, DATE, "Emergency");
+
+            // then
+            assertThat(saved.getFromWallet().getId()).isEqualTo(7);
+            assertThat(saved.getToWallet().getId()).isEqualTo(1);
+            assertThat(saved.getAmount()).isEqualByComparingTo("200.00");
+
+            verify(walletBalanceService)
+                    .applyTransfer(eq(7), eq(1), eq(new BigDecimal("200.00")), eq(USER_ID), eq(100L), eq(DATE));
+        }
+
+        @Test
+        void selfTransfer_stillRejected() {
+            // given — fund transfer to the same wallet must still be rejected
+            // when
+            // then
+            assertThatThrownBy(
+                    () -> transferService.createFundTransfer(
+                            7, 7, new BigDecimal("100.00"), USER_ID, DATE, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("same wallet");
+
+            verifyNoInteractions(walletBalanceService);
+            verify(transferRepository, never()).save(any());
+        }
+
+        @Test
+        void walletNotFound_throws() {
+            // given
+            when(walletService.getWalletEntityByIdInternal(7))
+                    .thenThrow(new EntityNotFoundException("Wallet not found with id: 7"));
+
+            // when
+            // then
+            assertThatThrownBy(
+                    () -> transferService.createFundTransfer(
+                            7, 1, new BigDecimal("100.00"), USER_ID, DATE, null))
+                    .isInstanceOf(EntityNotFoundException.class);
+
+            verifyNoInteractions(walletBalanceService);
+        }
+
+        @Test
+        void persistsCorrectTransferFields() {
+            // given
+            when(walletService.getWalletEntityByIdInternal(1)).thenReturn(fromWallet);
+            when(walletService.getWalletEntityByIdInternal(7)).thenReturn(fundWallet);
+
+            ArgumentCaptor<Transfer> captor = ArgumentCaptor.forClass(Transfer.class);
+            when(transferRepository.save(captor.capture()))
+                    .thenAnswer(inv -> {
+                        Transfer t = inv.getArgument(0);
+                        t.setId(55L);
+                        return t;
+                    });
+
+            // when
+            transferService.createFundTransfer(
+                    1, 7, new BigDecimal("750.00"), USER_ID, DATE, "Quarterly top-up");
+
+            // then
+            Transfer captured = captor.getValue();
+            assertThat(captured.getFromWallet()).isSameAs(fromWallet);
+            assertThat(captured.getToWallet()).isSameAs(fundWallet);
+            assertThat(captured.getAmount()).isEqualByComparingTo("750.00");
+            assertThat(captured.getTransferDate()).isEqualTo(DATE);
+            assertThat(captured.getNotes()).isEqualTo("Quarterly top-up");
         }
     }
 }

@@ -55,29 +55,36 @@ public class TransferService {
         Wallet fromWallet = walletService.getWalletEntityByIdForUser(request.fromWalletId(), userId);
         Wallet toWallet = walletService.getWalletEntityByIdForUser(request.toWalletId(), userId);
 
-        Transfer transfer = Transfer.builder()
-                .fromWallet(fromWallet)
-                .toWallet(toWallet)
-                .amount(request.amount())
-                .transferDate(request.transferDate())
-                .notes(request.notes())
-                .build();
+        validateNotFundWallets(fromWallet, toWallet);
 
-        Transfer savedTransfer = transferRepository.save(transfer);
-
-        walletBalanceService.applyTransfer(fromWallet.getId(), toWallet.getId(), request.amount(),
-                userId, savedTransfer.getId(), savedTransfer.getTransferDate());
-
-        log.info("Transfer created: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",
-            savedTransfer.getId(), userId, fromWallet.getId(), toWallet.getId(), savedTransfer.getAmount());
+        Transfer savedTransfer = persistTransferAndApplyBalance(
+                fromWallet, toWallet, request.amount(), userId, request.transferDate(), request.notes());
 
         return TransferResponse.from(savedTransfer);
+    }
+
+    @Transactional
+    public Transfer createFundTransfer(
+            Integer fromWalletId,
+            Integer toWalletId,
+            BigDecimal amount,
+            UUID userId,
+            LocalDate date,
+            String notes) {
+
+        validateNotSelfTransfer(fromWalletId, toWalletId);
+
+        Wallet fromWallet = walletService.getWalletEntityByIdInternal(fromWalletId);
+        Wallet toWallet = walletService.getWalletEntityByIdInternal(toWalletId);
+
+        return persistTransferAndApplyBalance(fromWallet, toWallet, amount, userId, date, notes);
     }
 
     @Transactional
     public TransferResponse updateTransfer(Long id, TransferUpdateRequest request, UUID userId) {
         Transfer existingTransfer = getTransferOrThrowForUser(id, userId);
 
+        validateNotFundWallets(existingTransfer.getFromWallet(), existingTransfer.getToWallet());
         validateNotSelfTransfer(request.fromWalletId(), request.toWalletId());
 
         Wallet oldFromWallet = existingTransfer.getFromWallet();
@@ -94,6 +101,8 @@ public class TransferService {
         if (!request.toWalletId().equals(oldToWallet.getId())) {
             newToWallet = walletService.getWalletEntityByIdForUser(request.toWalletId(), userId);
         }
+
+        validateNotFundWallets(newFromWallet, newToWallet);
 
         request.applyTo(existingTransfer);
         existingTransfer.setFromWallet(newFromWallet);
@@ -117,6 +126,8 @@ public class TransferService {
     public void deleteTransfer(Long id, UUID userId) {
         Transfer transfer = getTransferOrThrowForUser(id, userId);
 
+        validateNotFundWallets(transfer.getFromWallet(), transfer.getToWallet());
+
         walletBalanceService.reverseTransfer(
                 transfer.getFromWallet().getId(),
                 transfer.getToWallet().getId(),
@@ -132,10 +143,48 @@ public class TransferService {
         transferRepository.delete(transfer);
     }
 
+    private Transfer persistTransferAndApplyBalance(
+            Wallet fromWallet,
+            Wallet toWallet,
+            BigDecimal amount,
+            UUID userId,
+            LocalDate date,
+            String notes) {
+
+        Transfer transfer = Transfer.builder()
+                .fromWallet(fromWallet)
+                .toWallet(toWallet)
+                .amount(amount)
+                .transferDate(date)
+                .notes(notes)
+                .build();
+
+        Transfer savedTransfer = transferRepository.save(transfer);
+
+        walletBalanceService.applyTransfer(
+                fromWallet.getId(), toWallet.getId(), amount,
+                userId, savedTransfer.getId(), savedTransfer.getTransferDate());
+
+        log.info("Transfer created: transferId={}, userId={}, sourceWalletId={}, targetWalletId={}, amount={}",
+                savedTransfer.getId(), userId, fromWallet.getId(), toWallet.getId(), savedTransfer.getAmount());
+
+        return savedTransfer;
+    }
+
     private void validateNotSelfTransfer(Integer fromWalletId, Integer toWalletId) {
         if (fromWalletId.equals(toWalletId)) {
             log.warn("Transfer validation failed: reason=self_transfer, walletId={}", fromWalletId);
             throw new IllegalArgumentException("Cannot transfer to the same wallet");
+        }
+    }
+
+    private void validateNotFundWallets(Wallet fromWallet, Wallet toWallet) {
+        if (fromWallet.isFund() || toWallet.isFund()) {
+            log.warn("Transfer validation failed: reason=fund_wallet_transfer, fromWalletId={}, toWalletId={}",
+                    fromWallet.getId(), toWallet.getId());
+            throw new IllegalArgumentException(
+                    "Transfers to or from fund wallets are not permitted. " +
+                    "Use fund deposit or withdrawal operations instead.");
         }
     }
 
