@@ -30,14 +30,6 @@ public interface TransferRepository extends JpaRepository<Transfer, Long> {
             "ORDER BY t.transferDate DESC, t.createdAt DESC")
     List<Transfer> findByWalletIdAndUserId(Integer walletId, UUID userId);
 
-    /**
-     * Paginated movements involving a single fund wallet (one side of the transfer
-     * is the fund wallet). Used by the fund-domain movement history endpoint.
-     * <p>
-     * Both wallets are fetched (to-one joins, pagination-safe) so the counterparty
-     * name is available without an N+1. Ordering comes from the {@link Pageable}'s
-     * sort; an explicit {@code countQuery} avoids deriving a count from the fetch join.
-     */
     @Query(value = "SELECT t FROM Transfer t " +
             "JOIN FETCH t.fromWallet fw JOIN FETCH t.toWallet tw " +
             "WHERE (fw.id = :fundWalletId OR tw.id = :fundWalletId) " +

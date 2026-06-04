@@ -50,12 +50,6 @@ public class TransferService {
                 .toList();
     }
 
-    /**
-     * Returns a page of transfers involving the given fund wallet (one side is the
-     * fund wallet). Fund-domain use only: callers (FundService) must have already
-     * verified that the fund — and therefore its wallet — belongs to {@code userId}.
-     * Returns Transfer entities so the fund layer can map direction/counterparty.
-     */
     public Page<Transfer> findFundMovements(UUID userId, Integer fundWalletId, Pageable pageable) {
         return transferRepository.findFundMovements(userId, fundWalletId, pageable);
     }

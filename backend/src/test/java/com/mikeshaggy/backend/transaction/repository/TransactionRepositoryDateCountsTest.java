@@ -163,11 +163,6 @@ class TransactionRepositoryDateCountsTest {
         assertThat(counts.getFirst().getTransactionCount()).isEqualTo(1L);
     }
 
-    /**
-     * Reproduces the exact filter combination from the failing request
-     * {@code /api/transactions?walletId=1&importances=...&startDate=2026-05-08&endDate=2026-06-03}
-     * for every importance value. The query must build and execute without error.
-     */
     @ParameterizedTest
     @EnumSource(Importance.class)
     void drillDownFilterDoesNotFailForAnyImportance(Importance importance) {
