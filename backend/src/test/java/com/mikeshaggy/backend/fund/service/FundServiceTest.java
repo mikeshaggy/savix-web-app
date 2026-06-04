@@ -2,9 +2,11 @@ package com.mikeshaggy.backend.fund.service;
 
 import com.mikeshaggy.backend.common.exception.ConflictException;
 import com.mikeshaggy.backend.fund.domain.Fund;
+import com.mikeshaggy.backend.fund.domain.FundMovementType;
 import com.mikeshaggy.backend.fund.domain.FundStatus;
 import com.mikeshaggy.backend.fund.dto.*;
 import com.mikeshaggy.backend.fund.repository.FundRepository;
+import com.mikeshaggy.backend.transfer.domain.Transfer;
 import com.mikeshaggy.backend.transfer.service.TransferService;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
@@ -19,6 +21,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -257,7 +264,7 @@ class FundServiceTest {
             FundResponse response = fundService.updateFund(1L, request, USER_ID);
 
             assertThat(response.description()).isEqualTo("My holiday fund");
-            assertThat(response.icon()).isEqualTo("✈️");
+            assertThat(response.emoji()).isEqualTo("✈️");
         }
 
         @Test
@@ -450,6 +457,91 @@ class FundServiceTest {
                     .hasMessageContaining("returnToWalletId is required");
 
             verify(fundRepository, never()).save(any());
+        }
+
+        @Test
+        void completedFund_canBeArchived() {
+            Fund fund = activeFund(1L, new BigDecimal("1000.00"), new BigDecimal("1000.00"));
+            fund.setStatus(FundStatus.COMPLETED);
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+            when(fundRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            FundArchiveRequest request = new FundArchiveRequest(false, null);
+            FundResponse response = fundService.archiveFund(1L, request, USER_ID);
+
+            assertThat(response.status()).isEqualTo(FundStatus.ARCHIVED);
+        }
+
+        @Test
+        void alreadyArchivedFund_throws() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), BigDecimal.ZERO);
+            fund.setStatus(FundStatus.ARCHIVED);
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            assertThatThrownBy(() -> fundService.archiveFund(1L, null, USER_ID))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining("already archived");
+
+            verify(fundRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    class CompleteFund {
+
+        @Test
+        void happyPath_setsCompletedWithoutMovingMoney() {
+            Fund fund = activeFund(1L, new BigDecimal("1000.00"), new BigDecimal("1000.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+            when(fundRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            FundResponse response = fundService.completeFund(1L, USER_ID);
+
+            assertThat(response.status()).isEqualTo(FundStatus.COMPLETED);
+            assertThat(response.currentAmount()).isEqualByComparingTo("1000.00");
+            verify(transferService, never()).createFundTransfer(any(), any(), any(), any(), any(), any());
+        }
+
+        @Test
+        void overfundedFund_canBeCompleted() {
+            Fund fund = activeFund(1L, new BigDecimal("1000.00"), new BigDecimal("1500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+            when(fundRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            assertThat(fundService.completeFund(1L, USER_ID).status()).isEqualTo(FundStatus.COMPLETED);
+        }
+
+        @Test
+        void targetNotReached_throws() {
+            Fund fund = activeFund(1L, new BigDecimal("1000.00"), new BigDecimal("400.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            assertThatThrownBy(() -> fundService.completeFund(1L, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not reached its target");
+
+            verify(fundRepository, never()).save(any());
+        }
+
+        @Test
+        void nonActiveFund_throws() {
+            Fund fund = activeFund(1L, new BigDecimal("1000.00"), new BigDecimal("1000.00"));
+            fund.setStatus(FundStatus.COMPLETED);
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            assertThatThrownBy(() -> fundService.completeFund(1L, USER_ID))
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining("active funds can be completed");
+
+            verify(fundRepository, never()).save(any());
+        }
+
+        @Test
+        void wrongUser_throwsEntityNotFound() {
+            when(fundRepository.findByIdAndUserId(99L, USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> fundService.completeFund(99L, USER_ID))
+                    .isInstanceOf(EntityNotFoundException.class);
         }
     }
 
@@ -960,6 +1052,158 @@ class FundServiceTest {
                     .hasMessageContaining("fund wallet");
 
             verify(transferService, never()).createFundTransfer(any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    @Nested
+    class GetFundMovements {
+
+        private static final LocalDate D1 = LocalDate.of(2026, 5, 25);
+        private static final LocalDate D2 = LocalDate.of(2026, 5, 27);
+
+        // Builds a transfer between the fund wallet (id 100) and the spending wallet (id 1).
+        private Transfer transfer(Long id, Wallet from, Wallet to, String amount, LocalDate date, String notes) {
+            return Transfer.builder()
+                    .id(id)
+                    .fromWallet(from)
+                    .toWallet(to)
+                    .amount(new BigDecimal(amount))
+                    .transferDate(date)
+                    .notes(notes)
+                    .build();
+        }
+
+        @Test
+        void depositMappedAsDeposit_withSpendingWalletAsCounterparty() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            // spending -> fund == deposit (fund wallet is the toWallet)
+            Transfer deposit = transfer(88L, spendingWallet, fundWallet, "500.00", D1, "Monthly savings");
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(deposit)));
+
+            FundMovementPageResponse result = fundService.getFundMovements(1L, USER_ID, 0, 10);
+
+            assertThat(result.content()).hasSize(1);
+            FundMovementResponse m = result.content().get(0);
+            assertThat(m.type()).isEqualTo(FundMovementType.DEPOSIT);
+            assertThat(m.amount()).isEqualByComparingTo("500.00");
+            assertThat(m.transferId()).isEqualTo(88L);
+            assertThat(m.notes()).isEqualTo("Monthly savings");
+            // counterparty is the normal spending wallet, never the fund wallet
+            assertThat(m.counterpartyWalletId()).isEqualTo(1);
+            assertThat(m.counterpartyWalletName()).isEqualTo("Main");
+        }
+
+        @Test
+        void withdrawalMappedAsWithdrawal_withSpendingWalletAsCounterparty() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            // fund -> spending == withdrawal (fund wallet is the fromWallet)
+            Transfer withdrawal = transfer(90L, fundWallet, spendingWallet, "200.00", D2, "Emergency");
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(withdrawal)));
+
+            FundMovementResponse m = fundService.getFundMovements(1L, USER_ID, 0, 10).content().get(0);
+
+            assertThat(m.type()).isEqualTo(FundMovementType.WITHDRAWAL);
+            assertThat(m.counterpartyWalletId()).isEqualTo(1);
+            assertThat(m.counterpartyWalletName()).isEqualTo("Main");
+        }
+
+        @Test
+        void counterpartyIsNeverTheFundWallet() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            Transfer deposit = transfer(88L, spendingWallet, fundWallet, "500.00", D1, null);
+            Transfer withdrawal = transfer(90L, fundWallet, spendingWallet, "200.00", D2, null);
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(withdrawal, deposit)));
+
+            FundMovementPageResponse result = fundService.getFundMovements(1L, USER_ID, 0, 10);
+
+            // fund wallet id (100) must never surface as a counterparty
+            assertThat(result.content()).allSatisfy(m ->
+                    assertThat(m.counterpartyWalletId()).isEqualTo(1));
+        }
+
+        @Test
+        void requestsNewestFirstSort() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
+
+            fundService.getFundMovements(1L, USER_ID, 0, 10);
+
+            ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+            verify(transferService).findFundMovements(eq(USER_ID), eq(100), captor.capture());
+            Sort.Order primary = captor.getValue().getSort().toList().get(0);
+            assertThat(primary.getProperty()).isEqualTo("transferDate");
+            assertThat(primary.getDirection()).isEqualTo(Sort.Direction.DESC);
+        }
+
+        @Test
+        void archivedFund_stillReturnsMovements() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            fund.setStatus(FundStatus.ARCHIVED);
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            Transfer withdrawal = transfer(90L, fundWallet, spendingWallet, "200.00", D2, null);
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(withdrawal)));
+
+            FundMovementPageResponse result = fundService.getFundMovements(1L, USER_ID, 0, 10);
+
+            assertThat(result.content()).hasSize(1);
+            assertThat(result.content().get(0).type()).isEqualTo(FundMovementType.WITHDRAWAL);
+        }
+
+        @Test
+        void emptyHistory_returnsEmptyPage_not404() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), BigDecimal.ZERO);
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of()));
+
+            FundMovementPageResponse result = fundService.getFundMovements(1L, USER_ID, 0, 10);
+
+            assertThat(result.content()).isEmpty();
+            assertThat(result.totalElements()).isZero();
+        }
+
+        @Test
+        void paginationMetadataPropagated() {
+            Fund fund = activeFund(1L, new BigDecimal("5000.00"), new BigDecimal("500.00"));
+            when(fundRepository.findByIdAndUserId(1L, USER_ID)).thenReturn(Optional.of(fund));
+
+            Transfer deposit = transfer(88L, spendingWallet, fundWallet, "500.00", D1, null);
+            Pageable pageable = PageRequest.of(0, 1);
+            // 1 of 3 total elements -> 3 pages, has next, no previous
+            when(transferService.findFundMovements(eq(USER_ID), eq(100), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(deposit), pageable, 3));
+
+            FundMovementPageResponse result = fundService.getFundMovements(1L, USER_ID, 0, 1);
+
+            assertThat(result.page()).isZero();
+            assertThat(result.size()).isEqualTo(1);
+            assertThat(result.totalElements()).isEqualTo(3);
+            assertThat(result.totalPages()).isEqualTo(3);
+            assertThat(result.hasNext()).isTrue();
+            assertThat(result.hasPrevious()).isFalse();
+        }
+
+        @Test
+        void wrongUserFund_throwsEntityNotFound() {
+            when(fundRepository.findByIdAndUserId(99L, USER_ID)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> fundService.getFundMovements(99L, USER_ID, 0, 10))
+                    .isInstanceOf(EntityNotFoundException.class);
+
+            verify(transferService, never()).findFundMovements(any(), any(), any());
         }
     }
 }

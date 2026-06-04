@@ -36,6 +36,15 @@ public class FundController {
         return ResponseEntity.ok(fundService.getFundById(id, currentUserProvider.getCurrentUserId()));
     }
 
+    @GetMapping("/{id}/movements")
+    public ResponseEntity<FundMovementPageResponse> getMovements(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(
+                fundService.getFundMovements(id, currentUserProvider.getCurrentUserId(), page, size));
+    }
+
     @PostMapping
     public ResponseEntity<FundResponse> create(@Valid @RequestBody FundCreateRequest request) {
         FundResponse created = fundService.createFund(request, currentUserProvider.getCurrentUserId());
@@ -47,6 +56,11 @@ public class FundController {
             @PathVariable Long id,
             @Valid @RequestBody FundUpdateRequest request) {
         return ResponseEntity.ok(fundService.updateFund(id, request, currentUserProvider.getCurrentUserId()));
+    }
+
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<FundResponse> complete(@PathVariable Long id) {
+        return ResponseEntity.ok(fundService.completeFund(id, currentUserProvider.getCurrentUserId()));
     }
 
     @PostMapping("/{id}/archive")

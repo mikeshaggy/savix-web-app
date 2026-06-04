@@ -11,6 +11,8 @@ import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,16 @@ public class TransferService {
         return transferRepository.findByWalletIdAndUserId(walletId, userId).stream()
                 .map(TransferResponse::from)
                 .toList();
+    }
+
+    /**
+     * Returns a page of transfers involving the given fund wallet (one side is the
+     * fund wallet). Fund-domain use only: callers (FundService) must have already
+     * verified that the fund — and therefore its wallet — belongs to {@code userId}.
+     * Returns Transfer entities so the fund layer can map direction/counterparty.
+     */
+    public Page<Transfer> findFundMovements(UUID userId, Integer fundWalletId, Pageable pageable) {
+        return transferRepository.findFundMovements(userId, fundWalletId, pageable);
     }
 
     @Transactional

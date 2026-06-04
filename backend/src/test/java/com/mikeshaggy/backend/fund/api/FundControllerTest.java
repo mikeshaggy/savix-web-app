@@ -4,6 +4,7 @@ import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.exception.ConflictException;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.fund.domain.FundMovementType;
 import com.mikeshaggy.backend.fund.domain.FundStatus;
 import com.mikeshaggy.backend.fund.dto.*;
 import com.mikeshaggy.backend.fund.service.FundService;
@@ -20,11 +21,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -59,7 +62,7 @@ class FundControllerTest {
         return new FundResponse(
                 id, "Vacation", "Holiday", new BigDecimal("5000.00"),
                 BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("5000.00"),
-                false, "PLN", FundStatus.ACTIVE, "✈️", "#6366f1",
+                false, FundStatus.ACTIVE, "✈️", "#6366f1",
                 null, null,
                 Instant.parse("2026-06-01T10:00:00Z"),
                 Instant.parse("2026-06-01T10:00:00Z")
@@ -101,6 +104,65 @@ class FundControllerTest {
 
             mockMvc.perform(get("/api/funds/99"))
                     .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    class GetMovements {
+
+        private FundMovementPageResponse sampleMovementsPage() {
+            FundMovementResponse deposit = new FundMovementResponse(
+                    88L, 88L, FundMovementType.DEPOSIT, new BigDecimal("500.00"),
+                    LocalDate.of(2026, 5, 25), 1, "Main Account", "Monthly savings",
+                    Instant.parse("2026-05-25T12:30:00Z"));
+            return new FundMovementPageResponse(List.of(deposit), 0, 10, 1, 1, false, false);
+        }
+
+        @Test
+        void returns200WithMovements() throws Exception {
+            when(fundService.getFundMovements(1L, USER_ID, 0, 10)).thenReturn(sampleMovementsPage());
+
+            mockMvc.perform(get("/api/funds/1/movements"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content[0].transferId").value(88))
+                    .andExpect(jsonPath("$.content[0].type").value("DEPOSIT"))
+                    .andExpect(jsonPath("$.content[0].counterpartyWalletId").value(1))
+                    .andExpect(jsonPath("$.content[0].counterpartyWalletName").value("Main Account"))
+                    .andExpect(jsonPath("$.totalElements").value(1));
+        }
+
+        @Test
+        void supportsPageAndSizeParams() throws Exception {
+            when(fundService.getFundMovements(eq(1L), eq(USER_ID), eq(2), eq(5)))
+                    .thenReturn(new FundMovementPageResponse(List.of(), 2, 5, 12, 3, false, true));
+
+            mockMvc.perform(get("/api/funds/1/movements").param("page", "2").param("size", "5"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page").value(2))
+                    .andExpect(jsonPath("$.size").value(5));
+
+            verify(fundService).getFundMovements(1L, USER_ID, 2, 5);
+        }
+
+        @Test
+        void wrongUserFund_returns404() throws Exception {
+            when(fundService.getFundMovements(99L, USER_ID, 0, 10))
+                    .thenThrow(new EntityNotFoundException("Fund not found with id: 99"));
+
+            mockMvc.perform(get("/api/funds/99/movements"))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        void emptyResult_returns200WithEmptyContent() throws Exception {
+            when(fundService.getFundMovements(1L, USER_ID, 0, 10))
+                    .thenReturn(new FundMovementPageResponse(List.of(), 0, 10, 0, 0, false, false));
+
+            mockMvc.perform(get("/api/funds/1/movements"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content").isEmpty())
+                    .andExpect(jsonPath("$.totalElements").value(0));
         }
     }
 
@@ -224,7 +286,7 @@ class FundControllerTest {
             FundResponse archived = new FundResponse(
                     1L, "Vacation", null, new BigDecimal("5000.00"),
                     BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("5000.00"),
-                    false, "PLN", FundStatus.ARCHIVED, null, null,
+                    false, FundStatus.ARCHIVED, null, null,
                     null, null,
                     Instant.parse("2026-06-01T10:00:00Z"),
                     Instant.parse("2026-06-01T10:00:00Z")
@@ -255,6 +317,46 @@ class FundControllerTest {
     }
 
     @Nested
+    class Complete {
+
+        @Test
+        void returns200WithCompletedFund() throws Exception {
+            FundResponse completed = new FundResponse(
+                    1L, "Vacation", null, new BigDecimal("1000.00"),
+                    new BigDecimal("1000.00"), new BigDecimal("100.00"), BigDecimal.ZERO,
+                    true, FundStatus.COMPLETED, null, null,
+                    null, null,
+                    Instant.parse("2026-06-01T10:00:00Z"),
+                    Instant.parse("2026-06-01T10:00:00Z")
+            );
+            when(fundService.completeFund(1L, USER_ID)).thenReturn(completed);
+
+            mockMvc.perform(post("/api/funds/1/complete"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("COMPLETED"))
+                    .andExpect(jsonPath("$.isTargetReached").value(true));
+        }
+
+        @Test
+        void targetNotReached_returns400() throws Exception {
+            when(fundService.completeFund(1L, USER_ID))
+                    .thenThrow(new IllegalArgumentException("Fund has not reached its target amount yet."));
+
+            mockMvc.perform(post("/api/funds/1/complete"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void wrongUserFund_returns404() throws Exception {
+            when(fundService.completeFund(99L, USER_ID))
+                    .thenThrow(new EntityNotFoundException("Fund not found with id: 99"));
+
+            mockMvc.perform(post("/api/funds/99/complete"))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
     class Deposit {
 
         @Test
@@ -262,7 +364,7 @@ class FundControllerTest {
             FundResponse updated = new FundResponse(
                     1L, "Vacation", null, new BigDecimal("5000.00"),
                     new BigDecimal("1000.00"), new BigDecimal("20.00"), new BigDecimal("4000.00"),
-                    false, "PLN", FundStatus.ACTIVE, null, null,
+                    false, FundStatus.ACTIVE, null, null,
                     null, null,
                     Instant.parse("2026-06-01T10:00:00Z"),
                     Instant.parse("2026-06-01T10:00:00Z")
@@ -371,7 +473,7 @@ class FundControllerTest {
             FundResponse updated = new FundResponse(
                     1L, "Vacation", null, new BigDecimal("5000.00"),
                     new BigDecimal("1500.00"), new BigDecimal("30.00"), new BigDecimal("3500.00"),
-                    false, "PLN", FundStatus.ACTIVE, null, null,
+                    false, FundStatus.ACTIVE, null, null,
                     null, null,
                     Instant.parse("2026-06-01T10:00:00Z"),
                     Instant.parse("2026-06-01T10:00:00Z")

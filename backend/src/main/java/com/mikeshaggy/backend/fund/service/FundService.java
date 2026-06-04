@@ -6,6 +6,7 @@ import com.mikeshaggy.backend.fund.domain.Fund;
 import com.mikeshaggy.backend.fund.domain.FundStatus;
 import com.mikeshaggy.backend.fund.dto.*;
 import com.mikeshaggy.backend.fund.repository.FundRepository;
+import com.mikeshaggy.backend.transfer.domain.Transfer;
 import com.mikeshaggy.backend.transfer.service.TransferService;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.service.UserService;
@@ -14,6 +15,10 @@ import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +38,8 @@ public class FundService {
 
     private static final int NEAR_DEADLINE_DAYS = 60;
     private static final int TOP_FUNDS_LIMIT = 3;
+    private static final int DEFAULT_MOVEMENTS_PAGE_SIZE = 10;
+    private static final int MAX_MOVEMENTS_PAGE_SIZE = 100;
 
     private final FundRepository fundRepository;
     private final WalletService walletService;
@@ -48,6 +55,33 @@ public class FundService {
 
     public FundResponse getFundById(Long fundId, UUID userId) {
         return FundResponse.from(getFundOrThrow(fundId, userId));
+    }
+
+    public FundMovementPageResponse getFundMovements(Long fundId, UUID userId, int page, int size) {
+        Fund fund = getFundOrThrow(fundId, userId);
+        Integer fundWalletId = fund.getFundWallet().getId();
+
+        int effectivePage = Math.max(page, 0);
+        int effectiveSize = (size < 1) ? DEFAULT_MOVEMENTS_PAGE_SIZE : Math.min(size, MAX_MOVEMENTS_PAGE_SIZE);
+
+        Pageable pageable = PageRequest.of(effectivePage, effectiveSize,
+                Sort.by(Sort.Order.desc("transferDate"), Sort.Order.desc("createdAt"), Sort.Order.desc("id")));
+
+        Page<Transfer> movements = transferService.findFundMovements(userId, fundWalletId, pageable);
+
+        List<FundMovementResponse> content = movements.getContent().stream()
+                .map(t -> FundMovementResponse.from(t, fundWalletId))
+                .toList();
+
+        return new FundMovementPageResponse(
+                content,
+                movements.getNumber(),
+                movements.getSize(),
+                movements.getTotalElements(),
+                movements.getTotalPages(),
+                movements.hasNext(),
+                movements.hasPrevious()
+        );
     }
 
     @Transactional
@@ -76,7 +110,7 @@ public class FundService {
                 .name(request.name())
                 .description(request.description())
                 .targetAmount(request.targetAmount())
-                .icon(request.icon())
+                .emoji(request.emoji())
                 .color(request.color())
                 .deadlineDate(request.deadlineDate())
                 .build();
@@ -129,8 +163,8 @@ public class FundService {
         if (request.description() != null) {
             fund.setDescription(request.description());
         }
-        if (request.icon() != null) {
-            fund.setIcon(request.icon());
+        if (request.emoji() != null) {
+            fund.setEmoji(request.emoji());
         }
         if (request.color() != null) {
             fund.setColor(request.color());
@@ -147,11 +181,30 @@ public class FundService {
     }
 
     @Transactional
-    public FundResponse archiveFund(Long fundId, FundArchiveRequest request, UUID userId) {
+    public FundResponse completeFund(Long fundId, UUID userId) {
         Fund fund = getFundOrThrow(fundId, userId);
 
         if (fund.getStatus() != FundStatus.ACTIVE) {
-            throw new ConflictException("Only active funds can be archived.");
+            throw new ConflictException("Only active funds can be completed.");
+        }
+        if (fund.getFundWallet().getBalance().compareTo(fund.getTargetAmount()) < 0) {
+            throw new IllegalArgumentException("Fund has not reached its target amount yet.");
+        }
+
+        fund.setStatus(FundStatus.COMPLETED);
+        Fund saved = fundRepository.save(fund);
+
+        log.info("Fund completed: fundId={}, userId={}", fundId, userId);
+
+        return FundResponse.from(saved);
+    }
+
+    @Transactional
+    public FundResponse archiveFund(Long fundId, FundArchiveRequest request, UUID userId) {
+        Fund fund = getFundOrThrow(fundId, userId);
+
+        if (fund.getStatus() == FundStatus.ARCHIVED) {
+            throw new ConflictException("Fund is already archived.");
         }
 
         BigDecimal currentBalance = fund.getFundWallet().getBalance();
@@ -164,7 +217,7 @@ public class FundService {
                         "or keep it in the fund (returnRemainingBalance=false).");
             }
 
-            if (Boolean.TRUE.equals(request.returnRemainingBalance())) {
+            if (request.returnRemainingBalance()) {
                 if (request.returnToWalletId() == null) {
                     throw new IllegalArgumentException(
                             "returnToWalletId is required when returnRemainingBalance is true.");
@@ -314,7 +367,7 @@ public class FundService {
         return new FundSummaryItemDto(
                 fund.getId(),
                 fund.getName(),
-                fund.getIcon(),
+                fund.getEmoji(),
                 fund.getColor(),
                 progressPercent,
                 currentAmount,
