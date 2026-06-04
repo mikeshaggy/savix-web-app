@@ -56,8 +56,9 @@ export default function FundsPage() {
 
   useEffect(() => { fetchFunds(); }, [fetchFunds]);
 
-  const activeFunds   = funds.filter(f => f.status === 'ACTIVE');
-  const archivedFunds = funds.filter(f => f.status === 'ARCHIVED');
+  const activeFunds    = funds.filter(f => f.status === 'ACTIVE');
+  const completedFunds = funds.filter(f => f.status === 'COMPLETED');
+  const archivedFunds  = funds.filter(f => f.status === 'ARCHIVED');
 
   // Summary row — derived entirely from already-fetched funds (no extra request).
   const totalSaved  = activeFunds.reduce((s, f) => s + (Number(f.currentAmount) || 0), 0);
@@ -75,6 +76,15 @@ export default function FundsPage() {
   })();
 
   const handleModalSuccess = useCallback(() => { fetchFunds(); }, [fetchFunds]);
+
+  // Completing a goal is a direct (non-modal) action; it sets COMPLETED, never archives.
+  const handleComplete = useCallback(async (fund) => {
+    try {
+      await fundApi.complete(fund.id);
+    } finally {
+      fetchFunds();
+    }
+  }, [fetchFunds]);
 
   return (
     <div className="flex flex-col min-h-full">
@@ -176,11 +186,35 @@ export default function FundsPage() {
                     onWithdraw={f => setWithdrawModal({ open: true, fund: f })}
                     onEdit={f => setFundModal({ open: true, fund: f })}
                     onArchive={f => setArchiveModal({ open: true, fund: f })}
+                    onComplete={handleComplete}
                   />
                 ))}
               </div>
             )}
           </section>
+
+          {/* Completed funds — finished goals, still visible */}
+          {completedFunds.length > 0 && (
+            <section>
+              <h2 className="text-[13px] font-semibold text-white/50 mb-4 flex items-center gap-2">
+                {t('completedSection')}
+                <span className="text-white/25 font-normal">({completedFunds.length})</span>
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {completedFunds.map(fund => (
+                  <FundCard
+                    key={fund.id}
+                    fund={fund}
+                    onDeposit={null}
+                    onWithdraw={null}
+                    onEdit={null}
+                    onArchive={f => setArchiveModal({ open: true, fund: f })}
+                    onComplete={null}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Archived funds — collapsible */}
           {archivedFunds.length > 0 && (

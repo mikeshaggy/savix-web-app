@@ -11,11 +11,15 @@ create table wallets (
     id serial primary key,
     user_id uuid not null references users(id) on delete cascade,
     name varchar(50) not null,
+    is_fund boolean not null default false,
     balance numeric(12,2) not null default 0.00,
     version integer not null default 0,
-    created_at timestamp default NOW(),
-    unique(user_id, name)
+    created_at timestamp default NOW()
 );
+
+create unique index uq_wallets_user_name
+on wallets(user_id, name)
+where is_fund = false;
 
 create table categories (
     id serial primary key,
@@ -27,7 +31,6 @@ create table categories (
     excluded_from_top_categories boolean not null default false,
     created_at timestamp default NOW(),
     unique(user_id, name, type)
-    -- unique(user_id) where is_cycle_anchor = true
 );
 
 create unique index ux_categories_one_cycle_anchor_per_user
@@ -114,6 +117,26 @@ create unique index uq_category_budgets_active
     on category_budgets (wallet_id, category_id)
     where active = true;
 
+create table funds (
+    id bigserial primary key,
+    user_id uuid not null references users(id) on delete cascade,
+    fund_wallet_id int not null references wallets(id) on delete restrict,
+    source_wallet_id int references wallets(id) on delete set null,
+    name varchar(100) not null,
+    description text,
+    target_amount numeric(12,2) not null check (target_amount > 0),
+    status varchar(20) not null default 'ACTIVE' check (status in ('ACTIVE', 'COMPLETED', 'ARCHIVED')),
+    emoji varchar(16),
+    color varchar(20),
+    deadline_date date,
+    created_at timestamp default NOW(),
+    updated_at timestamp default NOW()
+);
+
+create unique index uq_active_fund_name
+on funds(user_id, lower(name))
+where status = 'ACTIVE';
+
 -- transactions
 CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
@@ -155,3 +178,8 @@ CREATE INDEX idx_fpo_transaction
 -- category budgets
 create index idx_category_budgets_wallet   on category_budgets (wallet_id);
 create index idx_category_budgets_category on category_budgets (category_id);
+
+-- funds
+create index idx_funds_user on funds(user_id);
+create index idx_funds_user_status on funds(user_id, status);
+create index idx_funds_wallet on funds(fund_wallet_id);

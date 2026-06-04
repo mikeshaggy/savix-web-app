@@ -166,12 +166,12 @@ export default function FundsSummaryWidget() {
                 const accent = fund.isTargetReached ? '#10b981' : resolveAccentColor(fund.color);
                 return (
                   <div key={fund.id} className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-white/[0.02]">
-                    {/* Icon */}
+                    {/* Emoji */}
                     <div
                       className="w-7 h-7 shrink-0 rounded-[8px] border border-white/[0.06] flex items-center justify-center text-[13px]"
                       style={{ backgroundColor: hexToRgba(accent, 0.12), borderColor: hexToRgba(accent, 0.25) }}
                     >
-                      {fund.icon || '🏦'}
+                      {fund.emoji || '🏦'}
                     </div>
 
                     {/* Name + bar */}

@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useLanguage } from '@/i18n';
 import { formatCurrency, resolveAccentColor, hexToRgba } from '@/utils/helpers';
@@ -7,10 +8,12 @@ import FundProgressBar from './FundProgressBar';
 import FundDeadlineCountdown from './FundDeadlineCountdown';
 import { PAGE_CTA } from '@/components/common/formControls';
 
-export default function FundCard({ fund, onDeposit, onWithdraw, onEdit, onArchive }) {
+export default function FundCard({ fund, onDeposit, onWithdraw, onEdit, onArchive, onComplete }) {
   const t = useTranslations('funds');
   const { lang } = useLanguage();
 
+  const isActive = fund.status === 'ACTIVE';
+  const isCompleted = fund.status === 'COMPLETED';
   const isArchived = fund.status === 'ARCHIVED';
   const progressPercent = Math.round(Number(fund.progressPercent) || 0);
   const currentAmount = Number(fund.currentAmount) || 0;
@@ -34,30 +37,39 @@ export default function FundCard({ fund, onDeposit, onWithdraw, onEdit, onArchiv
         <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: hexToRgba(accent, 0.5) }} />
       )}
 
-      {/* Header: icon + name + status badges */}
+      {/* Header: emoji + name (links to detail) + status badges */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          {fund.icon && (
+        <Link
+          href={`/funds/${fund.id}`}
+          title={t('viewDetails')}
+          className="flex items-center gap-2.5 min-w-0 group"
+        >
+          {fund.emoji && (
             <span
               className="w-9 h-9 shrink-0 rounded-[10px] flex items-center justify-center text-[18px] leading-none border border-white/[0.06] bg-white/[0.04]"
               style={useAccent ? { backgroundColor: hexToRgba(accent, 0.12), borderColor: hexToRgba(accent, 0.25) } : undefined}
             >
-              {fund.icon}
+              {fund.emoji}
             </span>
           )}
           <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-white tracking-[-0.2px] truncate">
+            <h3 className="text-[15px] font-semibold text-white tracking-[-0.2px] truncate group-hover:underline decoration-white/30 underline-offset-2">
               {fund.name}
             </h3>
             {fund.description && (
               <p className="text-[12px] text-white/40 mt-0.5 truncate">{fund.description}</p>
             )}
           </div>
-        </div>
+        </Link>
 
         {/* Badges */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {fund.isTargetReached && !isArchived && (
+          {isCompleted && (
+            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
+              {t('status_COMPLETED')}
+            </span>
+          )}
+          {fund.isTargetReached && isActive && (
             <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
               {t('targetReachedBadge')}
             </span>
@@ -109,8 +121,18 @@ export default function FundCard({ fund, onDeposit, onWithdraw, onEdit, onArchiv
         <FundDeadlineCountdown deadlineDate={fund.deadlineDate} />
       </div>
 
+      {/* View details link */}
+      <div className="flex justify-end mb-4">
+        <Link
+          href={`/funds/${fund.id}`}
+          className="text-[12px] font-medium text-violet-400/80 hover:text-violet-300 transition-colors"
+        >
+          {t('viewDetails')} →
+        </Link>
+      </div>
+
       {/* Action buttons — active fund */}
-      {!isArchived && (
+      {isActive && (
         <div className="flex gap-2 pt-3 border-t border-white/[0.04]">
           <button
             onClick={() => onDeposit?.(fund)}
@@ -134,16 +156,36 @@ export default function FundCard({ fund, onDeposit, onWithdraw, onEdit, onArchiv
           >
             {t('edit')}
           </button>
+          {/* Target reached → Complete goal (sets COMPLETED). Otherwise → Archive. */}
+          {fund.isTargetReached ? (
+            <button
+              onClick={() => onComplete?.(fund)}
+              disabled={!onComplete}
+              className="text-[12px] px-3 py-1.5 rounded-[8px] border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {t('completeGoal')}
+            </button>
+          ) : (
+            <button
+              onClick={() => onArchive?.(fund)}
+              disabled={!onArchive}
+              className="text-[12px] px-3 py-1.5 rounded-[8px] border border-white/[0.08] text-white/40 hover:text-white hover:border-white/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {t('archive')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Action buttons — completed fund (read-only goal; can still be archived) */}
+      {isCompleted && (
+        <div className="flex gap-2 pt-3 border-t border-white/[0.04]">
           <button
             onClick={() => onArchive?.(fund)}
             disabled={!onArchive}
-            className={`text-[12px] px-3 py-1.5 rounded-[8px] border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-              fund.isTargetReached
-                ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400/60'
-                : 'border-white/[0.08] text-white/40 hover:text-white hover:border-white/20'
-            }`}
+            className="flex-1 text-[12px] px-3 py-1.5 rounded-[8px] border border-white/[0.08] text-white/40 hover:text-white hover:border-white/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed justify-center flex items-center gap-1"
           >
-            {fund.isTargetReached ? t('completeGoal') : t('archive')}
+            {t('archive')}
           </button>
         </div>
       )}

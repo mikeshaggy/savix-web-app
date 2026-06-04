@@ -94,7 +94,7 @@ export default function FundWithdrawModal({ isOpen, onClose, onSuccess, fund }) 
         <div className="flex items-center justify-between px-4 sm:px-7 pt-5 sm:pt-6 pb-4 sm:pb-5 border-b border-white/[0.055]">
           <div>
             <div className="text-lg sm:text-xl font-bold tracking-[-0.3px]">
-              {fund.icon && <span className="mr-2">{fund.icon}</span>}
+              {fund.emoji && <span className="mr-2">{fund.emoji}</span>}
               {t('funds.withdrawTitle')}
             </div>
             <div className="text-[13px] text-white/40 mt-0.5">

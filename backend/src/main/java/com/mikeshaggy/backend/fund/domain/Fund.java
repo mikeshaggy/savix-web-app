@@ -45,17 +45,13 @@ public class Fund {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal targetAmount;
 
-    @Column(nullable = false, length = 3)
-    @Builder.Default
-    private String currency = "PLN";
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
     private FundStatus status = FundStatus.ACTIVE;
 
-    @Column(length = 10)
-    private String icon;
+    @Column(length = 16)
+    private String emoji;
 
     @Column(length = 20)
     private String color;

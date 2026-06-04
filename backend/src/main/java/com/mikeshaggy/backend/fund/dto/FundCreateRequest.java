@@ -19,7 +19,8 @@ public record FundCreateRequest(
         @DecimalMin(value = "0.01", message = "Target amount must be greater than 0")
         BigDecimal targetAmount,
 
-        String icon,
+        @Size(max = 16, message = "Fund emoji must be 16 characters or less")
+        String emoji,
 
         String color,
 

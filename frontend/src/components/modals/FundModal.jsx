@@ -19,7 +19,7 @@ export default function FundModal({ isOpen, onClose, onSuccess, fund = null }) {
 
   const isEditing = !!fund;
 
-  const [formData, setFormData] = useState({ name: '', targetAmount: '', icon: '', color: '', deadlineDate: '', sourceWalletId: '', description: '' });
+  const [formData, setFormData] = useState({ name: '', targetAmount: '', emoji: '', color: '', deadlineDate: '', sourceWalletId: '', description: '' });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,14 +29,14 @@ export default function FundModal({ isOpen, onClose, onSuccess, fund = null }) {
       setFormData({
         name: fund.name || '',
         targetAmount: fund.targetAmount?.toString() || '',
-        icon: fund.icon || '',
+        emoji: fund.emoji || '',
         color: fund.color || '',
         deadlineDate: fund.deadlineDate || '',
         sourceWalletId: fund.sourceWalletId?.toString() || '',
         description: fund.description || '',
       });
     } else {
-      setFormData({ name: '', targetAmount: '', icon: '', color: '', deadlineDate: '', sourceWalletId: '', description: '' });
+      setFormData({ name: '', targetAmount: '', emoji: '', color: '', deadlineDate: '', sourceWalletId: '', description: '' });
     }
     setErrors({});
   }, [isOpen, fund, isEditing]);
@@ -65,7 +65,7 @@ export default function FundModal({ isOpen, onClose, onSuccess, fund = null }) {
       const body = {
         name: formData.name.trim(),
         targetAmount: parseFloat(formData.targetAmount),
-        icon: formData.icon.trim() || undefined,
+        emoji: formData.emoji.trim() || undefined,
         color: formData.color.trim() || undefined,
         deadlineDate: formData.deadlineDate || undefined,
         sourceWalletId: formData.sourceWalletId ? parseInt(formData.sourceWalletId) : undefined,
@@ -149,15 +149,15 @@ export default function FundModal({ isOpen, onClose, onSuccess, fund = null }) {
               {errors.targetAmount && <p className="text-red-400 text-xs mt-1.5">{errors.targetAmount}</p>}
             </div>
 
-            {/* Icon */}
+            {/* Emoji */}
             <EmojiPickerField
-              label={t('funds.icon')}
+              label={t('funds.emoji')}
               optionalLabel={t('funds.optional')}
-              value={formData.icon}
-              onChange={v => handleChange('icon', v)}
-              placeholder={t('funds.iconPlaceholder')}
+              value={formData.emoji}
+              onChange={v => handleChange('emoji', v)}
+              placeholder={t('funds.emojiPlaceholder')}
               fallback="🏦"
-              maxLength={10}
+              maxLength={16}
               inputClassName={INPUT_MD}
             />
 
