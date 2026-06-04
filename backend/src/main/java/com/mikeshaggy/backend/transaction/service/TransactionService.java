@@ -52,19 +52,18 @@ public class TransactionService {
         int effectiveSize = normalizeSize(filter.size());
         Sort effectiveSort = normalizeSort(filter.sort());
 
-        List<TransactionDateCountProjection> dateCounts = transactionRepository.findTransactionDateCounts(
+        Specification<Transaction> baseSpec = TransactionSpecifications.buildSpecification(
                 filter.userId(),
                 filter.walletId(),
-                safeTypes(filter.types()),
-                filter.types() == null || filter.types().isEmpty(),
-                safeCategoryIds(filter.categoryIds()),
-                filter.categoryIds() == null || filter.categoryIds().isEmpty(),
-                safeImportances(filter.importances()),
-                filter.importances() == null || filter.importances().isEmpty(),
+                filter.types(),
+                filter.categoryIds(),
+                filter.importances(),
                 filter.startDate(),
                 filter.endDate(),
-                queryPattern(filter.q()),
-                filter.q() == null || filter.q().isBlank());
+                filter.q());
+
+        List<TransactionDateCountProjection> dateCounts =
+                transactionRepository.findTransactionDateCounts(baseSpec);
 
         GroupedPaginationPlan plan = paginateDateCounts(
                 dateCounts,
@@ -74,16 +73,8 @@ public class TransactionService {
 
         List<Transaction> transactions = plan.dates().isEmpty()
                 ? List.of()
-                : searchTransactionsForDates(
-                        filter.userId(),
-                        filter.walletId(),
-                        filter.types(),
-                        filter.categoryIds(),
-                        filter.importances(),
-                        filter.startDate(),
-                        filter.endDate(),
-                        filter.q(),
-                        plan.dates(),
+                : transactionRepository.findAll(
+                        baseSpec.and(TransactionSpecifications.hasTransactionDates(plan.dates())),
                         effectiveSort);
 
         List<TransactionDateGroupResponse> groups = groupTransactionsByDate(transactions);
@@ -129,24 +120,6 @@ public class TransactionService {
         }
 
         return Sort.by(Sort.Direction.DESC, "transactionDate").and(Sort.by(direction, field));
-    }
-
-    private List<Transaction> searchTransactionsForDates(
-            UUID userId,
-            Integer walletId,
-            List<CategoryType> types,
-            List<Integer> categoryIds,
-            List<Importance> importances,
-            LocalDate startDate,
-            LocalDate endDate,
-            String q,
-            List<LocalDate> dates,
-            Sort sort
-    ) {
-        Specification<Transaction> spec = TransactionSpecifications.buildSpecificationForDates(
-                userId, walletId, types, categoryIds, importances, startDate, endDate, q, dates
-        );
-        return transactionRepository.findAll(spec, sort);
     }
 
     private List<TransactionDateGroupResponse> groupTransactionsByDate(List<Transaction> transactions) {
@@ -207,22 +180,6 @@ public class TransactionService {
     private Sort.Direction dateDirection(Sort sort) {
         Sort.Order order = sort.getOrderFor("transactionDate");
         return order == null ? Sort.Direction.DESC : order.getDirection();
-    }
-
-    private List<CategoryType> safeTypes(List<CategoryType> types) {
-        return types == null || types.isEmpty() ? List.of(CategoryType.EXPENSE) : types;
-    }
-
-    private List<Integer> safeCategoryIds(List<Integer> categoryIds) {
-        return categoryIds == null || categoryIds.isEmpty() ? List.of(-1) : categoryIds;
-    }
-
-    private List<Importance> safeImportances(List<Importance> importances) {
-        return importances == null || importances.isEmpty() ? List.of(Importance.ESSENTIAL) : importances;
-    }
-
-    private String queryPattern(String q) {
-        return q == null || q.isBlank() ? "" : "%" + q.toLowerCase() + "%";
     }
 
     private record DateBucket(LocalDate date, long transactionCount) {

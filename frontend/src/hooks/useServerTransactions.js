@@ -33,25 +33,30 @@ function parseArrayParam(val) {
   return val.split(',').filter(Boolean);
 }
 
+function parseArrayParams(searchParams, ...names) {
+  return names.flatMap((name) => searchParams.getAll(name).flatMap(parseArrayParam));
+}
+
+function parseInitialState(searchParams) {
+  return {
+    page: Math.max(parseIntSafe(searchParams.get('page'), 0), 0),
+    size: sanitizeSize(searchParams.get('size')),
+    sort: sanitizeSort(searchParams.get('sort')),
+    types: searchParams.getAll('type').filter(Boolean),
+    categoryIds: searchParams.getAll('categoryId').map(Number).filter(n => !isNaN(n)),
+    importances: parseArrayParams(searchParams, 'importances', 'importance'),
+    startDate: searchParams.get('startDate') || '',
+    endDate: searchParams.get('endDate') || '',
+    q: searchParams.get('q') || '',
+  };
+}
+
 export function useServerTransactions(walletId) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const initialState = useMemo(() => {
-    const sp = searchParams;
-    return {
-      page: Math.max(parseIntSafe(sp.get('page'), 0), 0),
-      size: sanitizeSize(sp.get('size')),
-      sort: sanitizeSort(sp.get('sort')),
-      types: sp.getAll('type').filter(Boolean),
-      categoryIds: sp.getAll('categoryId').map(Number).filter(n => !isNaN(n)),
-      importances: sp.getAll('importance').filter(Boolean),
-      startDate: sp.get('startDate') || '',
-      endDate: sp.get('endDate') || '',
-      q: sp.get('q') || '',
-    };
-  }, []);
+  const [initialState] = useState(() => parseInitialState(searchParams));
 
   const [page, setPage] = useState(initialState.page);
   const [size, setSize] = useState(initialState.size);

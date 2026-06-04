@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction> {
+public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction>, TransactionRepositoryCustom {
     
     @Query("SELECT t FROM Transaction t JOIN FETCH t.wallet JOIN FETCH t.category WHERE t.id = :id AND t.wallet.user.id = :userId")
     Optional<Transaction> findByIdAndWalletUserId(Long id, UUID userId);
@@ -226,37 +226,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
-
-    @Query("""
-        SELECT t.transactionDate AS date,
-               COUNT(t) AS transactionCount
-        FROM Transaction t
-        JOIN t.category c
-        WHERE t.wallet.user.id = :userId
-        AND (:walletId IS NULL OR t.wallet.id = :walletId)
-        AND (:typesEmpty = true OR c.type IN :types)
-        AND (:categoryIdsEmpty = true OR c.id IN :categoryIds)
-        AND (:importancesEmpty = true OR t.importance IN :importances)
-        AND (:startDate IS NULL OR t.transactionDate >= :startDate)
-        AND (:endDate IS NULL OR t.transactionDate <= :endDate)
-        AND (:queryBlank = true
-            OR LOWER(t.title) LIKE :query
-            OR LOWER(COALESCE(t.notes, '')) LIKE :query)
-        GROUP BY t.transactionDate
-    """)
-    List<TransactionDateCountProjection> findTransactionDateCounts(
-            @Param("userId") UUID userId,
-            @Param("walletId") Integer walletId,
-            @Param("types") List<CategoryType> types,
-            @Param("typesEmpty") boolean typesEmpty,
-            @Param("categoryIds") List<Integer> categoryIds,
-            @Param("categoryIdsEmpty") boolean categoryIdsEmpty,
-            @Param("importances") List<Importance> importances,
-            @Param("importancesEmpty") boolean importancesEmpty,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate,
-            @Param("query") String query,
-            @Param("queryBlank") boolean queryBlank);
 
     @Override
     @EntityGraph(attributePaths = {"wallet", "category"})
