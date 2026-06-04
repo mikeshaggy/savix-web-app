@@ -33,7 +33,7 @@ public class WalletService {
     private final WalletEntryBalanceHistoryService walletEntryBalanceHistoryService;
 
     public List<WalletResponse> getWalletsForUser(UUID userId) {
-        return walletRepository.findByUserId(userId).stream()
+        return walletRepository.findByUserIdAndIsFundFalse(userId).stream()
                 .map(WalletResponse::from)
                 .toList();
     }
@@ -48,10 +48,26 @@ public class WalletService {
     }
 
     @Transactional
+    public Wallet createFundWallet(String name, User user) {
+        Wallet wallet = Wallet.builder()
+                .name(name)
+                .balance(BigDecimal.ZERO)
+                .isFund(true)
+                .user(user)
+                .build();
+        return walletRepository.save(wallet);
+    }
+
+    public Wallet getWalletEntityByIdInternal(Integer id) {
+        return walletRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Wallet not found with id: " + id));
+    }
+
+    @Transactional
     public WalletResponse createWallet(WalletCreateRequest request, UUID userId) {
         User user = userService.getUserOrThrow(userId);
 
-        if (walletRepository.existsByUserIdAndName(userId, request.name())) {
+        if (walletRepository.existsByUserIdAndNameAndIsFundFalse(userId, request.name())) {
             throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
@@ -86,7 +102,7 @@ public class WalletService {
         Wallet wallet = getWalletOrThrowForUser(id, userId);
 
         if (!wallet.getName().equals(request.name()) &&
-            walletRepository.existsByUserIdAndName(userId, request.name())) {
+            walletRepository.existsByUserIdAndNameAndIsFundFalse(userId, request.name())) {
             throw new IllegalArgumentException("Wallet with name '" + request.name() + "' already exists");
         }
 
@@ -106,9 +122,15 @@ public class WalletService {
     @Transactional
     public void deleteWallet(Integer id, UUID userId) {
         Wallet wallet = getWalletOrThrowForUser(id, userId);
-        
+
+        if (wallet.isFund()) {
+            log.warn("Fund wallet deletion blocked: walletId={}, userId={}", id, userId);
+            throw new IllegalArgumentException(
+                    "Fund wallets cannot be deleted directly. Archive the fund to manage its balance.");
+        }
+
         log.info("Wallet deleted: walletId={}, userId={}", id, userId);
-        
+
         walletRepository.delete(wallet);
     }
 

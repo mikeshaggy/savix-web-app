@@ -112,19 +112,4 @@ public final class TransactionSpecifications {
                 .reduce(Specification::and)
                 .orElseThrow();
     }
-
-    public static Specification<Transaction> buildSpecificationForDates(
-            UUID userId,
-            Integer walletId,
-            List<CategoryType> types,
-            List<Integer> categoryIds,
-            List<Importance> importances,
-            LocalDate startDate,
-            LocalDate endDate,
-            String q,
-            List<LocalDate> dates
-    ) {
-        return buildSpecification(userId, walletId, types, categoryIds, importances, startDate, endDate, q)
-                .and(hasTransactionDates(dates));
-    }
 }

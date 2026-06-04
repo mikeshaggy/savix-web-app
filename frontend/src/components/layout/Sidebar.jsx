@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Repeat, Settings, List, Tag, Filter, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target } from 'lucide-react';
+import { Wallet, Home, PieChart, Settings, List, Tag, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target, PiggyBank } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -10,38 +10,47 @@ const getNavItems = (t) => [
     { id: 'dashboard', label: t('nav.dashboard'), icon: Home, href: '/dashboard' },
     {
         id: 'transactions',
-        label: t('nav.transactions'),
-        icon: Repeat,
+        label: t('nav.spending'),
+        icon: List,
         href: '/transactions',
         hasSubmenu: true,
         submenu: [
-            { id: 'all-transactions', label: t('nav.allTransactions'), icon: List, href: '/transactions' },
+            { id: 'all-transactions', label: t('nav.transactions'), icon: List, href: '/transactions' },
             { id: 'fixed-payments', label: t('nav.fixedPayments'), icon: CalendarCheck, href: '/transactions/fixed-payments' },
-            { id: 'categories', label: t('nav.categories'), icon: Tag, href: '/transactions/categories' },
-            { id: 'saved-filters', label: t('nav.savedFilters'), icon: Filter, href: '/transactions/filters' }
+            { id: 'categories', label: t('nav.categories'), icon: Tag, href: '/transactions/categories' }
         ]
     },
     {
         id: 'wallets',
-        label: t('nav.wallets'),
+        label: t('nav.money'),
         icon: Wallet,
         href: '/wallets',
         hasSubmenu: true,
         submenu: [
-            { id: 'all-wallets', label: t('nav.allWallets'), icon: Wallet, href: '/wallets' },
+            { id: 'all-wallets', label: t('nav.wallets'), icon: Wallet, href: '/wallets' },
             { id: 'balance-history', label: t('nav.balanceHistory'), icon: History, href: '/wallets/balance-history' },
             { id: 'transfers', label: t('nav.transfers'), icon: ArrowLeftRight, href: '/wallets/transfers' }
         ]
     },
     {
+        id: 'planning',
+        label: t('nav.planning'),
+        icon: Target,
+        href: '/funds',
+        hasSubmenu: true,
+        submenu: [
+            { id: 'funds',   label: t('nav.funds'),   icon: PiggyBank, href: '/funds' },
+            { id: 'budgets', label: t('nav.budgets'), icon: Target,    href: '/budgets' },
+        ]
+    },
+    {
         id: 'analytics',
-        label: t('nav.analytics'),
+        label: t('nav.insights'),
         icon: PieChart,
         href: '/analytics',
         hasSubmenu: true,
         submenu: [
             { id: 'overview',    label: t('nav.analyticsOverview'),    icon: LayoutDashboard,   href: '/analytics/overview' },
-            { id: 'budgets',     label: t('nav.budgets'),     icon: Target,            href: '/analytics/budgets' },
             { id: 'forecast',    label: t('nav.forecast'),    icon: TrendingUp,        href: '/analytics/forecast' },
             { id: 'breakdown',   label: t('nav.breakdown'),   icon: PieChart,          href: '/analytics/breakdown' },
             { id: 'comparison',  label: t('nav.comparison'),  icon: GitCompareArrows,  href: '/analytics/comparison' },
@@ -69,6 +78,11 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
         } else {
             setExpandedMenus(prev => ({ ...prev, wallets: false }));
         }
+        if (pathname.startsWith('/funds') || pathname.startsWith('/budgets')) {
+            setExpandedMenus(prev => ({ ...prev, planning: true }));
+        } else {
+            setExpandedMenus(prev => ({ ...prev, planning: false }));
+        }
         if (pathname.startsWith('/analytics')) {
             setExpandedMenus(prev => ({ ...prev, analytics: true }));
         } else {
@@ -86,7 +100,13 @@ export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, 
     }, [isOpen]);
 
     const isItemActive = (item) => {
-        if (item.hasSubmenu) return pathname.startsWith(item.href);
+        // A submenu group is active when the current path matches the group's href
+        // OR any of its sub-items (sub-items may span different top-level paths,
+        // e.g. Planning groups /funds and /budgets).
+        if (item.hasSubmenu) {
+            return pathname.startsWith(item.href)
+                || (item.submenu ?? []).some(sub => pathname.startsWith(sub.href));
+        }
         return pathname === item.href || (item.href === '/dashboard' && pathname === '/');
     };
 

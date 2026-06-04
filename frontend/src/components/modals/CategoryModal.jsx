@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Button from '@/components/common/Button';
+import EmojiPickerField from '@/components/common/EmojiPickerField';
 import { INPUT_SM } from '@/components/common/formControls';
 
 export default function CategoryModal({ isOpen, onClose, onSave, category = null, loading = false }) {
@@ -241,36 +242,17 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
             </div>
 
             {/* Category Emoji */}
-            <div>
-              <div className="text-[12px] font-bold tracking-[0.12em] uppercase text-white/30 mb-2 flex items-center gap-1.5">
-                {t('category.emoji')}
-                <span className="text-white/25 font-normal tracking-normal normal-case text-[13px]">({t('common.optional')})</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-11 h-11 shrink-0 bg-[#131325] border border-white/[0.055] rounded-xl flex items-center justify-center text-[22px] cursor-pointer hover:border-white/[0.12] transition-all select-none">
-                  {formData.emoji?.trim() || '🏷️'}
-                </div>
-                <input
-                  type="text"
-                  value={formData.emoji}
-                  onChange={(e) => handleChange('emoji', e.target.value)}
-                  maxLength={16}
-                  className={`${INPUT_SM} flex-1 ${
-                    errors.emoji ? 'border-red-500' : 'border-white/[0.055]'
-                  }`}
-                  placeholder={t('category.emojiPlaceholder')}
-                />
-              </div>
-              {errors.emoji ? (
-                <p className="text-red-400 text-xs mt-1.5">
-                  {errors.emoji.startsWith('category.') ? t(errors.emoji) : errors.emoji}
-                </p>
-              ) : (
-                <p className="text-[13px] text-white/25 mt-[7px] leading-relaxed">
-                  {t('category.emojiHint')}
-                </p>
-              )}
-            </div>
+            <EmojiPickerField
+              label={t('category.emoji')}
+              optionalLabel={t('common.optional')}
+              value={formData.emoji}
+              onChange={(v) => handleChange('emoji', v)}
+              placeholder={t('category.emojiPlaceholder')}
+              hint={t('category.emojiHint')}
+              error={errors.emoji ? (errors.emoji.startsWith('category.') ? t(errors.emoji) : errors.emoji) : ''}
+              maxLength={16}
+              inputClassName={INPUT_SM}
+            />
 
             <div className="flex flex-col gap-2.5">
               <SettingToggle

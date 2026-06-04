@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.wallet.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -19,6 +20,7 @@ import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +73,7 @@ class WalletServiceTest {
             AtomicReference<Wallet> savedWalletRef = new AtomicReference<>();
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
-            when(walletRepository.existsByUserIdAndName(USER_ID, "Savings")).thenReturn(false);
+            when(walletRepository.existsByUserIdAndNameAndIsFundFalse(USER_ID, "Savings")).thenReturn(false);
             when(walletRepository.save(any(Wallet.class)))
                     .thenAnswer(
                             inv -> {
@@ -118,7 +120,7 @@ class WalletServiceTest {
             WalletCreateRequest request = new WalletCreateRequest("Main", null);
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
-            when(walletRepository.existsByUserIdAndName(USER_ID, "Main")).thenReturn(true);
+            when(walletRepository.existsByUserIdAndNameAndIsFundFalse(USER_ID, "Main")).thenReturn(true);
 
             // when
             // then
@@ -135,7 +137,7 @@ class WalletServiceTest {
             WalletCreateRequest request = new WalletCreateRequest("Cash", null);
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
-            when(walletRepository.existsByUserIdAndName(USER_ID, "Cash")).thenReturn(false);
+            when(walletRepository.existsByUserIdAndNameAndIsFundFalse(USER_ID, "Cash")).thenReturn(false);
             when(walletRepository.save(any(Wallet.class)))
                     .thenAnswer(
                             inv -> {
@@ -200,7 +202,7 @@ class WalletServiceTest {
             WalletUpdateRequest request = new WalletUpdateRequest("Savings", null);
 
             when(walletRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(existing));
-            when(walletRepository.existsByUserIdAndName(USER_ID, "Savings")).thenReturn(true);
+            when(walletRepository.existsByUserIdAndNameAndIsFundFalse(USER_ID, "Savings")).thenReturn(true);
 
             // when
             // then
@@ -225,7 +227,7 @@ class WalletServiceTest {
 
             // then
             assertThat(result.balance()).isEqualByComparingTo("500.00");
-            verify(walletRepository, never()).existsByUserIdAndName(any(), any());
+            verify(walletRepository, never()).existsByUserIdAndNameAndIsFundFalse(any(), any());
         }
 
         @Test
@@ -287,6 +289,121 @@ class WalletServiceTest {
                     .isInstanceOf(EntityNotFoundException.class);
 
             verify(walletRepository, never()).delete(any());
+        }
+
+        @Test
+        void fundWallet_deletionBlocked_throws() {
+            // given — a wallet with is_fund = true cannot be deleted directly
+            Wallet fundWallet = Wallet.builder()
+                    .id(7)
+                    .name("Emergency Fund")
+                    .balance(BigDecimal.ZERO)
+                    .isFund(true)
+                    .user(user)
+                    .build();
+
+            when(walletRepository.findByIdAndUserId(7, USER_ID)).thenReturn(Optional.of(fundWallet));
+
+            // when
+            // then
+            assertThatThrownBy(() -> walletService.deleteWallet(7, USER_ID))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Fund wallets cannot be deleted directly");
+
+            verify(walletRepository, never()).delete(any());
+        }
+    }
+
+    @Nested
+    class GetWalletsForUser {
+
+        @Test
+        void callsNonFundQuery_notAllWalletsQuery() {
+            // given — ensures is_fund = false filtering is applied
+            Wallet normal = wallet(1, "Main", "1000.00");
+            when(walletRepository.findByUserIdAndIsFundFalse(USER_ID)).thenReturn(List.of(normal));
+
+            // when
+            List<WalletResponse> result = walletService.getWalletsForUser(USER_ID);
+
+            // then
+            assertThat(result).hasSize(1);
+            verify(walletRepository).findByUserIdAndIsFundFalse(USER_ID);
+            verify(walletRepository, never()).findByUserId(any());
+        }
+
+        @Test
+        void fundWalletNotIncluded_whenBackingQueryFiltersIt() {
+            // given — repository returns only non-fund wallets; this test verifies that
+            //          WalletService passes the call through to the correct repository method
+            //          rather than the unfiltered findByUserId
+            when(walletRepository.findByUserIdAndIsFundFalse(USER_ID)).thenReturn(List.of());
+
+            // when
+            List<WalletResponse> result = walletService.getWalletsForUser(USER_ID);
+
+            // then
+            assertThat(result).isEmpty();
+            verify(walletRepository).findByUserIdAndIsFundFalse(USER_ID);
+        }
+    }
+
+    @Nested
+    class GetWalletEntityByIdInternal {
+
+        @Test
+        void loadsWalletById_withoutOwnershipCheck() {
+            // given
+            Wallet fundWallet = Wallet.builder()
+                    .id(7)
+                    .name("Emergency Fund")
+                    .balance(new BigDecimal("500.00"))
+                    .isFund(true)
+                    .user(user)
+                    .build();
+
+            when(walletRepository.findById(7)).thenReturn(Optional.of(fundWallet));
+
+            // when
+            Wallet result = walletService.getWalletEntityByIdInternal(7);
+
+            // then
+            assertThat(result.getId()).isEqualTo(7);
+            assertThat(result.isFund()).isTrue();
+            verify(walletRepository).findById(7);
+        }
+
+        @Test
+        void notFound_throws() {
+            // given
+            when(walletRepository.findById(999)).thenReturn(Optional.empty());
+
+            // when
+            // then
+            assertThatThrownBy(() -> walletService.getWalletEntityByIdInternal(999))
+                    .isInstanceOf(EntityNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class IsFundDefaultValue {
+
+        @Test
+        void newWalletBuilder_isFundDefaultsFalse() {
+            // given / when
+            Wallet w = Wallet.builder().id(1).name("Main").user(user).build();
+
+            // then
+            assertThat(w.isFund()).isFalse();
+        }
+
+        @Test
+        void fundWalletBuilder_isFundTrue() {
+            // given / when
+            Wallet w = Wallet.builder().id(7).name("Emergency Fund").isFund(true).user(user).build();
+
+            // then
+            assertThat(w.isFund()).isTrue();
         }
     }
 }

@@ -484,6 +484,22 @@ export const transferApi = {
   deleteTransfer: (id) => del(`/transfers/${id}`),
 };
 
+export const fundApi = {
+  getAll:    ()         => get('/funds'),
+  getById:   (id)       => get(`/funds/${id}`),
+  getSummary:()         => get('/funds/summary'),
+  create:    (body)     => post('/funds', body),
+  update:    (id, body) => patch(`/funds/${id}`, body),
+  complete:  (id)       => post(`/funds/${id}/complete`),
+  archive:   (id, body) => post(`/funds/${id}/archive`, body),
+  deposit:   (id, body) => post(`/funds/${id}/deposit`, body),
+  withdraw:  (id, body) => post(`/funds/${id}/withdraw`, body),
+  getMovements: (id, params = {}) => {
+    const search = new URLSearchParams(params).toString();
+    return get(`/funds/${id}/movements${search ? `?${search}` : ''}`);
+  },
+};
+
 export const analyticsApi = {
   getProjections: (walletId, periodType, startDate, endDate) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {

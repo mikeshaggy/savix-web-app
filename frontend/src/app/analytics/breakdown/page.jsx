@@ -228,6 +228,8 @@ export default function AnalyticsBreakdownPage() {
           categoryLoading={categoryLoading}
           importanceLoading={importanceLoading}
           budgetMap={budgetMap}
+          startDate={resolvedStart}
+          endDate={resolvedEnd}
         />
       </div>
 

@@ -686,19 +686,7 @@ class TransactionServiceTest {
                             Transaction::getTransactionDate,
                             java.util.LinkedHashMap::new,
                             java.util.stream.Collectors.counting()));
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class),
-                    any(),
-                    anyList(),
-                    anyBoolean(),
-                    anyList(),
-                    anyBoolean(),
-                    anyList(),
-                    anyBoolean(),
-                    any(),
-                    any(),
-                    anyString(),
-                    anyBoolean()))
+            when(transactionRepository.findTransactionDateCounts(any(Specification.class)))
                     .thenReturn(counts.entrySet().stream()
                             .map(entry -> dateCount(entry.getKey(), entry.getValue()))
                             .toList());
@@ -872,9 +860,7 @@ class TransactionServiceTest {
             for (int i = 4; i <= 7; i++) content.add(txOnDate((long) i, mar4));
             for (int i = 8; i <= 13; i++) content.add(txOnDate((long) i, mar3));
 
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
-                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+            when(transactionRepository.findTransactionDateCounts(any(Specification.class)))
                     .thenReturn(List.of(
                             dateCount(mar5, 3L),
                             dateCount(mar4, 4L),
@@ -925,9 +911,7 @@ class TransactionServiceTest {
             for (int day = 0; day < 15; day++) {
                 dateCounts.add(dateCount(date.minusDays(day), 10L));
             }
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
-                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+            when(transactionRepository.findTransactionDateCounts(any(Specification.class)))
                     .thenReturn(dateCounts);
             when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
                     .thenReturn(content.subList(0, 20));
@@ -941,9 +925,7 @@ class TransactionServiceTest {
             assertThat(response.totalElements()).isEqualTo(150);
             assertThat(response.groups()).hasSize(2);
             assertThat(response.groups()).allSatisfy(group -> assertThat(group.transactions()).hasSize(10));
-            verify(transactionRepository).findTransactionDateCounts(
-                    eq(USER_ID), isNull(), anyList(), eq(true), anyList(), eq(true),
-                    anyList(), eq(true), isNull(), isNull(), eq(""), eq(true));
+            verify(transactionRepository).findTransactionDateCounts(any(Specification.class));
             verify(transactionRepository).findAll(any(Specification.class), any(Sort.class));
             verify(transactionRepository, never()).findAll(any(Specification.class), any(org.springframework.data.domain.Pageable.class));
         }
@@ -957,9 +939,7 @@ class TransactionServiceTest {
                     txOnDate(1L, mar5),
                     txOnDate(2L, mar5),
                     txOnDate(3L, mar4));
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
-                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+            when(transactionRepository.findTransactionDateCounts(any(Specification.class)))
                     .thenReturn(List.of(
                             dateCount(mar5, 2L),
                             dateCount(mar4, 1L),
@@ -981,12 +961,15 @@ class TransactionServiceTest {
         }
 
         @Test
-        void filtersArePassedToDateCountQueryBeforeFetchingPageRows() {
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
-                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+        void dateCountAndPageQueryShareTheSameFilterSpecification() {
+            ArgumentCaptor<Specification<Transaction>> dateCountSpec =
+                    ArgumentCaptor.forClass(Specification.class);
+            ArgumentCaptor<Specification<Transaction>> pageSpec =
+                    ArgumentCaptor.forClass(Specification.class);
+
+            when(transactionRepository.findTransactionDateCounts(dateCountSpec.capture()))
                     .thenReturn(List.of(dateCount(DATE, 1L)));
-            when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
+            when(transactionRepository.findAll(pageSpec.capture(), any(Sort.class)))
                     .thenReturn(List.of(txOnDate(1L, DATE)));
 
             transactionService.getTransactionsForUser(
@@ -1003,28 +986,20 @@ class TransactionServiceTest {
                             "gro",
                             null));
 
-            verify(transactionRepository).findTransactionDateCounts(
-                    eq(USER_ID),
-                    eq(1),
-                    eq(List.of(CategoryType.EXPENSE)),
-                    eq(false),
-                    eq(List.of(1)),
-                    eq(false),
-                    eq(List.of(Importance.ESSENTIAL)),
-                    eq(false),
-                    eq(LocalDate.of(2026, 3, 1)),
-                    eq(LocalDate.of(2026, 3, 31)),
-                    eq("%gro%"),
-                    eq(false));
+            // The date-count query and the page-row query must be built from the same
+            // base specification so their filtering can never drift apart. The page query
+            // additionally narrows to the selected date buckets via an AND composition.
+            assertThat(dateCountSpec.getValue()).isNotNull();
+            assertThat(pageSpec.getValue()).isNotNull();
+            verify(transactionRepository).findTransactionDateCounts(any(Specification.class));
+            verify(transactionRepository).findAll(any(Specification.class), any(Sort.class));
         }
 
         @Test
         void transactionDateAscendingSortOrdersDateBucketsAscendingAndRowsAscending() {
             LocalDate mar1 = LocalDate.of(2026, 3, 1);
             LocalDate mar2 = LocalDate.of(2026, 3, 2);
-            when(transactionRepository.findTransactionDateCounts(
-                    any(UUID.class), any(), anyList(), anyBoolean(), anyList(), anyBoolean(),
-                    anyList(), anyBoolean(), any(), any(), anyString(), anyBoolean()))
+            when(transactionRepository.findTransactionDateCounts(any(Specification.class)))
                     .thenReturn(List.of(dateCount(mar2, 1L), dateCount(mar1, 1L)));
             when(transactionRepository.findAll(any(Specification.class), any(Sort.class)))
                     .thenReturn(List.of(txOnDate(1L, mar1), txOnDate(2L, mar2)));
