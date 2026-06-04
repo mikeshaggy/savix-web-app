@@ -249,7 +249,7 @@ export default function DashboardPage() {
                 {/* Row 1 – right: Category Pressure (fills to match Fixed Payments height) */}
                 <CategoryPressureCard
                   categoryPressure={summary.categoryPressure}
-                  onManageBudgets={() => router.push('/analytics/budgets')}
+                  onManageBudgets={() => router.push('/budgets')}
                 />
 
                 {/* Row 2 – left: VS Previous Cycle */}
