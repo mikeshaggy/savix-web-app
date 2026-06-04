@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/utils/helpers';
@@ -35,12 +36,16 @@ function CustomTooltip({ active, payload }) {
     >
       <div className="font-medium" style={{ color: item.color }}>{item.label}</div>
       <div className="text-white/60 mt-0.5">{formatCurrency(item.amount)}</div>
+      {item.isClickable && (
+        <div className="text-white/35 text-xs mt-1">{item.viewTransactionsLabel}</div>
+      )}
     </div>
   );
 }
 
-export default function ImportanceBreakdownChart({ data, loading }) {
+export default function ImportanceBreakdownChart({ data, loading, startDate, endDate }) {
   const t = useTranslations('analytics');
+  const router = useRouter();
 
   if (loading) {
     return (
@@ -49,6 +54,21 @@ export default function ImportanceBreakdownChart({ data, loading }) {
   }
 
   const rawBreakdown = data?.breakdown ?? [];
+  const filterStartDate = data?.startDate ?? startDate;
+  const filterEndDate = data?.endDate ?? endDate;
+  const canNavigate = Boolean(filterStartDate && filterEndDate);
+  const viewTransactionsLabel = t('viewTransactions');
+
+  const navigateToTransactions = (importance) => {
+    if (!canNavigate || !importance) return;
+
+    const params = new URLSearchParams();
+    params.set('importances', importance);
+    params.set('startDate', filterStartDate);
+    params.set('endDate', filterEndDate);
+
+    router.push(`/transactions?${params.toString()}`);
+  };
 
   const breakdown = IMPORTANCE_ORDER
     .map((key) => {
@@ -58,6 +78,8 @@ export default function ImportanceBreakdownChart({ data, loading }) {
         ...item,
         color: IMPORTANCE_COLORS[key] ?? '#6b7280',
         label: t(`importance_${key}`),
+        isClickable: canNavigate,
+        viewTransactionsLabel,
       };
     })
     .filter(Boolean);
@@ -85,9 +107,15 @@ export default function ImportanceBreakdownChart({ data, loading }) {
                   dataKey="amount"
                   paddingAngle={2}
                   stroke="none"
+                  cursor={canNavigate ? 'pointer' : 'default'}
+                  onClick={(item) => navigateToTransactions(item?.importance)}
                 >
                   {breakdown.map((item) => (
-                    <Cell key={item.importance} fill={item.color} />
+                    <Cell
+                      key={item.importance}
+                      fill={item.color}
+                      className={canNavigate ? 'opacity-90 outline-none transition-opacity hover:opacity-100' : undefined}
+                    />
                   ))}
                 </Pie>
                 <Tooltip content={CustomTooltip} />
@@ -98,7 +126,14 @@ export default function ImportanceBreakdownChart({ data, loading }) {
           {/* Legend — pinned at the bottom */}
           <div className="flex flex-col gap-2.5 flex-shrink-0">
             {breakdown.map((item) => (
-              <div key={item.importance} className="flex items-center justify-between gap-2">
+              <button
+                key={item.importance}
+                type="button"
+                onClick={() => navigateToTransactions(item.importance)}
+                disabled={!canNavigate}
+                title={canNavigate ? viewTransactionsLabel : undefined}
+                className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-white/[0.04] disabled:cursor-default"
+              >
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
@@ -112,7 +147,7 @@ export default function ImportanceBreakdownChart({ data, loading }) {
                     {formatCurrency(item.amount)}
                   </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
