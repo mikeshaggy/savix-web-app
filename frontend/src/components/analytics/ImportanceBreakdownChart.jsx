@@ -49,7 +49,7 @@ export default function ImportanceBreakdownChart({ data, loading, startDate, end
 
   if (loading) {
     return (
-      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 animate-pulse h-[400px]" />
+      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 animate-pulse h-[450px]" />
     );
   }
 
@@ -85,7 +85,7 @@ export default function ImportanceBreakdownChart({ data, loading, startDate, end
     .filter(Boolean);
 
   return (
-    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 flex flex-col h-full md:h-[400px]">
+    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 flex flex-col h-full md:h-[450px]">
       <div className="text-xs font-bold tracking-[0.12em] uppercase text-white/35 mb-4 flex-shrink-0">
         {t('importanceBreakdown')}
       </div>
@@ -94,16 +94,18 @@ export default function ImportanceBreakdownChart({ data, loading, startDate, end
         <p className="text-sm text-white/40">{t('noImportanceData')}</p>
       ) : (
         <div className="flex-1 flex flex-col justify-between">
-          {/* Donut — takes remaining upper space */}
-          <div className="flex-1">
+          {/* Donut — takes remaining upper space, but never shrinks below a
+              size that would clip the circle (e.g. when 5 importance items
+              push the legend taller). */}
+          <div className="flex-1 min-h-[190px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 8, right: 0, bottom: 8, left: 0 }}>
                 <Pie
                   data={breakdown}
                   cx="50%"
                   cy="50%"
-                  innerRadius={55}
-                  outerRadius={82}
+                  innerRadius={52}
+                  outerRadius={80}
                   dataKey="amount"
                   paddingAngle={2}
                   stroke="none"

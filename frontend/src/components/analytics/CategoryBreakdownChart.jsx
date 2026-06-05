@@ -128,12 +128,12 @@ export default function CategoryBreakdownChart({ data, loading, budgetMap }) {
 
   if (loading) {
     return (
-      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 animate-pulse h-[400px]" />
+      <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-5 animate-pulse h-[450px]" />
     );
   }
 
   return (
-    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl flex flex-col h-full md:h-[400px]">
+    <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl flex flex-col h-full md:h-[450px]">
       {/* Pinned header */}
       <div className="px-5 pt-5 pb-2 flex-shrink-0 flex items-center justify-between gap-3">
         <div className="text-xs font-bold tracking-[0.12em] uppercase text-white/35">
