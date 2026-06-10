@@ -21,10 +21,10 @@ import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction>, TransactionRepositoryCustom {
     
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.wallet JOIN FETCH t.category WHERE t.id = :id AND t.wallet.user.id = :userId")
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.wallet JOIN FETCH t.category LEFT JOIN FETCH t.fixedPaymentOccurrence WHERE t.id = :id AND t.wallet.user.id = :userId")
     Optional<Transaction> findByIdAndWalletUserId(Long id, UUID userId);
-    
-    @Query("SELECT t FROM Transaction t JOIN FETCH t.wallet JOIN FETCH t.category WHERE t.wallet.id = :walletId AND t.wallet.user.id = :userId ORDER BY t.transactionDate DESC, t.createdAt DESC")
+
+    @Query("SELECT t FROM Transaction t JOIN FETCH t.wallet JOIN FETCH t.category LEFT JOIN FETCH t.fixedPaymentOccurrence WHERE t.wallet.id = :walletId AND t.wallet.user.id = :userId ORDER BY t.transactionDate DESC, t.createdAt DESC")
     List<Transaction> findByWalletIdAndWalletUserId(Integer walletId, UUID userId);
 
     @Query("SELECT t FROM Transaction t JOIN FETCH t.category WHERE t.wallet.id = :walletId " +
@@ -73,6 +73,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         AND c.type = :type
     """)
     BigDecimal sumByWalletUserDateRangeAndType(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("type") CategoryType type);
+
+    /**
+     * Sum of transactions of the given type that are NOT linked to a fixed
+     * payment occurrence ("variable" spend). The NOT EXISTS subquery against the
+     * occurrence FK keeps this a single aggregate query (no per-row navigation).
+     */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = :type
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+    """)
+    BigDecimal sumUnlinkedByWalletUserDateRangeAndType(
             @Param("walletId") Integer walletId,
             @Param("userId") UUID userId,
             @Param("from") LocalDate from,
@@ -228,10 +251,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("to") LocalDate to);
 
     @Override
-    @EntityGraph(attributePaths = {"wallet", "category"})
+    @EntityGraph(attributePaths = {"wallet", "category", "fixedPaymentOccurrence"})
     Page<Transaction> findAll(Specification<Transaction> spec, Pageable pageable);
 
     @Override
-    @EntityGraph(attributePaths = {"wallet", "category"})
+    @EntityGraph(attributePaths = {"wallet", "category", "fixedPaymentOccurrence"})
     List<Transaction> findAll(Specification<Transaction> spec, Sort sort);
 }

@@ -171,7 +171,7 @@ CREATE INDEX idx_fpo_payment_date_status
     ON fixed_payment_occurrences(fixed_payment_id, due_date, status);
 CREATE INDEX idx_fpo_payment_status_date
     ON fixed_payment_occurrences(fixed_payment_id, status, due_date);
-CREATE INDEX idx_fpo_transaction
+CREATE UNIQUE INDEX idx_fpo_transaction
     ON fixed_payment_occurrences(transaction_id)
     WHERE transaction_id IS NOT NULL;
 

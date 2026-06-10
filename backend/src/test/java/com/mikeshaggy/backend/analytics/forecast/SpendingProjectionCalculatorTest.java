@@ -112,7 +112,6 @@ class SpendingProjectionCalculatorTest {
         assertThat(result.safeToSpendPerDay()).isEqualByComparingTo("0.00");
     }
 
-    // ----- Variable / fixed split (linked FixedPaymentOccurrence transactions) -----
 
     @Test
     void day1OfCycle_rentPaidAsLinkedFixed_doesNotExplodeBurnRate() {
