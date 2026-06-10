@@ -91,8 +91,9 @@ class SpendingProjectionServiceTest {
         assertThat(result.daysElapsed()).isEqualTo(10);
         assertThat(result.daysRemaining()).isEqualTo(21);
         assertThat(result.dailyBurnRate()).isEqualByComparingTo("185.00");
-        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("5735.00");
-        assertThat(result.projectedEndBalance()).isEqualByComparingTo("-735.00");
+        // variable(1850) + projectedVariableRemaining(185*21=3885) + linkedFixed(0) + remainingFixed(350)
+        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("6085.00");
+        assertThat(result.projectedEndBalance()).isEqualByComparingTo("-1085.00");
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("350.00");
         assertThat(result.safeToSpendToday()).isEqualByComparingTo("-3235.00");
         // -3235.00 / 21 = -154.05 (HALF_UP)
@@ -425,13 +426,49 @@ class SpendingProjectionServiceTest {
                 any(), any(Wallet.class), eq(USER_ID), eq(asOfDate));
     }
 
+    @Test
+    void linkedFixedPaymentsExcludedFromBurnRateButKeptInProjectedTotal() {
+        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        // expensesToDate = 1990 (1800 linked fixed + 190 variable); variable = 190.
+        sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"),
+                new BigDecimal("1990.00"), new BigDecimal("190.00"));
+
+        SpendingProjectionDto result = service.getSpendingProjection(
+                WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+
+        // elapsed=19, remaining=12
+        assertThat(result.expensesToDate()).isEqualByComparingTo("1990.00");
+        assertThat(result.variableExpensesToDate()).isEqualByComparingTo("190.00");
+        assertThat(result.linkedFixedExpensesToDate()).isEqualByComparingTo("1800.00");
+        // burn rate from variable only: 190 / 19 = 10.00 (not 1990/19 ≈ 104.74)
+        assertThat(result.variableDailyBurnRate()).isEqualByComparingTo("10.00");
+        assertThat(result.dailyBurnRate()).isEqualByComparingTo("10.00");
+        assertThat(result.projectedVariableRemaining()).isEqualByComparingTo("120.00");
+        // total still includes the linked fixed payment once:
+        // variable(190) + variableRemaining(120) + linkedFixed(1800) + remainingFixed(0) = 2110
+        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("2110.00");
+        verify(transactionQueryService).sumUnlinked(
+                eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE));
+    }
+
     private void sums(BigDecimal incomeToDate, BigDecimal incomeForPeriod, BigDecimal expensesToDate) {
+        // Default: all expenses are variable (no linked fixed payments).
+        sums(incomeToDate, incomeForPeriod, expensesToDate, expensesToDate);
+    }
+
+    private void sums(BigDecimal incomeToDate, BigDecimal incomeForPeriod,
+                      BigDecimal expensesToDate, BigDecimal variableExpensesToDate) {
         lenient().when(transactionQueryService.sum(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.INCOME)))
                 .thenReturn(incomeToDate, incomeForPeriod);
         lenient().when(transactionQueryService.sum(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE)))
                 .thenReturn(expensesToDate);
+        lenient().when(transactionQueryService.sumUnlinked(
+                        eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE)))
+                .thenReturn(variableExpensesToDate);
     }
 
     private SpendingProjectionService serviceWithDate(LocalDate date) {

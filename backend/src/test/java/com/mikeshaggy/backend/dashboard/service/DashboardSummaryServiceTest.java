@@ -516,6 +516,10 @@ class DashboardSummaryServiceTest {
                 new BigDecimal("600.00"),
                 safeTotal,
                 perDay,
+                new BigDecimal("3100.00"),
+                BigDecimal.ZERO,
+                new BigDecimal("119.23"),
+                new BigDecimal("596.15"),
                 true,
                 null);
     }

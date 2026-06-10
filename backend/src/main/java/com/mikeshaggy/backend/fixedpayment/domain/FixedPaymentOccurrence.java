@@ -43,8 +43,8 @@ public class FixedPaymentOccurrence {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "transaction_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transaction_id", unique = true)
     private Transaction transaction;
 
     @Column(name = "created_at", insertable = false, updatable = false)

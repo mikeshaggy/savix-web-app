@@ -441,6 +441,10 @@ export const fixedPaymentApi = {
   create: (data) => post('/fixed-payments', data),
   update: (id, data) => put(`/fixed-payments/${id}`, data),
   deactivate: (id) => del(`/fixed-payments/${id}`),
+  linkOccurrence: (occurrenceId, transactionId) =>
+    post(`/fixed-payments/occurrences/${occurrenceId}/link`, { transactionId }),
+  unlinkOccurrence: (occurrenceId) =>
+    del(`/fixed-payments/occurrences/${occurrenceId}/link`),
 };
 
 export const categoryBudgetsApi = {

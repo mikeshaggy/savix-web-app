@@ -3,17 +3,22 @@ package com.mikeshaggy.backend.fixedpayment.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
+import com.mikeshaggy.backend.common.exception.ConflictException;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentCrudService;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
+import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentOccurrenceService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +47,9 @@ class FixedPaymentControllerTest {
 
     @MockitoBean
     private FixedPaymentDashboardService fixedPaymentDashboardService;
+
+    @MockitoBean
+    private FixedPaymentOccurrenceService fixedPaymentOccurrenceService;
 
     @MockitoBean
     private CurrentUserProvider currentUserProvider;
@@ -125,6 +133,78 @@ class FixedPaymentControllerTest {
                     .andExpect(jsonPath("$.details.walletId").exists())
                     .andExpect(jsonPath("$.details.title").exists())
                     .andExpect(jsonPath("$.details.amount").exists());
+        }
+    }
+
+    @Nested
+    class LinkUnlinkOccurrence {
+
+        private FixedOccurrenceRowDto occurrenceDto(OccurrenceStatus status, Long transactionId) {
+            return new FixedOccurrenceRowDto(
+                    10L, 1, "Rent", 1, "Housing", "🏠", 1,
+                    new BigDecimal("1500.00"),
+                    transactionId == null ? null : new BigDecimal("1480.00"),
+                    LocalDate.of(2026, 3, 1), status, 5L,
+                    transactionId == null ? null : LocalDateTime.of(2026, 3, 11, 10, 0),
+                    transactionId);
+        }
+
+        @Test
+        void link_returns200WithLinkedOccurrence() throws Exception {
+            when(fixedPaymentOccurrenceService.linkExistingTransaction(10L, 123L, TEST_USER_ID))
+                    .thenReturn(occurrenceDto(OccurrenceStatus.PAID, 123L));
+
+            mockMvc
+                    .perform(
+                            post("/api/fixed-payments/occurrences/10/link")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                            {"transactionId": 123}
+                                            """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.occurrenceId").value(10))
+                    .andExpect(jsonPath("$.status").value("PAID"))
+                    .andExpect(jsonPath("$.transactionId").value(123));
+        }
+
+        @Test
+        void link_missingTransactionId_returns400() throws Exception {
+            mockMvc
+                    .perform(
+                            post("/api/fixed-payments/occurrences/10/link")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.details.transactionId").exists());
+        }
+
+        @Test
+        void link_alreadyLinked_returns409() throws Exception {
+            when(fixedPaymentOccurrenceService.linkExistingTransaction(10L, 123L, TEST_USER_ID))
+                    .thenThrow(new ConflictException("Occurrence is already linked to a transaction"));
+
+            mockMvc
+                    .perform(
+                            post("/api/fixed-payments/occurrences/10/link")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                            {"transactionId": 123}
+                                            """))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.status").value(409));
+        }
+
+        @Test
+        void unlink_returns200WithResetOccurrence() throws Exception {
+            when(fixedPaymentOccurrenceService.unlinkByOccurrenceId(10L, TEST_USER_ID))
+                    .thenReturn(occurrenceDto(OccurrenceStatus.PENDING, null));
+
+            mockMvc
+                    .perform(delete("/api/fixed-payments/occurrences/10/link"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.occurrenceId").value(10))
+                    .andExpect(jsonPath("$.status").value("PENDING"))
+                    .andExpect(jsonPath("$.transactionId").doesNotExist());
         }
     }
 }

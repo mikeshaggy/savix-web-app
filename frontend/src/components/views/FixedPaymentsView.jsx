@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, RefreshCw, Loader2, AlertCircle, Check, X, ArrowRight,
-  Calendar, Trash2, CheckCircle2, AlertTriangle,
+  Calendar, Trash2, CheckCircle2, AlertTriangle, Link2, Unlink,
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import { useTranslations } from 'next-intl';
@@ -12,10 +12,12 @@ import { useFixedPaymentsTile, useFixedPayments } from '@/hooks/useFixedPayments
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAppContext } from '@/contexts/AppContext';
+import { fixedPaymentApi } from '@/lib/api';
 import FixedPaymentModal from '@/components/modals/FixedPaymentModal';
 import { CHIP_BASE, CHIP_DEFAULT, PAGE_CTA } from '@/components/common/formControls';
 import { Loading } from '@/components/common/Loading';
 import TransactionModal from '@/components/modals/TransactionModal';
+import LinkTransactionModal from '@/components/modals/LinkTransactionModal';
 import FixedPaymentEventsStrip from './FixedPaymentEventsStrip';
 
 const TABS = ['schedule', 'attention', 'paid', 'history'];
@@ -68,6 +70,8 @@ export default function FixedPaymentsView() {
   const [markPaidOccurrence, setMarkPaidOccurrence] = useState(null);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionPrefill, setTransactionPrefill] = useState(null);
+  const [linkingOccurrence, setLinkingOccurrence] = useState(null);
+  const [unlinkingId, setUnlinkingId] = useState(null);
   const hasHandledMutationRef = useRef(false);
 
   const [filterCategory, setFilterCategory] = useState('all');
@@ -175,6 +179,31 @@ export default function FixedPaymentsView() {
     setShowTransactionModal(false);
     setMarkPaidOccurrence(null);
     setTransactionPrefill(null);
+  };
+
+  const handleLinkTransaction = async (transactionId) => {
+    if (!linkingOccurrence) return;
+    // Let errors propagate to the modal so it can surface backend messages
+    // (already linked / already paid / non-expense / different wallet).
+    await fixedPaymentApi.linkOccurrence(linkingOccurrence.occurrenceId, transactionId);
+    setLinkingOccurrence(null);
+    await Promise.all([refetchTile(), refetchList()]);
+    setActionFeedback({ type: 'success', message: t('fixedPayments.linkSuccess') });
+  };
+
+  const handleUnlink = async (occurrence) => {
+    if (!occurrence?.occurrenceId) return;
+    try {
+      setUnlinkingId(occurrence.occurrenceId);
+      await fixedPaymentApi.unlinkOccurrence(occurrence.occurrenceId);
+      await Promise.all([refetchTile(), refetchList()]);
+      setActionFeedback({ type: 'success', message: t('fixedPayments.unlinkSuccess') });
+    } catch (err) {
+      console.error('Failed to unlink:', err);
+      setActionFeedback({ type: 'error', message: err?.message || t('fixedPayments.unlinkError') });
+    } finally {
+      setUnlinkingId(null);
+    }
   };
 
   const getDaysLabel = (daysDelta) => {
@@ -389,8 +418,14 @@ export default function FixedPaymentsView() {
       </div>
 
       {actionFeedback && (
-        <div className="flex items-center gap-2.5 px-4 py-3 bg-green-500/[0.08] border border-green-500/[0.2] rounded-[12px] text-[13px] text-green-300">
-          <Check className="w-4 h-4 shrink-0" />
+        <div className={`flex items-center gap-2.5 px-4 py-3 rounded-[12px] text-[13px] ${
+          actionFeedback.type === 'error'
+            ? 'bg-red-500/[0.08] border border-red-500/[0.2] text-red-300'
+            : 'bg-green-500/[0.08] border border-green-500/[0.2] text-green-300'
+        }`}>
+          {actionFeedback.type === 'error'
+            ? <AlertCircle className="w-4 h-4 shrink-0" />
+            : <Check className="w-4 h-4 shrink-0" />}
           <span>{actionFeedback.message}</span>
         </div>
       )}
@@ -605,12 +640,33 @@ export default function FixedPaymentsView() {
 
                         <div className="col-span-2 sm:col-span-1 flex sm:flex-col items-center sm:items-end justify-between gap-3 sm:min-w-[150px]">
                           {canMarkPaid ? (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => handleMarkPaidClick(occ)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.04em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-300 transition-all hover:bg-green-400/[0.15]"
+                              >
+                                <Check className="w-3 h-3" />
+                                {t('fixedPayments.markAsPaid')}
+                              </button>
+                              <button
+                                onClick={() => setLinkingOccurrence(occ)}
+                                title={t('fixedPayments.linkExisting')}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.04em] cursor-pointer border border-white/[0.08] bg-white/[0.03] text-white/45 transition-all hover:bg-white/[0.07] hover:text-white/70"
+                              >
+                                <Link2 className="w-3 h-3" />
+                                <span className="hidden sm:inline">{t('fixedPayments.linkExisting')}</span>
+                              </button>
+                            </div>
+                          ) : occ.transactionId != null ? (
                             <button
-                              onClick={() => handleMarkPaidClick(occ)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.04em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-300 transition-all hover:bg-green-400/[0.15] shrink-0"
+                              onClick={() => handleUnlink(occ)}
+                              disabled={unlinkingId === occ.occurrenceId}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[10px] tracking-[0.04em] cursor-pointer border border-white/[0.08] bg-white/[0.03] text-white/45 transition-all hover:bg-red-400/[0.1] hover:text-red-300 hover:border-red-400/30 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <Check className="w-3 h-3" />
-                              {t('fixedPayments.markAsPaid')}
+                              {unlinkingId === occ.occurrenceId
+                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                : <Unlink className="w-3 h-3" />}
+                              {t('fixedPayments.unlink')}
                             </button>
                           ) : (
                             <span className={`inline-flex items-center gap-1.5 text-[11px] ${occ.isPaid ? 'text-green-300' : 'text-white/25'}`}>
@@ -791,6 +847,16 @@ export default function FixedPaymentsView() {
           onPrefillSaved={() => { refetchTile(); refetchList(); }}
           categories={categories}
           loading={false}
+        />
+      )}
+
+      {/* Link existing transaction modal */}
+      {linkingOccurrence && (
+        <LinkTransactionModal
+          occurrence={linkingOccurrence}
+          walletId={linkingOccurrence.walletId ?? walletId}
+          onClose={() => setLinkingOccurrence(null)}
+          onLinked={handleLinkTransaction}
         />
       )}
     </div>

@@ -314,6 +314,16 @@ public class TransactionService {
                 .orElseThrow(() -> new EntityNotFoundException("Transaction not found with id: " + id));
     }
 
+    /**
+     * Fetches the managed entity (with its linked fixed payment occurrence, if
+     * any) so {@link TransactionOrchestrator} can coordinate cross-entity
+     * lifecycle steps without {@code TransactionService} depending on the
+     * fixed-payment services.
+     */
+    Transaction getEntityForUser(Long id, UUID userId) {
+        return getTransactionOrThrowForUser(id, userId);
+    }
+
     public List<Transaction> getTransactionsForWalletAndPeriod(Integer walletId, UUID userId, PeriodDto period) {
         return transactionRepository
                 .findByWalletIdAndWalletUserIdAndTransactionDateBetween(

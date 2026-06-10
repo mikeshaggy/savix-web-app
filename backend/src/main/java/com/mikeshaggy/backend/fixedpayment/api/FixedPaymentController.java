@@ -2,11 +2,14 @@ package com.mikeshaggy.backend.fixedpayment.api;
 
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.fixedpayment.dto.CreateFixedPaymentRequest;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedPaymentResponse;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
+import com.mikeshaggy.backend.fixedpayment.dto.LinkOccurrenceRequest;
 import com.mikeshaggy.backend.fixedpayment.dto.UpdateFixedPaymentRequest;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentCrudService;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
+import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentOccurrenceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +28,7 @@ public class FixedPaymentController {
 
     private final FixedPaymentCrudService fixedPaymentCrudService;
     private final FixedPaymentDashboardService fixedPaymentDashboardService;
+    private final FixedPaymentOccurrenceService fixedPaymentOccurrenceService;
     private final CurrentUserProvider currentUserProvider;
 
     @PostMapping
@@ -66,5 +70,24 @@ public class FixedPaymentController {
         UUID userId = currentUserProvider.getCurrentUserId();
         List<FixedPaymentResponse> payments = fixedPaymentCrudService.getAllFixedPayments(walletId, userId);
         return ResponseEntity.ok(payments);
+    }
+
+    @PostMapping("/occurrences/{occurrenceId}/link")
+    public ResponseEntity<FixedOccurrenceRowDto> linkTransaction(
+            @PathVariable Long occurrenceId,
+            @Valid @RequestBody LinkOccurrenceRequest request) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        FixedOccurrenceRowDto occurrence = fixedPaymentOccurrenceService
+                .linkExistingTransaction(occurrenceId, request.transactionId(), userId);
+        return ResponseEntity.ok(occurrence);
+    }
+
+    @DeleteMapping("/occurrences/{occurrenceId}/link")
+    public ResponseEntity<FixedOccurrenceRowDto> unlinkTransaction(
+            @PathVariable Long occurrenceId) {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        FixedOccurrenceRowDto occurrence = fixedPaymentOccurrenceService
+                .unlinkByOccurrenceId(occurrenceId, userId);
+        return ResponseEntity.ok(occurrence);
     }
 }

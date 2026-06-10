@@ -22,6 +22,10 @@ public record SpendingProjectionDto(
         BigDecimal remainingFixedPayments,
         BigDecimal safeToSpendToday,
         BigDecimal safeToSpendPerDay,
+        BigDecimal variableExpensesToDate,
+        BigDecimal linkedFixedExpensesToDate,
+        BigDecimal variableDailyBurnRate,
+        BigDecimal projectedVariableRemaining,
         boolean projectionAvailable,
         String projectionReason
 ) {}

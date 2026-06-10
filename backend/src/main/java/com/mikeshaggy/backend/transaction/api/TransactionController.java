@@ -79,9 +79,9 @@ public class TransactionController {
     public ResponseEntity<TransactionResponse> updateTransaction(
             @PathVariable Long id, 
             @Valid @RequestBody TransactionUpdateRequest request) {
-        TransactionResponse updatedTransaction = transactionService.updateTransaction(
-                id, 
-                request, 
+        TransactionResponse updatedTransaction = transactionOrchestrator.updateTransaction(
+                id,
+                request,
                 currentUserProvider.getCurrentUserId()
         );
         return ResponseEntity.ok(updatedTransaction);
@@ -89,7 +89,7 @@ public class TransactionController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTransaction(@PathVariable Long id) {
-        transactionService.deleteTransaction(id, currentUserProvider.getCurrentUserId());
+        transactionOrchestrator.deleteTransaction(id, currentUserProvider.getCurrentUserId());
         return ResponseEntity.noContent().build();
     }
 }
