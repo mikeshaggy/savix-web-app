@@ -62,11 +62,18 @@ export default function SpendingPacePanel({ projData, loading }) {
         : '#f87171'
       : '#ffffff';
 
+  const variableToDate = projData.variableExpensesToDate;
+  const fixedToDate = projData.linkedFixedExpensesToDate;
+  const projectedVariableRemaining = projData.projectedVariableRemaining;
+  // Only worth showing the split once there is some fixed spend separated out.
+  const showSplit =
+    isActive && fixedToDate != null && Number(fixedToDate) > 0;
+
   const rows = [
     {
       icon: Flame,
       label: t('dailyBurnRate'),
-      subtext: t('currentPace'),
+      subtext: t('variableOnly'),
       value: formatCurrency(burnRate),
       color: '#fb923c',
     },
@@ -122,6 +129,41 @@ export default function SpendingPacePanel({ projData, loading }) {
           <PaceRow key={i} {...row} />
         ))}
       </div>
+
+      {/* Variable vs Fixed split — explains why the burn rate ignores fixed payments */}
+      {showSplit && (
+        <div className="mt-4 pt-4 border-t border-white/[0.08]">
+          <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-white/30 mb-2.5">
+            {t('variableVsFixed')}
+          </div>
+          <div className="grid grid-cols-3 gap-px bg-white/[0.05] rounded-[10px] overflow-hidden border border-white/[0.05]">
+            <div className="bg-[#0e0e1c] px-3 py-2.5">
+              <div className="text-[9px] tracking-[0.06em] uppercase text-white/30 mb-1">
+                {t('variableSpendToDate')}
+              </div>
+              <div className="font-mono text-[13px] font-bold text-orange-300">
+                {formatCurrency(variableToDate ?? 0)}
+              </div>
+            </div>
+            <div className="bg-[#0e0e1c] px-3 py-2.5">
+              <div className="text-[9px] tracking-[0.06em] uppercase text-white/30 mb-1">
+                {t('fixedSpendToDate')}
+              </div>
+              <div className="font-mono text-[13px] font-bold text-violet-300">
+                {formatCurrency(fixedToDate ?? 0)}
+              </div>
+            </div>
+            <div className="bg-[#0e0e1c] px-3 py-2.5">
+              <div className="text-[9px] tracking-[0.06em] uppercase text-white/30 mb-1">
+                {t('projectedVariableRemaining')}
+              </div>
+              <div className="font-mono text-[13px] font-bold text-white/70">
+                {formatCurrency(projectedVariableRemaining ?? 0)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Safe to spend — highlighted footer */}
       {isActive && (

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pencil, Trash2, Receipt } from 'lucide-react';
+import { Pencil, Trash2, Receipt, Link2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { formatCurrency, formatDate, getImportanceKey } from '@/utils/helpers';
 import { useLanguage } from '@/i18n';
@@ -103,6 +103,15 @@ export default function TransactionTable({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-sm md:text-base font-medium text-white whitespace-nowrap overflow-hidden text-ellipsis">{txn.title}</span>
+                                                {txn.fixedPaymentOccurrenceId != null && (
+                                                    <span
+                                                        title={t('fixedPayments.linkedBadge')}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-[1px] border border-violet-500/35 bg-violet-500/12 text-violet-300 whitespace-nowrap shrink-0"
+                                                    >
+                                                        <Link2 className="w-2.5 h-2.5" />
+                                                        {t('table.fixedPaymentBadge')}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                                 {/* Category pill */}
