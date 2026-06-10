@@ -537,6 +537,10 @@ class AnalyticsControllerTest {
                 new BigDecimal("350.00"),
                 new BigDecimal("1000.00"),
                 new BigDecimal("47.62"),
+                new BigDecimal("1850.00"),
+                BigDecimal.ZERO,
+                new BigDecimal("185.00"),
+                new BigDecimal("3885.00"),
                 true,
                 null);
     }

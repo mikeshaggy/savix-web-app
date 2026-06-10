@@ -72,6 +72,8 @@ public class SpendingProjectionService {
                 wallet.getId(), userId, period.startDate(), period.endDate(), CategoryType.INCOME);
         BigDecimal expensesToDate = transactionQueryService.sum(
                 wallet.getId(), userId, period.startDate(), toDate, CategoryType.EXPENSE);
+        BigDecimal variableExpensesToDate = transactionQueryService.sumUnlinked(
+                wallet.getId(), userId, period.startDate(), toDate, CategoryType.EXPENSE);
         BigDecimal remainingFixed = resolveRemainingFixed(
                 precomputedRemainingFixed, resolvedPeriod, period, wallet, userId, today);
         ProjectionResult projection = projectionCalculator.calculate(new ProjectionInput(
@@ -80,6 +82,7 @@ public class SpendingProjectionService {
                 wallet.getBalance(),
                 incomeForPeriod,
                 expensesToDate,
+                variableExpensesToDate,
                 remainingFixed));
 
         return new SpendingProjectionDto(
@@ -99,6 +102,10 @@ public class SpendingProjectionService {
                 projection.remainingFixedPayments(),
                 projection.safeToSpendToday(),
                 projection.safeToSpendPerDay(),
+                projection.variableExpensesToDate(),
+                projection.linkedFixedExpensesToDate(),
+                projection.variableDailyBurnRate(),
+                projection.projectedVariableRemaining(),
                 projection.projectionAvailable(),
                 projection.projectionReason());
     }

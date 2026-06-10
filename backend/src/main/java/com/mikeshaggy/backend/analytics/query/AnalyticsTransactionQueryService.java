@@ -27,6 +27,15 @@ public class AnalyticsTransactionQueryService {
         return money(transactionRepository.sumByWalletUserDateRangeAndType(walletId, userId, from, to, type));
     }
 
+    /**
+     * Sum of "variable" spend of the given type — transactions NOT linked to a
+     * fixed payment occurrence. Used by the forecast to keep fixed payments out
+     * of the variable daily burn rate.
+     */
+    public BigDecimal sumUnlinked(Integer walletId, UUID userId, LocalDate from, LocalDate to, CategoryType type) {
+        return money(transactionRepository.sumUnlinkedByWalletUserDateRangeAndType(walletId, userId, from, to, type));
+    }
+
     public BigDecimal expenseByImportance(Integer walletId, UUID userId,
                                           LocalDate from, LocalDate to,
                                           Importance importance) {

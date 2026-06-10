@@ -420,6 +420,7 @@ class InsightEngineTest {
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 safeTotal,
                 perDay,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 true, null);
     }
 

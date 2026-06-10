@@ -128,6 +128,8 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
                 new BigDecimal("1200.00"), new BigDecimal("60.00"),
                 new BigDecimal("1860.00"), new BigDecimal("1140.00"),
                 BigDecimal.ZERO, new BigDecimal("300.00"), new BigDecimal("150.00"),
+                new BigDecimal("1200.00"), BigDecimal.ZERO,
+                new BigDecimal("60.00"), new BigDecimal("660.00"),
                 true, null);
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), any(UUID.class), any(PeriodDto.class), any(LocalDate.class), any(BigDecimal.class)))
