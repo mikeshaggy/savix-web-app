@@ -167,6 +167,7 @@ function TransactionsPageInner() {
                     onSave={handleSaveTransaction}
                     categories={categories || []}
                     transaction={editingTransaction}
+                    onLinkChange={serverTx.refetch}
                 />
             )}
 

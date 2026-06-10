@@ -6,14 +6,16 @@ import React, {
   useCallback,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Save, Loader2, Plus, Pin } from "lucide-react";
+import { X, Save, Loader2, Plus, Pin, Link2, Unlink, Repeat } from "lucide-react";
 import { useCategories } from "@/hooks/useApi";
 import { useWallets } from "@/contexts/WalletContext";
 import { useUser } from "@/contexts/UserContext";
 import { useTranslations } from "next-intl";
 import { useLanguage } from "@/i18n";
 import { formatCurrency } from "@/utils/helpers";
+import { fixedPaymentApi } from "@/lib/api";
 import CategoryModal from "./CategoryModal";
+import OccurrencePicker from "./OccurrencePicker";
 import Button from "@/components/common/Button";
 import { INPUT_MD, SELECT_MD, TEXTAREA_MD } from "@/components/common/formControls";
 
@@ -46,6 +48,7 @@ export default function TransactionModal({
   transaction = null,
   prefill = null,
   onPrefillSaved = null,
+  onLinkChange = null,
 }) {
   const { currentWallet, wallets } = useWallets();
   const { user } = useUser();
@@ -70,6 +73,15 @@ export default function TransactionModal({
   const [submitting, setSubmitting] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [localCategories, setLocalCategories] = useState(categories || []);
+
+  // Fixed payment linking state
+  // - linkedOccurrenceId: the occurrence this (edited) transaction is linked to
+  // - selectedOccurrence: a pending pick in CREATE mode, sent as occurrenceId on submit
+  const [linkedOccurrenceId, setLinkedOccurrenceId] = useState(null);
+  const [selectedOccurrence, setSelectedOccurrence] = useState(null);
+  const [showOccurrencePicker, setShowOccurrencePicker] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   // Category combobox state
   const [categorySearch, setCategorySearch] = useState("");
@@ -135,6 +147,11 @@ export default function TransactionModal({
     }
     setErrors({});
     setShowCategoryDropdown(false);
+    // Fixed payment link state derives from the transaction being edited
+    setLinkedOccurrenceId(transaction?.fixedPaymentOccurrenceId ?? null);
+    setSelectedOccurrence(null);
+    setShowOccurrencePicker(false);
+    setLinkError("");
   }, [transaction, prefill, currentWallet?.id, isOpen, categories]);
 
   useEffect(() => {
@@ -400,6 +417,59 @@ export default function TransactionModal({
     return Object.keys(newErrors).length === 0;
   };
 
+  // ── Fixed payment linking ────────────────────────────────────────────────
+  const isExpense = selectedCategory?.type === "EXPENSE";
+  const hasWallet = !!formData.walletId;
+  // Show the section when we can link (expense + wallet) or when already linked
+  // (so an edited transaction can always be unlinked).
+  const showRecurringSection = isEditing
+    ? linkedOccurrenceId != null || (isExpense && hasWallet)
+    // Hidden during the "mark as paid" prefill flow, which already supplies the occurrence.
+    : isExpense && hasWallet && !prefill?.occurrenceId;
+
+  const occurrenceDraft = useMemo(
+    () => ({
+      amount: parseFloat(formData.amount) || 0,
+      transactionDate: formData.transactionDate,
+      categoryId: parseInt(formData.categoryId) || null,
+    }),
+    [formData.amount, formData.transactionDate, formData.categoryId],
+  );
+
+  // CREATE: just remember the pick; occurrenceId is sent during create.
+  const handlePickForCreate = useCallback((occurrence) => {
+    setSelectedOccurrence(occurrence);
+    setShowOccurrencePicker(false);
+    setLinkError("");
+  }, []);
+
+  // EDIT: link immediately via the post-hoc endpoint. Throw to surface backend
+  // errors inside the picker.
+  const handleLinkExisting = useCallback(
+    async (occurrence) => {
+      await fixedPaymentApi.linkOccurrence(occurrence.occurrenceId, transaction.id);
+      setLinkedOccurrenceId(occurrence.occurrenceId);
+      setShowOccurrencePicker(false);
+      onLinkChange?.();
+    },
+    [transaction, onLinkChange],
+  );
+
+  const handleUnlink = useCallback(async () => {
+    if (linkedOccurrenceId == null) return;
+    setLinkBusy(true);
+    setLinkError("");
+    try {
+      await fixedPaymentApi.unlinkOccurrence(linkedOccurrenceId);
+      setLinkedOccurrenceId(null);
+      onLinkChange?.();
+    } catch (err) {
+      setLinkError(err?.message || t("fixedPayments.unlinkError"));
+    } finally {
+      setLinkBusy(false);
+    }
+  }, [linkedOccurrenceId, onLinkChange, t]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -410,6 +480,12 @@ export default function TransactionModal({
     try {
       setSubmitting(true);
 
+      // On create, attach an occurrence via the existing occurrenceId flow
+      // (picked in the modal, or pre-filled from the fixed payments view).
+      const createOccurrenceId = !isEditing
+        ? selectedOccurrence?.occurrenceId ?? prefill?.occurrenceId
+        : undefined;
+
       const transactionData = {
         title: formData.title.trim(),
         amount: parseFloat(formData.amount),
@@ -419,7 +495,7 @@ export default function TransactionModal({
         notes: formData.notes?.trim() || undefined,
         importance:
           selectedCategory?.type === "INCOME" ? undefined : formData.importance,
-        ...(prefill?.occurrenceId ? { occurrenceId: prefill.occurrenceId } : {}),
+        ...(createOccurrenceId ? { occurrenceId: createOccurrenceId } : {}),
       };
 
       await onSave(transactionData, isEditing ? transaction.id : null);
@@ -439,6 +515,7 @@ export default function TransactionModal({
           importance: "ESSENTIAL",
         });
         setCategorySearch("");
+        setSelectedOccurrence(null);
       }
       setErrors({});
       onClose();
@@ -908,6 +985,87 @@ export default function TransactionModal({
                   placeholder={t("transaction.notesPlaceholder")}
                 />
               </div>
+
+              {/* Recurring payment link */}
+              {showRecurringSection && (
+                <div className="mt-5">
+                  <div className="text-[13px] font-bold tracking-[0.12em] uppercase text-white/25 mb-2 flex items-center gap-1.5">
+                    <Repeat className="w-3 h-3" />
+                    {t("transaction.recurringPayment")}
+                  </div>
+
+                  {isEditing && linkedOccurrenceId != null ? (
+                    <div className="rounded-[11px] border border-violet-500/30 bg-violet-500/[0.08] px-3.5 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-[13px] font-medium text-violet-200">
+                          <Link2 className="w-3.5 h-3.5 shrink-0" />
+                          {t("transaction.linkedToRecurring")}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleUnlink}
+                          disabled={linkBusy}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[11px] font-medium border border-white/[0.08] bg-white/[0.03] text-white/45 hover:bg-red-400/[0.1] hover:text-red-300 hover:border-red-400/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                        >
+                          {linkBusy ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Unlink className="w-3 h-3" />
+                          )}
+                          {t("fixedPayments.unlink")}
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-white/35 mt-1.5">
+                        {t("transaction.excludedFromBurnRate")}
+                      </div>
+                    </div>
+                  ) : !isEditing && selectedOccurrence ? (
+                    <div className="rounded-[11px] border border-violet-500/30 bg-violet-500/[0.08] px-3.5 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 text-[13px] font-medium text-violet-200">
+                            <Link2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">
+                              {selectedOccurrence.title}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-white/35 mt-0.5">
+                            {formatCurrency(selectedOccurrence.expectedAmount, lang)} ·{" "}
+                            {selectedOccurrence.dueDate}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOccurrence(null)}
+                          className="w-7 h-7 rounded-[8px] bg-[#131325] border border-white/[0.055] flex items-center justify-center text-white/30 hover:text-white hover:border-white/[0.12] transition-all shrink-0"
+                          aria-label={t("transaction.remove")}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-white/35 mt-1.5">
+                        {t("transaction.excludedFromBurnRate")}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLinkError("");
+                        setShowOccurrencePicker(true);
+                      }}
+                      className="flex items-center gap-2 w-full justify-center px-3.5 py-3 rounded-[11px] border border-dashed border-white/[0.12] bg-[#131325] text-[13px] font-medium text-white/45 hover:border-purple-500/40 hover:text-purple-300 hover:bg-purple-500/[0.06] transition-all"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      {t("transaction.linkToRecurring")}
+                    </button>
+                  )}
+
+                  {linkError && (
+                    <p className="text-red-400 text-xs mt-1.5">{linkError}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -955,6 +1113,16 @@ export default function TransactionModal({
           onClose={() => setShowCategoryModal(false)}
           onSave={handleCreateCategory}
           category={null}
+        />
+      )}
+
+      {/* Recurring payment occurrence picker */}
+      {showOccurrencePicker && (
+        <OccurrencePicker
+          walletId={parseInt(formData.walletId)}
+          draft={occurrenceDraft}
+          onClose={() => setShowOccurrencePicker(false)}
+          onSelect={isEditing ? handleLinkExisting : handlePickForCreate}
         />
       )}
     </div>
