@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.transaction.domain;
 
 import com.mikeshaggy.backend.category.domain.Category;
+import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,6 +45,15 @@ public class Transaction {
 
     @Enumerated(EnumType.STRING)
     private Importance importance;
+
+    /**
+     * Inverse (read-only) side of the 1:1 link to a fixed payment occurrence.
+     * The owning side is {@link FixedPaymentOccurrence#getTransaction()} which
+     * holds the {@code transaction_id} FK. Never serialized directly (responses
+     * go through DTOs), so no JSON-recursion risk.
+     */
+    @OneToOne(mappedBy = "transaction", fetch = FetchType.LAZY)
+    private FixedPaymentOccurrence fixedPaymentOccurrence;
 
     @CreationTimestamp
     private Instant createdAt;

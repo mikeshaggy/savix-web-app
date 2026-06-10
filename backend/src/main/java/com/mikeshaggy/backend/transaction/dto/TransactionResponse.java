@@ -21,6 +21,7 @@ public record TransactionResponse(
         LocalDate transactionDate,
         String notes,
         Importance importance,
+        Long fixedPaymentOccurrenceId,
         Instant createdAt
 ) {
     public static TransactionResponse from(Transaction transaction) {
@@ -37,6 +38,9 @@ public record TransactionResponse(
                 transaction.getTransactionDate(),
                 transaction.getNotes(),
                 transaction.getImportance(),
+                transaction.getFixedPaymentOccurrence() == null
+                        ? null
+                        : transaction.getFixedPaymentOccurrence().getId(),
                 transaction.getCreatedAt()
         );
     }

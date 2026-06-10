@@ -79,6 +79,7 @@ class TransactionControllerTest {
                             LocalDate.of(2026, 3, 11),
                             null,
                             Importance.ESSENTIAL,
+                            null,
                             Instant.parse("2026-03-11T10:00:00Z"));
             when(transactionOrchestrator.createTransaction(any(), eq(TEST_USER_ID))).thenReturn(response);
 
