@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useBudgetUsage } from '@/hooks/useBudgetUsage';
 import { categoryBudgetsApi } from '@/lib/api';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import BudgetProgressBar from '@/components/common/BudgetProgressBar';
 import BudgetCreateModal from '@/components/modals/BudgetCreateModal';
 import { INPUT_SM } from '@/components/common/formControls';
@@ -92,6 +92,7 @@ function SummaryChip({ icon: Icon, label, value, color, loading, accent = false 
 
 function ActiveBudgetRow({ item, onArchived, onUpdated, compact = false }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
   const [editing, setEditing]       = useState(false);
   const [editForm, setEditForm]     = useState({ amount: '', warningThresholdPercent: '' });
   const [editErrors, setEditErrors] = useState({});
@@ -276,6 +277,7 @@ function ActiveBudgetRow({ item, onArchived, onUpdated, compact = false }) {
 
 function ArchivedBudgetRow({ budget, onRestored, onDeleted }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
   const [restoring, setRestoring]         = useState(false);
   const [deleting, setDeleting]           = useState(false);
   const [restoreError, setRestoreError]   = useState(null);
@@ -438,6 +440,7 @@ function BudgetsSkeleton() {
 
 export default function BudgetsPage() {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
   const { currentWallet } = useWallets();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [archivedOpen, setArchivedOpen]       = useState(false);

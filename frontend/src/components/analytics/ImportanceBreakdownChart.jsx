@@ -3,7 +3,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 // Matches importance badge colors used in TransactionTable across the app
 const IMPORTANCE_COLORS = {
@@ -23,6 +23,7 @@ const IMPORTANCE_ORDER = [
 ];
 
 function CustomTooltip({ active, payload }) {
+  const formatCurrency = useFormatCurrency();
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
   return (
@@ -45,6 +46,7 @@ function CustomTooltip({ active, payload }) {
 
 export default function ImportanceBreakdownChart({ data, loading, startDate, endDate }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
   const router = useRouter();
 
   if (loading) {

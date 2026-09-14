@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { BarChart2, MousePointerClick } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { analyticsApi } from '@/lib/api';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import ErrorState from '@/components/common/ErrorState';
 
 // ─── chart constants ──────────────────────────────────────────────────────────
@@ -98,6 +98,7 @@ function KpiChip({ label, value, sub, color }) {
 
 function DailyChart({ days, maxDayTotal, selectedKey, onSelect }) {
   const [hovered, setHovered] = useState(null);
+  const formatCurrency = useFormatCurrency();
   const n = days.length;
 
   // show tick labels at sensible intervals depending on period length
@@ -180,6 +181,7 @@ function DailyChart({ days, maxDayTotal, selectedKey, onSelect }) {
 // ─── Day category list (left panel) ──────────────────────────────────────────
 
 function DayCategoryPanel({ dayData, t }) {
+  const formatCurrency = useFormatCurrency();
   if (!dayData || Number(dayData.total) <= 0) {
     return (
       <div>
@@ -235,6 +237,7 @@ function DayCategoryPanel({ dayData, t }) {
 // ─── Day summary panel (right panel) ─────────────────────────────────────────
 
 function DaySummaryPanel({ dayData, t }) {
+  const formatCurrency = useFormatCurrency();
   if (!dayData) return null;
 
   const hasSpend = Number(dayData.total) > 0;
@@ -328,6 +331,7 @@ function SelectedDayHeader({ dayData, t }) {
 
 export default function SpendingHeatmap({ walletId, periodType, startDate, endDate }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   const [heatmapData,    setHeatmapData]    = useState(null);
   const [loading,        setLoading]        = useState(false);

@@ -6,7 +6,7 @@ import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
 import { useBudgetUsage } from '@/hooks/useBudgetUsage';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import SpendingBreakdownSection from '@/components/analytics/SpendingBreakdownSection';
 import SpendingLeaksSection from '@/components/analytics/SpendingLeaksSection';
 import ErrorState from '@/components/common/ErrorState';
@@ -61,6 +61,7 @@ function KpiChip({ icon: Icon, label, value, sub, color, loading }) {
 
 export default function AnalyticsBreakdownPage() {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
   const { currentWallet } = useWallets();
   const { periodType, resolvedStart, resolvedEnd } = useAnalyticsPeriod();
 

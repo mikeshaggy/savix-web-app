@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { formatCurrency } from '../../utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 
 const barColors = [
@@ -19,6 +19,7 @@ const formatChange = (change) => {
 
 export default function TopCategories({ categories }) {
     const t = useTranslations();
+    const formatCurrency = useFormatCurrency();
 
     return (
         <div className="bg-[#0e0e1c] border border-white/[0.055] rounded-[18px] overflow-hidden relative transition-colors hover:border-white/[0.12] w-full flex flex-col"

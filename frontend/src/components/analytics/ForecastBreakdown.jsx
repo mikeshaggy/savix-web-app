@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 function InputRow({ label, value, color }) {
   return (
@@ -22,6 +22,7 @@ function InputRow({ label, value, color }) {
 
 export default function ForecastBreakdown({ projData, loading }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (
@@ -74,7 +75,7 @@ export default function ForecastBreakdown({ projData, loading }) {
           <div className="h-px bg-white/[0.07]" />
           <div>
             <div className="text-xs text-white/35 uppercase tracking-[0.12em] mb-1">
-              {t('projectedEndBalance')}
+              {endBalance >= 0 ? t('projectedCycleSurplus') : t('projectedCycleDeficit')}
             </div>
             <div className="font-mono text-2xl font-bold" style={{ color: balanceColor }}>
               {formatCurrency(endBalance)}

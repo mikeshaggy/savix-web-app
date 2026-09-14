@@ -10,7 +10,7 @@ import {
   InboxIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import AnalyticsMetricCard from './AnalyticsMetricCard';
 import { CardLoading } from '@/components/common/Loading';
 import ErrorState from '@/components/common/ErrorState';
@@ -19,6 +19,7 @@ import SectionLabel from '@/components/common/SectionLabel';
 
 function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   const safeIncome = incomeForPeriod > 0 ? incomeForPeriod : null;
   const rawPct = safeIncome ? (projectedPeriodExpenses / safeIncome) * 100 : null;
@@ -62,6 +63,7 @@ function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
 
 export default function ProjectionCards({ data, loading, error, onRetry }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (
@@ -132,7 +134,7 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
     },
     {
       key: 'projectedEndBalance',
-      label: t('projectedEndBalance'),
+      label: (data.projectedEndBalance ?? 0) >= 0 ? t('projectedCycleSurplus') : t('projectedCycleDeficit'),
       value: formatCurrency(data.projectedEndBalance ?? 0),
       icon: Wallet,
       color: balanceColor,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Wallet, Home, PieChart, Settings, List, Tag, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, Import, ChevronDown, Target, PiggyBank } from 'lucide-react';
+import { Wallet, Home, PieChart, List, Tag, CalendarCheck, X, History, ArrowLeftRight, TrendingUp, GitCompareArrows, CalendarDays, LayoutDashboard, ChevronDown, Target, PiggyBank } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import NewActionDropdown from '@/components/common/NewActionDropdown';
 
@@ -57,8 +57,6 @@ const getNavItems = (t) => [
             { id: 'daily',       label: t('nav.daily'),       icon: CalendarDays,      href: '/analytics/daily' },
         ]
     },
-    { id: 'import-export', label: t('nav.importExport'), icon: Import, href: '/import-export' },
-    { id: 'settings', label: t('nav.settings'), icon: Settings, href: '/settings' }
 ];
 
 export default function Sidebar({ currentPath, onNewTransaction, onNewTransfer, isOpen, onClose }) {

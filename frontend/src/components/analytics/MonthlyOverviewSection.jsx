@@ -2,12 +2,13 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ShoppingCart, Hash } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import AnalyticsMetricCard from './AnalyticsMetricCard';
 import { CardLoading } from '@/components/common/Loading';
 
 export default function MonthlyOverviewSection({ data, loading }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (

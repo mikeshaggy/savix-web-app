@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 
 const STATUS_CFG = {
@@ -38,6 +38,7 @@ function formatShortDate(dateStr) {
 
 export default function CycleHealthHero({ cycleHealth, period }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
 
   if (!cycleHealth) return null;
 
@@ -104,67 +105,69 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         </div>
       </div>
 
-      {/* Metrics grid — left primary (currentBalance) + right rail (3 smaller metrics) */}
-      <div
-        className="grid grid-cols-3 gap-px bg-white/[0.035] md:[grid-template-columns:minmax(0,1.35fr)_repeat(3,minmax(0,0.9fr))]"
-      >
-        {/* Current Balance — primary block, spans full width on mobile */}
-        <div className="col-span-3 md:col-span-1 bg-[#0e0e1c] px-6 md:px-8 py-6 md:py-8">
-          <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-3">
-            {t('dashboard.currentBalance')}
-          </div>
-          <div
-            className={`font-mono text-[clamp(28px,3vw,42px)] font-bold tracking-[-1px] leading-none ${cfg.textClass}`}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {formatCurrency(currentBalance)}
-          </div>
+      {/* Current Balance — primary block, always full width */}
+      <div className="bg-[#0e0e1c] px-6 md:px-8 py-6 md:py-8 border-b border-white/[0.035]">
+        <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-3">
+          {t('dashboard.currentBalance')}
         </div>
+        <div
+          className={`font-mono text-[clamp(24px,5vw,40px)] font-bold tracking-[-1px] leading-none tabular-nums ${cfg.textClass}`}
+          style={{ overflowWrap: 'break-word' }}
+        >
+          {formatCurrency(currentBalance)}
+        </div>
+      </div>
 
+      {/* Secondary metrics — stack on mobile, 3-across from sm up so values always have room */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.035]">
         {/* Safe to Spend */}
-        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
+        <div className="bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6 min-w-0">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
             {t('dashboard.safeToSpend')}
           </div>
-          <div
-            className={`font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none ${
-              safeToSpendPerDay != null && Number(safeToSpendPerDay) >= 0 ? 'text-white' : 'text-rose-400'
-            }`}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {safeToSpendPerDay != null
-              ? `${formatCurrency(safeToSpendPerDay)} ${t('dashboard.perDay')}`
-              : '—'}
-          </div>
+          {safeToSpendPerDay != null ? (
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <div
+                className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none tabular-nums ${
+                  Number(safeToSpendPerDay) >= 0 ? 'text-white' : 'text-rose-400'
+                }`}
+                style={{ overflowWrap: 'break-word' }}
+              >
+                {formatCurrency(safeToSpendPerDay)}
+              </div>
+              <div className="text-[9px] text-white/30 leading-none">{t('dashboard.perDay')}</div>
+            </div>
+          ) : (
+            <div className="font-mono text-[clamp(18px,3.4vw,26px)] font-bold leading-none text-white/20">—</div>
+          )}
           {safeToSpend != null && (
-            <div className="text-[9px] text-white/30 mt-1.5" style={{ whiteSpace: 'nowrap' }}>
+            <div className="text-[9px] text-white/30 mt-1.5">
               {t('dashboard.safeToSpendTotal', { amount: formatCurrency(safeToSpend) })}
             </div>
           )}
         </div>
 
-        {/* Projected End Balance */}
-        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
+        {/* Projected Cycle Surplus/Deficit */}
+        <div className="bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6 min-w-0">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
-            {t('dashboard.projectedEndBalance')}
+            {projectionAvailable && projectedEndBalance != null
+              ? Number(projectedEndBalance) >= 0
+                ? t('dashboard.projectedCycleSurplus')
+                : t('dashboard.projectedCycleDeficit')
+              : t('dashboard.projectedCycleSurplus')}
           </div>
           {projectionAvailable && projectedEndBalance != null ? (
             <div
-              className={`font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none ${
+              className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none tabular-nums ${
                 Number(projectedEndBalance) >= 0 ? 'text-white' : 'text-rose-400'
               }`}
-              style={{ whiteSpace: 'nowrap' }}
+              style={{ overflowWrap: 'break-word' }}
             >
               {formatCurrency(projectedEndBalance)}
             </div>
           ) : (
             <>
-              <div
-                className="font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none text-white/20"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                —
-              </div>
+              <div className="font-mono text-[clamp(18px,3.4vw,26px)] font-bold leading-none text-white/20">—</div>
               {!projectionAvailable && (
                 <div className="text-[9px] text-white/30 mt-1.5">
                   {t('dashboard.projectionUnavailable')}
@@ -175,17 +178,16 @@ export default function CycleHealthHero({ cycleHealth, period }) {
         </div>
 
         {/* Spending Pace */}
-        <div className="col-span-1 bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6">
+        <div className="bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6 min-w-0">
           <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">
             {t('dashboard.spendingPace')}
           </div>
           {comparisonAvailable && pacePercent != null ? (
             <>
               <div
-                className={`font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none ${
+                className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none tabular-nums ${
                   paceIsGood ? 'text-emerald-400' : 'text-rose-400'
                 }`}
-                style={{ whiteSpace: 'nowrap' }}
               >
                 {pacePercent > 0 ? '+' : ''}{pacePercent.toFixed(1)}%
               </div>
@@ -195,12 +197,7 @@ export default function CycleHealthHero({ cycleHealth, period }) {
             </>
           ) : (
             <>
-              <div
-                className="font-mono text-[clamp(18px,2.2vw,28px)] font-bold tracking-[-0.5px] leading-none text-white/20"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                —
-              </div>
+              <div className="font-mono text-[clamp(18px,3.4vw,26px)] font-bold leading-none text-white/20">—</div>
               <div className="text-[9px] text-white/30 mt-1.5">{t('dashboard.noComparison')}</div>
             </>
           )}

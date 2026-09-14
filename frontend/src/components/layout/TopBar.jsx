@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Bell, Wallet, Check, LogOut, Settings, Menu, ChevronDown } from 'lucide-react';
+import { RefreshCw, Wallet, Check, LogOut, Menu, ChevronDown } from 'lucide-react';
 import { useWallets } from '@/contexts/WalletContext';
 import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 export default function TopBar({ 
     onRefresh,
@@ -15,6 +15,7 @@ export default function TopBar({
     const { user, logout } = useUser();
     const router = useRouter();
     const t = useTranslations();
+    const formatCurrency = useFormatCurrency();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -152,16 +153,6 @@ export default function TopBar({
                     <RefreshCw className="w-[13px] h-[13px]" />
                 </button>
 
-                {/* Notifications — not yet implemented */}
-                <button
-                    disabled
-                    aria-label={t('settings.notifications')}
-                    title={t('settings.notifications')}
-                    className="w-[34px] h-[34px] flex items-center justify-center bg-[#131325] border border-white/[0.055] rounded-[10px] text-white/30 opacity-50 cursor-not-allowed relative"
-                >
-                    <Bell className="w-[13px] h-[13px]" />
-                </button>
-
                 {/* User Chip */}
                 <div className="relative" ref={userMenuRef}>
                     <button
@@ -191,17 +182,6 @@ export default function TopBar({
                                         </div>
                                     </div>
                                 )}
-
-                                <button
-                                    onClick={() => {
-                                        router.push('/settings');
-                                        setIsUserMenuOpen(false);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[9px] hover:bg-white/[0.04] text-white/50 hover:text-white text-[12px] font-medium transition-all cursor-pointer"
-                                >
-                                    <Settings className="w-3.5 h-3.5" />
-                                    {t('nav.settings')}
-                                </button>
 
                                 <button
                                     onClick={handleLogout}

@@ -2,7 +2,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Calendar, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { CardLoading } from '@/components/common/Loading';
 
 // Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
@@ -17,6 +17,7 @@ function fmtShort(str) {
 
 export default function CycleForecastHero({ projData, loading, period }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (

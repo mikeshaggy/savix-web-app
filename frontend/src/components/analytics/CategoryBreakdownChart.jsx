@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import BudgetProgressBar from '@/components/common/BudgetProgressBar';
 
 // Deterministic palette — same category always gets the same color
@@ -30,6 +30,7 @@ const BUDGET_STATUS_LABEL_CLASS = {
 
 function CategoryRow({ cat, rank, budgetMap }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
   const color = getCategoryColor(cat.categoryId);
   const barFill = Math.min(100, cat.share ?? 0);
 

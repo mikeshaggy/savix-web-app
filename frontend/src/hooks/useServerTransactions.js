@@ -38,12 +38,17 @@ function parseArrayParams(searchParams, ...names) {
 }
 
 function parseInitialState(searchParams) {
+  // Read the same param names the hook writes below (`types`, `categoryIds`,
+  // `importances`), while still accepting the legacy singular names so old
+  // bookmarked/shared URLs keep working.
   return {
     page: Math.max(parseIntSafe(searchParams.get('page'), 0), 0),
     size: sanitizeSize(searchParams.get('size')),
     sort: sanitizeSort(searchParams.get('sort')),
-    types: searchParams.getAll('type').filter(Boolean),
-    categoryIds: searchParams.getAll('categoryId').map(Number).filter(n => !isNaN(n)),
+    types: parseArrayParams(searchParams, 'types', 'type'),
+    categoryIds: parseArrayParams(searchParams, 'categoryIds', 'categoryId')
+      .map(Number)
+      .filter(n => !isNaN(n)),
     importances: parseArrayParams(searchParams, 'importances', 'importance'),
     startDate: searchParams.get('startDate') || '',
     endDate: searchParams.get('endDate') || '',

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 // Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
 // T12:00:00 prevents timezone drift when parsing date-only strings.
@@ -211,6 +211,7 @@ function StatCell({ label, value, color }) {
 
 export default function SpendingTrajectoryChart({ projData, loading }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (

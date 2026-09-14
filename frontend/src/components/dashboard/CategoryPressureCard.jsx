@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus, Settings2 } from 'lucide-react';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 import BudgetProgressBar from '@/components/common/BudgetProgressBar';
 
@@ -21,6 +21,7 @@ const BUDGET_STATUS_ROW_CLASS = {
 
 export default function CategoryPressureCard({ categoryPressure, onManageBudgets }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
   const items = categoryPressure ?? [];
 
   return (

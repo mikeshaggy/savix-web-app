@@ -13,6 +13,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { loadUser } = useUser();
   const t = useTranslations('auth');
+  const tCommon = useTranslations('common');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -158,7 +159,7 @@ function LoginForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {t('common.loading', { ns: 'common' })}
+                  {tCommon('loading')}
                 </>
               ) : (
                 t('login')

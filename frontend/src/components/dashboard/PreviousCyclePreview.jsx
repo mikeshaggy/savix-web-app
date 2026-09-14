@@ -1,10 +1,11 @@
 'use client';
 import React from 'react';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 
 function DeltaCell({ label, deltaAmount, deltaPercent, lowerIsBetter = false }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
 
   if (deltaAmount == null || deltaPercent == null) {
     return (

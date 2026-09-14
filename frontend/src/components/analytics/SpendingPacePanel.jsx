@@ -2,7 +2,7 @@
 import React from 'react';
 import { Flame, ShieldCheck, CalendarClock, Lock, TrendingDown, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 function PaceRow({ icon: Icon, label, subtext, value, color }) {
   return (
@@ -33,6 +33,7 @@ function PaceRow({ icon: Icon, label, subtext, value, color }) {
 
 export default function SpendingPacePanel({ projData, loading }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   if (loading) {
     return (

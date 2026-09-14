@@ -12,7 +12,7 @@ import { useTranslations } from 'next-intl';
 import { useWallets } from '@/contexts/WalletContext';
 import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import InsightCards from '@/components/analytics/InsightCards';
 import ErrorState from '@/components/common/ErrorState';
 
@@ -177,6 +177,7 @@ function OverviewSkeleton() {
 
 export default function AnalyticsOverviewPage() {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
   const { currentWallet } = useWallets();
   const { periodType, resolvedStart, resolvedEnd } = useAnalyticsPeriod();
   const searchParams = useSearchParams();
@@ -284,7 +285,7 @@ export default function AnalyticsOverviewPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
             <KpiChip
               icon={Wallet}
-              label={t('overviewKpiBalance')}
+              label={endBalance >= 0 ? t('overviewKpiBalanceSurplus') : t('overviewKpiBalanceDeficit')}
               value={formatCurrency(endBalance)}
               helper={t('overviewKpiBalanceHelper')}
               color={balanceColor}

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 import { CheckCircle } from 'lucide-react';
 
@@ -30,6 +30,7 @@ const SEVERITY_CFG = {
 
 export default function InsightsCard({ insights }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
   const items = insights ?? [];
 
   return (

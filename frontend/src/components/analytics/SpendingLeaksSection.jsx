@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Zap, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 
 // ─── leak detection ───────────────────────────────────────────────────────────
 // Keyword list covering common discretionary/draining categories in English + Polish.
@@ -46,6 +46,7 @@ const LEAK_COLORS = [
 ];
 
 function LeakRow({ leak, index, t }) {
+  const formatCurrency = useFormatCurrency();
   const color = LEAK_COLORS[index % LEAK_COLORS.length];
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-b-0">
@@ -87,6 +88,7 @@ function LeakRow({ leak, index, t }) {
  */
 export default function SpendingLeaksSection({ categoryData, loading }) {
   const t = useTranslations('analytics');
+  const formatCurrency = useFormatCurrency();
 
   const { leaks, totalLeaks, leaksShare } = useMemo(() => {
     const cats = categoryData?.categories ?? [];

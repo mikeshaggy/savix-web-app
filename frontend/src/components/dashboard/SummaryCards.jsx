@@ -1,10 +1,11 @@
 'use client';
 import React from 'react';
-import { formatCurrency } from '@/utils/helpers';
+import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
 
 export default function SummaryCards({ kpis }) {
   const t = useTranslations();
+  const formatCurrency = useFormatCurrency();
 
   if (!kpis) return null;
 
@@ -59,7 +60,7 @@ export default function SummaryCards({ kpis }) {
 
   return (
     <div
-      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.07] bg-[#0e0e1c]"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 rounded-[20px] overflow-hidden border border-white/[0.07] bg-[#0e0e1c]"
       style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.08s' }}
     >
       {segments.map((seg, index) => {
@@ -95,9 +96,9 @@ export default function SummaryCards({ kpis }) {
 
             {/* Value */}
             <div
-              className={`font-mono text-[clamp(22px,2.7vw,32px)] font-bold tracking-[-0.5px] leading-none mb-3 ${seg.gradient ? '' : seg.valueClass}`}
+              className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none mb-3 tabular-nums ${seg.gradient ? '' : seg.valueClass}`}
               style={{
-                whiteSpace: 'nowrap',
+                overflowWrap: 'break-word',
                 ...(seg.gradient
                   ? {
                       background: 'linear-gradient(90deg, #c084fc, #e879f9)',
