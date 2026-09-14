@@ -26,6 +26,14 @@ app:
   proxy:
     # Must match the PROXY_SECRET used by the frontend dev proxy.
     secret: development-secret-key-change-me
+  # Roadmap feature flags — all default to false (see application.yml, FEATURE_* env vars).
+  # Uncomment to enable locally. forecast-v2-shadow is backend-only (not exposed via /api/me).
+  # features:
+  #   pay-cycle-v2: false
+  #   forecast-v2: false
+  #   forecast-v2-shadow: false
+  #   dashboard-v2: false
+  #   insights-v2: false
 
 logging:
   level:

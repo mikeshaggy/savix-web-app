@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.user.service;
 
+import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.dto.MeResponse;
 import com.mikeshaggy.backend.user.dto.MeUpdateRequest;
@@ -19,10 +20,11 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final FeatureFlags featureFlags;
 
     public MeResponse getUserById(UUID userId) {
         User user = getUserOrThrow(userId);
-        return MeResponse.from(user);
+        return MeResponse.from(user, featureFlags);
     }
 
     @Transactional
@@ -33,7 +35,7 @@ public class UserService {
         log.info("User updated: userId={}", userId);
 
         User updatedUser = userRepository.save(user);
-        return MeResponse.from(updatedUser);
+        return MeResponse.from(updatedUser, featureFlags);
     }
 
     @Transactional

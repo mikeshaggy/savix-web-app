@@ -56,6 +56,9 @@ docker-compose.local.yml
 # Local research, plans, prototypes, data exports, and cleanup records
 /.local/
 
+# /ship pipeline run state (local execution metadata)
+/.pipeline/
+
 # Project-local tool state (retain discovery paths for installed tools)
 /.agents/skills/
 /.claude/

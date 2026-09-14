@@ -40,6 +40,12 @@ app:
   email:
     from: ${EMAIL_FROM:savix@mikeshaggy.com}
     from-name: ${EMAIL_FROM_NAME:Savix}
+  features:
+    pay-cycle-v2: ${FEATURE_PAY_CYCLE_V2:false}
+    forecast-v2: ${FEATURE_FORECAST_V2:false}
+    forecast-v2-shadow: ${FEATURE_FORECAST_V2_SHADOW:false}
+    dashboard-v2: ${FEATURE_DASHBOARD_V2:false}
+    insights-v2: ${FEATURE_INSIGHTS_V2:false}
 
 auth:
   jwt:

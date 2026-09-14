@@ -177,11 +177,13 @@ export const UserProvider = ({ children }) => {
   }, [backendAvailable, backendChecked, loadUser]);
 
   const currentUser = user;
+  const features = user?.features ?? null;
 
   const value = {
     user,
     currentUser,
-    
+    features,
+
     isLoading,
     isAuthenticated,
     backendAvailable,
