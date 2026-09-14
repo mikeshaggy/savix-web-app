@@ -407,21 +407,6 @@ export const transactionApi = {
   deleteTransaction: (id) => del(`/transactions/${id}`),
 };
 
-export const csvImportApi = {
-  importCsv: (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    return apiRequest('/csv-import/csv', {
-      method: 'POST',
-      body: formData,
-      skipJsonBody: true,
-      headers: {
-      },
-    });
-  },
-};
-
 export const dashboardApi = {
   getDashboardSummary: (walletId, params = {}) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
