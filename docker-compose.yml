@@ -1,0 +1,27 @@
+name: savix
+
+services:
+  savix-db:
+    image: postgres:16-alpine
+    container_name: savix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: savix
+    ports:
+      - 5432:5432
+    volumes:
+      - savix-db-data:/var/lib/postgresql/data
+      - ./01_init.sql:/docker-entrypoint-initdb.d/01_init.sql
+
+
+  savix-redis:
+    image: redis:alpine
+    container_name: savix-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  savix-db-data:

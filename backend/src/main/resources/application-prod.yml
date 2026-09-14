@@ -1,3 +1,32 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# PRODUCTION CONFIG (Raspberry Pi deployment).
+#
+# Activated with spring.profiles.active=prod. All secrets are supplied via
+# environment variables. Database, mail credentials, frontend URL, and proxy
+# secret have no development fallback in this profile.
+# ──────────────────────────────────────────────────────────────────────────────
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  mail:
+    host: ${MAIL_HOST:${SMTP_HOST:smtp-relay.brevo.com}}
+    port: ${MAIL_PORT:${SMTP_PORT:587}}
+    username: ${MAIL_USERNAME:${SMTP_USERNAME}}
+    password: ${MAIL_PASSWORD:${SMTP_PASSWORD}}
+
+app:
+  frontend:
+    url: ${FRONTEND_URL}
+  proxy:
+    secret: ${PROXY_SECRET}
+
 logging:
   level:
     com.mikeshaggy.backend: INFO

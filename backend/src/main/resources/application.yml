@@ -2,23 +2,21 @@ spring:
   application:
     name: savix-backend
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/savix}
+    username: ${DB_USERNAME:savix-admin}
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
-  jpa:
-    show-sql: false
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: 2000ms
   mail:
-    host: ${SMTP_HOST}
-    port: ${SMTP_PORT}
-    username: ${SMTP_USERNAME}
-    password: ${SMTP_PASSWORD}
+    host: ${MAIL_HOST:${SMTP_HOST:smtp-relay.brevo.com}}
+    port: ${MAIL_PORT:${SMTP_PORT:587}}
+    username: ${MAIL_USERNAME:${SMTP_USERNAME:}}
+    password: ${MAIL_PASSWORD:${SMTP_PASSWORD:}}
     properties:
       mail:
         smtp:
@@ -32,24 +30,24 @@ spring:
         debug: false
 
 server:
-  port: ${SERVER_PORT}
+  port: ${SERVER_PORT:8000}
 
 app:
   frontend:
-    url: ${FRONTEND_URL}
+    url: ${FRONTEND_URL:http://localhost:3000}
   proxy:
-    secret: ${PROXY_SECRET}
+    secret: ${PROXY_SECRET:development-secret-key-change-me}
   email:
-    from: ${EMAIL_FROM}
-    from-name: ${EMAIL_FROM_NAME}
+    from: ${EMAIL_FROM:savix@mikeshaggy.com}
+    from-name: ${EMAIL_FROM_NAME:Savix}
 
 auth:
   jwt:
-    issuer: ${JWT_ISSUER}
-    audience: ${JWT_AUDIENCE}
+    issuer: ${JWT_ISSUER:savix-backend}
+    audience: ${JWT_AUDIENCE:savix-frontend}
     clock-skew-seconds: 30
-    public-key-location: ${JWT_PUBLIC_KEY}
-    private-key-location: ${JWT_PRIVATE_KEY}
+    public-key-location: ${JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY_PATH:classpath:jwt-public-key.pem}}
+    private-key-location: ${JWT_PRIVATE_KEY:${JWT_PRIVATE_KEY_PATH:classpath:jwt-private-key.pem}}
 
   access-token:
     ttl-seconds: 600 # 10 minutes
@@ -80,8 +78,8 @@ auth:
 
 logging:
   level:
-    com.mikeshaggy.backend: DEBUG
-    org.springframework.security: DEBUG
+    com.mikeshaggy.backend: INFO
+    org.springframework.security: INFO
     org.springframework.web: WARN
     org.hibernate: WARN
     org.hibernate.SQL: WARN

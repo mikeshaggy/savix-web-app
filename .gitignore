@@ -52,3 +52,15 @@ out/
 # Docker
 docker-compose.override.yml
 docker-compose.local.yml
+
+# Local research, plans, prototypes, data exports, and cleanup records
+/.local/
+
+# Project-local tool state (retain discovery paths for installed tools)
+/.agents/skills/
+/.claude/
+/.obsidian/
+/CLAUDE.md
+/.graphifyignore
+/graphify-out/
+/skills-lock.json

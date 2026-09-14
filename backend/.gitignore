@@ -1,6 +1,15 @@
 *.pem
 .DS_Store
 target/
+
+### Local-only Spring config (may contain credentials) ###
+# Keep the committed template (application-local.yml.example); ignore the real one.
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+# Stray credential/config dumps that must never be committed.
+src/main/resources/credentials
+src/main/resources/temp
+
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# TEMPLATE for local development config.
+#
+# Copy this file to `application-local.yml` (which is gitignored) and fill in your
+# own local values, then run the backend with:
+#     spring.profiles.active=local,dev (temporary development JWT keys)
+#
+# Do NOT put real/shared production credentials here, and never commit
+# application-local.yml. Set AUTH_COOKIE_SECURE=false when using local HTTP.
+# ──────────────────────────────────────────────────────────────────────────────
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/savix
+    username: savix-admin
+    password: change-me-local-db-password
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  # Optional — only needed to test password-reset emails locally.
+  # mail:
+  #   username: your-smtp-username
+  #   password: your-smtp-password
+
+app:
+  proxy:
+    # Must match the PROXY_SECRET used by the frontend dev proxy.
+    secret: development-secret-key-change-me
+
+logging:
+  level:
+    com.mikeshaggy.backend: INFO
+    org.springframework.security: INFO
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: ${LOCAL_HIBERNATE_SQL_LOG_LEVEL:WARN}
+    org.hibernate.orm.jdbc.bind: ${LOCAL_HIBERNATE_BIND_LOG_LEVEL:WARN}
