@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.domain.jwt.TokenType;
 import com.mikeshaggy.backend.auth.dto.TokenPair;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.ECDSASigner;
@@ -23,6 +24,8 @@ import java.util.UUID;
 @Slf4j
 public class JwtService {
 
+    private static final String TOKEN_TYPE_CLAIM = "token_type";
+
     private final ECKey ecKey;
 
     @Value("${auth.jwt.issuer}")
@@ -41,12 +44,12 @@ public class JwtService {
     private int clockSkewSeconds;
 
     public TokenPair generateTokenPair(UUID userId) {
-        String accessToken = generateToken(userId, accessTokenTtl);
-        String refreshToken = generateToken(userId, refreshTokenTtl);
+        String accessToken = generateToken(userId, accessTokenTtl, TokenType.ACCESS);
+        String refreshToken = generateToken(userId, refreshTokenTtl, TokenType.REFRESH);
         return new TokenPair(accessToken, refreshToken);
     }
 
-    private String generateToken(UUID userId, int ttlSeconds) {
+    private String generateToken(UUID userId, int ttlSeconds, TokenType tokenType) {
         try {
             Instant now = Instant.now();
             Instant expiration = now.plusSeconds(ttlSeconds);
@@ -55,6 +58,7 @@ public class JwtService {
                     .subject(userId.toString())
                     .issuer(issuer)
                     .audience(audience)
+                    .claim(TOKEN_TYPE_CLAIM, tokenType.claimValue())
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(expiration))
                     .jwtID(UUID.randomUUID().toString())
@@ -103,9 +107,12 @@ public class JwtService {
                 throw new InvalidTokenException("Invalid token audience");
             }
 
+            TokenType tokenType = TokenType.fromClaim(claims.getStringClaim(TOKEN_TYPE_CLAIM));
+
             return JwtClaims.of(
                     UUID.fromString(claims.getSubject()),
                     claims.getJWTID(),
+                    tokenType,
                     claims.getIssueTime().toInstant(),
                     claims.getExpirationTime().toInstant());
 

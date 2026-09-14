@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.domain.jwt.TokenType;
 import com.mikeshaggy.backend.auth.dto.TokenPair;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -83,6 +84,7 @@ class JwtServiceTest {
             // then
             assertThat(claims.subject()).isEqualTo(userId);
             assertThat(claims.jti()).isNotBlank();
+            assertThat(claims.tokenType()).isEqualTo(TokenType.ACCESS);
             assertThat(claims.issuedAt()).isBetween(before.minusSeconds(1), Instant.now().plusSeconds(1));
             assertThat(claims.expiresAt())
                     .isBetween(before.plusSeconds(ACCESS_TTL - 2), Instant.now().plusSeconds(ACCESS_TTL + 2));
@@ -101,9 +103,25 @@ class JwtServiceTest {
             // then
             assertThat(claims.subject()).isEqualTo(userId);
             assertThat(claims.jti()).isNotBlank();
+            assertThat(claims.tokenType()).isEqualTo(TokenType.REFRESH);
             assertThat(claims.expiresAt())
                     .isBetween(
                             before.plusSeconds(REFRESH_TTL - 2), Instant.now().plusSeconds(REFRESH_TTL + 2));
+        }
+
+        @Test
+        void accessAndRefreshTokensCarryDistinctTokenTypes() {
+            // given
+            UUID userId = UUID.randomUUID();
+
+            // when
+            TokenPair pair = jwtService.generateTokenPair(userId);
+            JwtClaims access = jwtService.validateAndParse(pair.accessToken());
+            JwtClaims refresh = jwtService.validateAndParse(pair.refreshToken());
+
+            // then
+            assertThat(access.tokenType()).isEqualTo(TokenType.ACCESS);
+            assertThat(refresh.tokenType()).isEqualTo(TokenType.REFRESH);
         }
 
         @Test
@@ -145,6 +163,22 @@ class JwtServiceTest {
             assertThat(claims.jti()).isNotBlank();
             assertThat(claims.issuedAt()).isNotNull();
             assertThat(claims.expiresAt()).isAfter(claims.issuedAt());
+        }
+
+        @Test
+        void tokenWithoutTokenTypeClaimParsesAsUnknown() throws JOSEException {
+            // tokens minted before the token_type claim existed must still parse,
+            // but resolve to UNKNOWN so callers reject them at the type boundary
+            // given
+            String legacyToken =
+                    buildSignedToken(
+                            ecKey, ISSUER, AUDIENCE, Instant.now(), Instant.now().plusSeconds(ACCESS_TTL));
+
+            // when
+            JwtClaims claims = jwtService.validateAndParse(legacyToken);
+
+            // then
+            assertThat(claims.tokenType()).isEqualTo(TokenType.UNKNOWN);
         }
 
         @Test

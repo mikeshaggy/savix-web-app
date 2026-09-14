@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.auth.service;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.domain.jwt.TokenType;
 import com.mikeshaggy.backend.auth.domain.session.RefreshSession;
 import com.mikeshaggy.backend.auth.dto.LoginResult;
 import com.mikeshaggy.backend.auth.dto.request.LoginRequest;
@@ -99,6 +100,11 @@ public class SessionService {
             claims = jwtService.validateAndParse(refreshToken);
         } catch (JwtService.InvalidTokenException e) {
             log.warn("Refresh token validation failed: reason=invalid_token");
+            throw new AuthException("Invalid refresh token");
+        }
+
+        if (claims.tokenType() != TokenType.REFRESH) {
+            log.warn("Refresh token validation failed: reason=wrong_token_type");
             throw new AuthException("Invalid refresh token");
         }
 

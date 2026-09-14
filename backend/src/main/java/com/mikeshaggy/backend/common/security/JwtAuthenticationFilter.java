@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.common.security;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.domain.jwt.TokenType;
 import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import jakarta.servlet.FilterChain;
@@ -38,6 +39,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 JwtClaims claims = jwtService.validateAndParse(token);
+
+                if (claims.tokenType() != TokenType.ACCESS) {
+                    log.debug("JWT authentication skipped: reason=non_access_token");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         claims.subject().toString(),

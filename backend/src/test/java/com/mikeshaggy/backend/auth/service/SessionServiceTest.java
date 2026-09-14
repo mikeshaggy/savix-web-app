@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.mikeshaggy.backend.auth.domain.jwt.JwtClaims;
+import com.mikeshaggy.backend.auth.domain.jwt.TokenType;
 import com.mikeshaggy.backend.auth.domain.session.RefreshSession;
 import com.mikeshaggy.backend.auth.dto.LoginResult;
 import com.mikeshaggy.backend.auth.dto.TokenPair;
@@ -94,7 +95,7 @@ class SessionServiceTest {
     private void stubSuccessfulSessionCreation() {
         TokenPair tokens = new TokenPair(ACCESS_TOKEN, REFRESH_TOKEN);
         JwtClaims refreshClaims =
-                JwtClaims.of(USER_ID, JTI, Instant.now(), Instant.now().plusSeconds(1209600));
+                JwtClaims.of(USER_ID, JTI, TokenType.REFRESH, Instant.now(), Instant.now().plusSeconds(1209600));
 
         when(jwtService.generateTokenPair(USER_ID)).thenReturn(tokens);
         when(jwtService.validateAndParse(REFRESH_TOKEN)).thenReturn(refreshClaims);
@@ -289,7 +290,7 @@ class SessionServiceTest {
         @BeforeEach
         void setUp() {
             httpRequest = mockHttpRequest();
-            validClaims = JwtClaims.of(USER_ID, JTI, Instant.now(), Instant.now().plusSeconds(1209600));
+            validClaims = JwtClaims.of(USER_ID, JTI, TokenType.REFRESH, Instant.now(), Instant.now().plusSeconds(1209600));
 
             existingSession =
                     RefreshSession.builder()
@@ -314,7 +315,7 @@ class SessionServiceTest {
             String newJti = UUID.randomUUID().toString();
             TokenPair newTokens = new TokenPair("new-access", "new-refresh");
             JwtClaims newRefreshClaims =
-                    JwtClaims.of(USER_ID, newJti, Instant.now(), Instant.now().plusSeconds(1209600));
+                    JwtClaims.of(USER_ID, newJti, TokenType.REFRESH, Instant.now(), Instant.now().plusSeconds(1209600));
             when(jwtService.generateTokenPair(USER_ID)).thenReturn(newTokens);
             when(jwtService.validateAndParse("new-refresh")).thenReturn(newRefreshClaims);
             when(cryptoUtils.sha256Hash(newJti)).thenReturn("new-jti-hash");
@@ -345,6 +346,25 @@ class SessionServiceTest {
             assertThatThrownBy(() -> sessionService.refresh("bad-token", httpRequest))
                     .isInstanceOf(AuthException.class)
                     .hasMessage("Invalid refresh token");
+        }
+
+        @Test
+        void accessTokenPresentedToRefresh_throwsAuthException() {
+            // an access token is a validly-signed JWT, but must not be usable to refresh
+            // given
+            when(rateLimitService.isAllowed(eq("refresh:ip"), eq(CLIENT_IP), eq(30), eq(60), eq(60)))
+                    .thenReturn(true);
+            JwtClaims accessClaims =
+                    JwtClaims.of(USER_ID, JTI, TokenType.ACCESS, Instant.now(), Instant.now().plusSeconds(600));
+            when(jwtService.validateAndParse(ACCESS_TOKEN)).thenReturn(accessClaims);
+
+            // when
+            // then
+            assertThatThrownBy(() -> sessionService.refresh(ACCESS_TOKEN, httpRequest))
+                    .isInstanceOf(AuthException.class)
+                    .hasMessage("Invalid refresh token");
+
+            verify(refreshSessionRepository, never()).findById(any());
         }
 
         @Test
@@ -420,7 +440,7 @@ class SessionServiceTest {
         @Test
         void validToken_deletesSession() {
             // given
-            JwtClaims claims = JwtClaims.of(USER_ID, JTI, Instant.now(), Instant.now().plusSeconds(600));
+            JwtClaims claims = JwtClaims.of(USER_ID, JTI, TokenType.REFRESH, Instant.now(), Instant.now().plusSeconds(600));
             when(jwtService.validateAndParse(REFRESH_TOKEN)).thenReturn(claims);
 
             // when
