@@ -40,6 +40,8 @@ app:
   email:
     from: ${EMAIL_FROM:savix@mikeshaggy.com}
     from-name: ${EMAIL_FROM_NAME:Savix}
+  paycycle:
+    min-cycle-days: ${PAYCYCLE_MIN_CYCLE_DAYS:20}
   features:
     pay-cycle-v2: ${FEATURE_PAY_CYCLE_V2:false}
     forecast-v2: ${FEATURE_FORECAST_V2:false}

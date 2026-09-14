@@ -64,6 +64,43 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("asOfDate") LocalDate asOfDate,
             Pageable pageable);
 
+    /**
+     * Distinct dates of anchor-category transactions in one wallet, newest first, on or before {@code upTo}.
+     * Feeds {@code PayCycleService.anchorDates}; same-day duplicates collapse here, the minimum-cycle-length
+     * merge happens in the service.
+     */
+    @Query("""
+        SELECT DISTINCT t.transactionDate FROM Transaction t
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.category.id = :categoryId
+        AND t.transactionDate <= :upTo
+        ORDER BY t.transactionDate DESC
+    """)
+    List<LocalDate> findAnchorDates(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("categoryId") Integer categoryId,
+            @Param("upTo") LocalDate upTo,
+            Pageable pageable);
+
+    /**
+     * Id of the regular (non-fund) wallet holding the user's most recent anchor-category transaction —
+     * the same rule as the {@code users.salary_wallet_id} backfill in {@code 04_pay_cycle.sql}. Call with a
+     * page of one.
+     */
+    @Query("""
+        SELECT t.wallet.id FROM Transaction t
+        WHERE t.wallet.user.id = :userId
+        AND t.category.id = :categoryId
+        AND t.wallet.isFund = false
+        ORDER BY t.transactionDate DESC, t.id DESC
+    """)
+    List<Integer> findLatestAnchorWalletIds(
+            @Param("userId") UUID userId,
+            @Param("categoryId") Integer categoryId,
+            Pageable pageable);
+
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         JOIN t.category c
