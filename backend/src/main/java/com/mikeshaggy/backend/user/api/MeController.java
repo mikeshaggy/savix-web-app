@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.user.api;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.user.dto.MeResponse;
 import com.mikeshaggy.backend.user.dto.MeUpdateRequest;
+import com.mikeshaggy.backend.user.dto.PaydayRuleRequest;
 import com.mikeshaggy.backend.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,23 @@ public class MeController {
                 currentUserProvider.getCurrentUserId(),
                 request
         );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/payday-rule")
+    public ResponseEntity<MeResponse> setPaydayRule(@Valid @RequestBody PaydayRuleRequest request) {
+        MeResponse response = userService.setPaydayRule(
+                currentUserProvider.getCurrentUserId(),
+                request
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/payday-rule")
+    public ResponseEntity<MeResponse> deletePaydayRule() {
+        MeResponse response = userService.deletePaydayRule(currentUserProvider.getCurrentUserId());
 
         return ResponseEntity.ok(response);
     }

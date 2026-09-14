@@ -79,7 +79,7 @@ savix-web-app/
 │
 ├── docker-compose.yml          # PostgreSQL + Redis setup
 ├── 01_init.sql                 # Database schema initialization (fresh databases)
-├── 0N_*.sql                    # Numbered migrations for existing databases (see docs/migrations.md)
+├── 0N_*.sql                    # Numbered migrations for existing databases (see Database Migrations)
 └── .env.example                # Environment variables template
 ```
 
@@ -139,13 +139,14 @@ Fresh databases are created from `01_init.sql` (mounted by `docker-compose.yml`)
 |------|--------|
 | `02_funds.sql` | Funds / saving goals (`wallets.is_fund`, `funds` table) |
 | `03_fund_currency_status.sql` | Drops `funds.currency`, allows `COMPLETED` fund status |
+| `04_pay_cycle.sql` | Pay cycle foundation: `users.salary_wallet_id` (+ backfill from the latest anchor-category transaction), `user_payday_rules` table |
 
 ```bash
 pg_dump -U savix-admin -d savix -Fc -f savix-before.dump
 psql -v ON_ERROR_STOP=1 --single-transaction -U savix-admin -d savix -f 0N_<topic>.sql
 ```
 
-Every migration is mirrored into `01_init.sql`. Full convention, apply/rollback steps and the migration checklist: [docs/migrations.md](docs/migrations.md).
+Every migration is mirrored into `01_init.sql`, is idempotent (safe to re-run), and is applied in order after a `pg_dump` backup; rollback is restoring that dump.
 
 ---
 

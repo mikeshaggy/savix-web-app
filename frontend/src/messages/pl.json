@@ -268,7 +268,9 @@
     "entryChipLabel": "Wpis #{id}",
     "transactionChipTitle": "Otwórz transakcję #{id}",
     "entryChipTitle": "Wpis portfela #{id}",
-    "viewHistory": "Pokaż historię"
+    "viewHistory": "Pokaż historię",
+    "salaryWallet": "Portfel wypłaty",
+    "setAsSalaryWallet": "Ustaw jako portfel wypłaty"
   },
   "settings": {
     "title": "Ustawienia",

@@ -21,6 +21,17 @@ create unique index uq_wallets_user_name
 on wallets(user_id, name)
 where is_fund = false;
 
+-- Pay cycle (04_pay_cycle.sql): the wallet the salary lands in, and an optional configured payday rule.
+alter table users add column salary_wallet_id int references wallets(id) on delete set null;
+
+create table user_payday_rules (
+    user_id       uuid primary key references users(id) on delete cascade,
+    day_of_month  int  not null check (day_of_month between 1 and 31),
+    weekend_shift varchar(24) not null default 'PREVIOUS_BUSINESS_DAY'
+                  check (weekend_shift in ('NONE','PREVIOUS_BUSINESS_DAY','NEXT_BUSINESS_DAY')),
+    updated_at    timestamp default NOW()
+);
+
 create table categories (
     id serial primary key,
     user_id uuid not null references users(id) on delete cascade,

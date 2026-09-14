@@ -267,7 +267,9 @@
     "entryChipLabel": "Entry #{id}",
     "transactionChipTitle": "Open transaction #{id}",
     "entryChipTitle": "Wallet entry #{id}",
-    "viewHistory": "View history"
+    "viewHistory": "View history",
+    "salaryWallet": "Salary wallet",
+    "setAsSalaryWallet": "Set as salary wallet"
   },
   "settings": {
     "title": "Settings",

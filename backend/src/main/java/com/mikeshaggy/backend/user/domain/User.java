@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.user.domain;
 
+import com.mikeshaggy.backend.wallet.domain.Wallet;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -29,6 +30,11 @@ public class User {
 
     @Column(nullable = false, length = 255)
     private String passwordHash;
+
+    /** Wallet the salary lands in; drives pay-cycle resolution. Null until set or backfilled (04_pay_cycle.sql). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "salary_wallet_id")
+    private Wallet salaryWallet;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

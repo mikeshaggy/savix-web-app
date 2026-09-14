@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useWallets } from '@/contexts/WalletContext';
-import { Wallet, Plus, Edit3, Trash2, RefreshCw } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
+import { Wallet, Plus, Edit3, Trash2, RefreshCw, Banknote } from 'lucide-react';
 import { formatCurrency } from '@/utils/helpers';
 import { Loading } from '@/components/common/Loading';
 import { useTranslations } from 'next-intl';
@@ -29,6 +30,8 @@ export default function WalletManagementView() {
     setCurrentWallet,
     fetchWallets
   } = useWallets();
+  const { user, updateProfile } = useUser();
+  const salaryWalletId = user?.salaryWalletId ?? null;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWallet, setEditingWallet] = useState(null);
@@ -94,6 +97,14 @@ export default function WalletManagementView() {
   const handleViewHistory = (wallet) => {
     setCurrentWallet(wallet);
     router.push('/wallets/balance-history');
+  };
+
+  const handleSetSalaryWallet = async (wallet) => {
+    try {
+      await updateProfile({ salaryWalletId: wallet.id });
+    } catch (error) {
+      console.error('Failed to set salary wallet:', error);
+    }
   };
 
   const walletColors = ['teal', 'amber', 'blue', 'rose'];
@@ -202,6 +213,7 @@ export default function WalletManagementView() {
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-[14px]">
         {wallets.map((wallet, index) => {
           const isActive = currentWallet?.id === wallet.id;
+          const isSalaryWallet = salaryWalletId === wallet.id;
           const color = getWalletColor(wallet, index);
           const cfg = colorConfig[color];
 
@@ -282,6 +294,25 @@ export default function WalletManagementView() {
                       <div className="w-[5px] h-[5px] rounded-full bg-[#a855f7] shadow-[0_0_6px_#a855f7] animate-pulse" />
                       {t('common.active')}
                     </div>
+                  )}
+                  {isSalaryWallet ? (
+                    <div
+                      className="flex items-center gap-[5px] bg-[rgba(20,184,166,0.15)] border border-[rgba(20,184,166,0.3)] rounded-full px-[10px] py-1 text-[11px] font-medium text-[#14b8a6]"
+                      data-testid="salary-wallet-badge"
+                    >
+                      <Banknote className="w-3 h-3" />
+                      {t('wallet.salaryWallet')}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetSalaryWallet(wallet);
+                      }}
+                      className="text-[11.5px] text-white/35 cursor-pointer border-none bg-transparent transition-colors hover:text-white/50 underline decoration-transparent underline-offset-2 hover:decoration-white/[0.12]"
+                    >
+                      {t('wallet.setAsSalaryWallet')}
+                    </button>
                   )}
                   <button
                     onClick={(e) => {
