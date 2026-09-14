@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const PROXY_SECRET = process.env.PROXY_SECRET;
+const PROXY_SECRET = "47af6ced51f2295295c7d8dca930efe89c967d866fe9e08946c85b8f1a1c38c25844926eea49ad5bea2c372688edeb60ccfff64b499025cb7b9969e5358181e1";
 
 async function forward(req, { params }) {
 
