@@ -2,6 +2,8 @@ package com.mikeshaggy.backend.analytics.forecast;
 
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.PeriodService;
@@ -65,7 +67,10 @@ public class SpendingProjectionService {
             throw new IllegalArgumentException("period must not be in the future");
         }
 
-        LocalDate toDate = today.isBefore(period.endDate()) ? today : period.endDate();
+        // "To date" horizon: today, capped at the period end — except for a cycle awaiting its salary, which keeps
+        // counting the days after the expected payday (same rule as the dashboard cutoff).
+        LocalDate toDate = today.isBefore(period.endDate())
+                || resolvedPeriod.cycleState() == CycleState.AWAITING_SALARY ? today : period.endDate();
         BigDecimal incomeToDate = transactionQueryService.sum(
                 wallet.getId(), userId, period.startDate(), toDate, CategoryType.INCOME);
         BigDecimal incomeForPeriod = transactionQueryService.sum(
@@ -74,8 +79,15 @@ public class SpendingProjectionService {
                 wallet.getId(), userId, period.startDate(), toDate, CategoryType.EXPENSE);
         BigDecimal variableExpensesToDate = transactionQueryService.sumUnlinked(
                 wallet.getId(), userId, period.startDate(), toDate, CategoryType.EXPENSE);
-        BigDecimal remainingFixed = resolveRemainingFixed(
-                precomputedRemainingFixed, resolvedPeriod, period, wallet, userId, today);
+
+        if (!projectionCalculator.isProjectionAvailable(resolvedPeriod.periodType(), resolvedPeriod.cycleState())) {
+            return reportingOnly(resolvedPeriod, period, toDate,
+                    incomeToDate, incomeForPeriod, expensesToDate, variableExpensesToDate);
+        }
+
+        BigDecimal remainingFixed = precomputedRemainingFixed != null
+                ? money(precomputedRemainingFixed)
+                : remainingFixedPayments(resolvedPeriod, period, wallet, userId, today);
         ProjectionResult projection = projectionCalculator.calculate(new ProjectionInput(
                 period,
                 today,
@@ -106,28 +118,51 @@ public class SpendingProjectionService {
                 projection.linkedFixedExpensesToDate(),
                 projection.variableDailyBurnRate(),
                 projection.projectedVariableRemaining(),
-                projection.projectionAvailable(),
-                projection.projectionReason());
+                true,
+                null);
     }
 
-    private BigDecimal resolveRemainingFixed(BigDecimal precomputedRemainingFixed,
-                                             PeriodDto resolved, PeriodWindow period,
-                                             Wallet wallet, UUID userId, LocalDate today) {
-        if (!projectionCalculator.isProjectionAvailable(period, today)) {
-            return money(BigDecimal.ZERO);
-        }
-        if (precomputedRemainingFixed != null) {
-            return money(precomputedRemainingFixed);
-        }
-        return remainingFixedPayments(resolved, period, wallet, userId, today);
+    /**
+     * Reporting periods (MONTHLY, CUSTOM, LAST_PAY_CYCLE, a cycle awaiting its salary or without a resolved state)
+     * carry actuals only: every projected / safe-to-spend figure is {@code null} so no consumer can mistake a
+     * to-date total for a forecast.
+     */
+    private SpendingProjectionDto reportingOnly(PeriodDto resolvedPeriod, PeriodWindow period, LocalDate toDate,
+                                                BigDecimal incomeToDate, BigDecimal incomeForPeriod,
+                                                BigDecimal expensesToDate, BigDecimal variableExpensesToDate) {
+        int daysInPeriod = InclusiveDateRange.daysBetween(period.startDate(), period.endDate());
+        int daysElapsed = InclusiveDateRange.daysBetween(period.startDate(), toDate);
+        int daysRemaining = Math.max(0, InclusiveDateRange.daysBetween(toDate.plusDays(1), period.endDate()));
+        BigDecimal variableDailyBurnRate = projectionCalculator.variableDailyBurnRate(variableExpensesToDate, daysElapsed);
+
+        return new SpendingProjectionDto(
+                resolvedPeriod.periodType(),
+                periodLabel(resolvedPeriod.periodType()),
+                period.startDate(),
+                period.endDate(),
+                daysInPeriod,
+                daysElapsed,
+                daysRemaining,
+                incomeToDate,
+                incomeForPeriod,
+                expensesToDate,
+                null,
+                null,
+                null,
+                money(BigDecimal.ZERO),
+                null,
+                null,
+                money(variableExpensesToDate),
+                money(expensesToDate.subtract(variableExpensesToDate)),
+                variableDailyBurnRate,
+                null,
+                false,
+                projectionCalculator.projectionReason(resolvedPeriod.periodType(), resolvedPeriod.cycleState()));
     }
 
+    /** The projection window is the resolved period itself; pay-cycle-v2 already ends a PAY_CYCLE the day before the next payday. */
     private PeriodWindow resolveProjectionWindow(PeriodDto period) {
-        LocalDate endDate = switch (period.periodType()) {
-            case PAY_CYCLE -> period.billingEndDate().minusDays(1);
-            case LAST_PAY_CYCLE, MONTHLY, CUSTOM -> period.endDate();
-        };
-        return new PeriodWindow(period.startDate(), endDate);
+        return new PeriodWindow(period.startDate(), period.endDate());
     }
 
     private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,

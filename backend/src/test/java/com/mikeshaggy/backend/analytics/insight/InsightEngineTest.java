@@ -84,10 +84,9 @@ class InsightEngineTest {
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class),
                         eq(Importance.SHOULDNT_HAVE)))
                 .thenReturn(BigDecimal.ZERO);
-        // Default: positive safe-to-spend (no alert)
+        // Default: positive safe-to-spend (no alert); the engine projects the resolved period itself
         lenient().when(spendingProjectionService.getSpendingProjection(
-                        eq(WALLET_ID), eq(USER_ID), eq(PeriodType.CUSTOM),
-                        any(LocalDate.class), any(LocalDate.class), any(LocalDate.class)))
+                        any(Wallet.class), eq(USER_ID), any(PeriodDto.class), any(LocalDate.class)))
                 .thenReturn(projection("250.00"));
     }
 
@@ -184,7 +183,9 @@ class InsightEngineTest {
         // Primary March: expenses 4000 over 31 days → 129.03/day
         // Compare Feb: expenses 2800 over 28 days → 100/day
         // 129.03 > 100 * 1.20 = 120 ✓
-        // today (Apr 15) > PRIMARY_END → paceEnd = PRIMARY_END → reuses totals.expenses(), no extra query
+        // today (Mar 31) == PRIMARY_END → paceEnd = PRIMARY_END → reuses totals.expenses(), no extra query;
+        // today inside the period → a projection exists (default stub), which the pace insight presupposes
+        insightEngine = engineAt("2026-03-31T10:00:00Z");
         stubPrimaryTotals("10000.00", "4000.00");
         stubCompareExpenses("2800.00");
 
@@ -194,6 +195,34 @@ class InsightEngineTest {
         assertThat(insight.severity()).isEqualTo(InsightSeverity.WARN);
         assertThat(insight.relatedAmount()).isEqualByComparingTo("4000.00");
         assertThat(insight.description()).contains("previous period");
+    }
+
+    @Test
+    void spendingPaceNotGeneratedForReportingPeriodWithoutProjection() {
+        // same pace as above, but the resolved period is reporting-only (projection unavailable)
+        insightEngine = engineAt("2026-03-31T10:00:00Z");
+        stubPrimaryTotals("10000.00", "4000.00");
+        stubCompareExpenses("2800.00");
+        when(spendingProjectionService.getSpendingProjection(
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), any(LocalDate.class)))
+                .thenReturn(reportingProjection());
+
+        InsightResponseDto result = getInsights();
+
+        assertThat(result.insights()).extracting(InsightDto::type)
+                .doesNotContain(InsightType.SPENDING_PACE_ABOVE_BASELINE, InsightType.SAFE_TO_SPEND_WARNING);
+    }
+
+    @Test
+    void spendingPaceNotGeneratedWhenTodayIsAfterThePeriod() {
+        // today (Apr 15) > PRIMARY_END → no projection for a period that already ended → no pace verdict
+        stubPrimaryTotals("10000.00", "4000.00");
+        stubCompareExpenses("2800.00");
+
+        InsightResponseDto result = getInsights();
+
+        assertThat(result.insights()).extracting(InsightDto::type)
+                .doesNotContain(InsightType.SPENDING_PACE_ABOVE_BASELINE);
     }
 
     @Test
@@ -238,7 +267,9 @@ class InsightEngineTest {
     void safeToSpendWarningGeneratedWhenProjectionIsNegativeAndTodayIsInPeriod() {
         insightEngine = engineAt("2026-03-15T10:00:00Z");
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.CUSTOM, PRIMARY_START, PRIMARY_END, LocalDate.of(2026, 3, 15)))
+                any(Wallet.class), eq(USER_ID),
+                eq(PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM)),
+                eq(LocalDate.of(2026, 3, 15))))
                 .thenReturn(projection("-75.00"));
 
         InsightResponseDto result = getInsights();
@@ -339,8 +370,7 @@ class InsightEngineTest {
         verify(transactionQueryService).expenseByImportance(
                 WALLET_ID, USER_ID, PRIMARY_START, LocalDate.of(2026, 3, 10), Importance.SHOULDNT_HAVE);
         // SpendingProjectionService must NOT be called — projection was supplied by the caller
-        Mockito.verify(spendingProjectionService, Mockito.never())
-                .getSpendingProjection(any(), any(), any(), any(), any(), any());
+        Mockito.verifyNoInteractions(spendingProjectionService);
     }
 
     // ─── getInsightsForWindow — precomputed data ─────────────────────────────────
@@ -370,7 +400,7 @@ class InsightEngineTest {
         PeriodDto primaryWindow = PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
         PeriodDto compareWindow = PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
         PrecomputedInsightData precomputed = new PrecomputedInsightData(
-                null,
+                projection("250.00"),
                 new PeriodTotals(new BigDecimal("10000.00"), new BigDecimal("4000.00")),
                 new BigDecimal("2800.00"),
                 null, null);
@@ -452,6 +482,19 @@ class InsightEngineTest {
                 perDay,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 true, null);
+    }
+
+    /** A reporting-only projection (MONTHLY / CUSTOM / closed cycle): no safe-to-spend, no verdict material. */
+    private SpendingProjectionDto reportingProjection() {
+        return new SpendingProjectionDto(
+                PeriodType.CUSTOM, "Custom range",
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                31, 31, 0,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null,
+                null, null, BigDecimal.ZERO,
+                null, null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null,
+                false, "REPORTING_PERIOD");
     }
 
     private CategoryBreakdownProjection category(Integer categoryId, String name, String amount) {

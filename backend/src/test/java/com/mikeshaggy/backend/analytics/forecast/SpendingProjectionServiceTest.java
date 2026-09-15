@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.analytics.forecast;
 
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.PeriodService;
@@ -71,10 +72,9 @@ class SpendingProjectionServiceTest {
     }
 
     @Test
-    void defaultPayCycleCurrentPeriod_projectsThroughBillingEndDate() {
+    void openPayCycle_projectsThroughCycleEnd() {
         when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), TODAY,
-                        LocalDate.of(2026, 6, 10), PeriodType.PAY_CYCLE));
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 6, 9)));
         sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"), new BigDecimal("1850.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
                         any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
@@ -105,8 +105,7 @@ class SpendingProjectionServiceTest {
     @Test
     void explicitPayCycleCurrentPeriod_usesSameContract() {
         when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), TODAY,
-                        LocalDate.of(2026, 6, 1), PeriodType.PAY_CYCLE));
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("190.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
@@ -118,25 +117,67 @@ class SpendingProjectionServiceTest {
     }
 
     @Test
-    void lastPayCycleHistoricalPeriod_returnsActualsOnly() {
+    void lastPayCycleClosedCycle_returnsActualsOnly() {
         when(periodService.resolve(PeriodType.LAST_PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 9),
-                        LocalDate.of(2026, 5, 10), PeriodType.LAST_PAY_CYCLE));
+                .thenReturn(new PeriodDto(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 9),
+                        LocalDate.of(2026, 5, 10), PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED, null, true));
         sums(new BigDecimal("4000.00"), new BigDecimal("4000.00"), new BigDecimal("2500.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
                 WALLET_ID, USER_ID, PeriodType.LAST_PAY_CYCLE, null, null);
 
         assertThat(result.projectionAvailable()).isFalse();
-        assertThat(result.projectionReason()).isEqualTo("Historical period");
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_CLOSED_CYCLE);
+        assertThat(result.daysInPeriod()).isEqualTo(30);
         assertThat(result.daysElapsed()).isEqualTo(30);
         assertThat(result.daysRemaining()).isZero();
-        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("2500.00");
-        assertThat(result.projectedEndBalance()).isEqualByComparingTo("1500.00");
+        assertReportingOnly(result);
+        // actuals stay
+        assertThat(result.incomeForPeriod()).isEqualByComparingTo("4000.00");
+        assertThat(result.expensesToDate()).isEqualByComparingTo("2500.00");
+        assertThat(result.variableExpensesToDate()).isEqualByComparingTo("2500.00");
+        assertThat(result.variableDailyBurnRate()).isEqualByComparingTo("83.33");
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("0.00");
-        assertThat(result.safeToSpendToday()).isEqualByComparingTo("0.00");
         verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(
                 any(), any(Wallet.class), any(), any(LocalDate.class));
+    }
+
+    @Test
+    void awaitingSalaryCycle_isReportingOnlyWithAwaitingReason() {
+        // expected payday May 15 has passed without a salary: cycle Apr 15 → May 14 is AWAITING_SALARY on May 19
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(LocalDate.of(2026, 4, 15), LocalDate.of(2026, 5, 14),
+                        LocalDate.of(2026, 5, 15), PeriodType.PAY_CYCLE,
+                        CycleState.AWAITING_SALARY, LocalDate.of(2026, 5, 15), true));
+        sums(new BigDecimal("4000.00"), new BigDecimal("4000.00"), new BigDecimal("3000.00"));
+
+        SpendingProjectionDto result = service.getSpendingProjection(
+                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        assertThat(result.projectionAvailable()).isFalse();
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+        assertThat(result.daysRemaining()).isZero();
+        // the late days (May 15–19) are counted and summed, like the dashboard cutoff
+        assertThat(result.daysElapsed()).isEqualTo(35);
+        assertReportingOnly(result);
+        verify(transactionQueryService).sum(WALLET_ID, USER_ID, LocalDate.of(2026, 4, 15), TODAY, CategoryType.EXPENSE);
+        verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(
+                any(), any(Wallet.class), any(), any(LocalDate.class));
+    }
+
+    @Test
+    void legacyPayCycleWithoutState_isReportingOnly() {
+        // flag-off resolver shape: no cycle state → not a v2 open cycle, no projection
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), TODAY, LocalDate.of(2026, 6, 10), PeriodType.PAY_CYCLE));
+        sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("100.00"));
+
+        SpendingProjectionDto result = service.getSpendingProjection(
+                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        assertThat(result.projectionAvailable()).isFalse();
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+        assertReportingOnly(result);
     }
 
     @Test
@@ -168,10 +209,17 @@ class SpendingProjectionServiceTest {
         assertThat(result.daysInPeriod()).isEqualTo(31);
         assertThat(result.daysElapsed()).isEqualTo(19);
         assertThat(result.daysRemaining()).isEqualTo(12);
+        assertThat(result.projectionAvailable()).isFalse();
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+        assertReportingOnly(result);
+        assertThat(result.expensesToDate()).isEqualByComparingTo("950.00");
+        assertThat(result.variableDailyBurnRate()).isEqualByComparingTo("50.00");
+        verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(
+                any(), any(Wallet.class), any(), any(LocalDate.class));
     }
 
     @Test
-    void customPeriodContainingToday_projectsSelectedRange() {
+    void customPeriodContainingToday_isReportingOnly() {
         LocalDate start = LocalDate.of(2026, 5, 15);
         LocalDate end = LocalDate.of(2026, 5, 25);
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, start, end))
@@ -185,9 +233,12 @@ class SpendingProjectionServiceTest {
         assertThat(result.daysInPeriod()).isEqualTo(11);
         assertThat(result.daysElapsed()).isEqualTo(5);
         assertThat(result.daysRemaining()).isEqualTo(6);
-        assertThat(result.dailyBurnRate()).isEqualByComparingTo("50.00");
-        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("550.00");
-        assertThat(result.projectedEndBalance()).isEqualByComparingTo("350.00");
+        assertThat(result.projectionAvailable()).isFalse();
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+        assertReportingOnly(result);
+        assertThat(result.expensesToDate()).isEqualByComparingTo("250.00");
+        assertThat(result.incomeForPeriod()).isEqualByComparingTo("900.00");
+        assertThat(result.variableDailyBurnRate()).isEqualByComparingTo("50.00");
     }
 
     @Test
@@ -202,8 +253,10 @@ class SpendingProjectionServiceTest {
                 WALLET_ID, USER_ID, PeriodType.CUSTOM, start, end);
 
         assertThat(result.projectionAvailable()).isFalse();
+        assertThat(result.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
         assertThat(result.daysElapsed()).isEqualTo(31);
-        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("800.00");
+        assertThat(result.projectedPeriodExpenses()).isNull();
+        assertThat(result.expensesToDate()).isEqualByComparingTo("800.00");
     }
 
     @Test
@@ -246,14 +299,11 @@ class SpendingProjectionServiceTest {
     @Test
     void firstDayOfPeriod_countsOneElapsedDay() {
         service = serviceWithDate(LocalDate.of(2026, 5, 10));
-        when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID,
-                LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20)))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20),
-                        LocalDate.of(2026, 6, 10), PeriodType.CUSTOM));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20)));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("25.00"));
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.CUSTOM,
-                LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20));
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.daysElapsed()).isEqualTo(1);
         assertThat(result.daysRemaining()).isEqualTo(10);
@@ -292,12 +342,11 @@ class SpendingProjectionServiceTest {
 
     @Test
     void zeroExpensesReturnsZeroBurnRateAndProjectedExpenses() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), BigDecimal.ZERO);
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.dailyBurnRate()).isEqualByComparingTo("0.00");
         assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("0.00");
@@ -305,12 +354,11 @@ class SpendingProjectionServiceTest {
 
     @Test
     void zeroIncomeDoesNotCrash() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("190.00"));
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.incomeForPeriod()).isEqualByComparingTo("0.00");
         assertThat(result.projectedEndBalance()).isEqualByComparingTo("-310.00");
@@ -318,12 +366,11 @@ class SpendingProjectionServiceTest {
 
     @Test
     void zeroIncomeAndZeroExpensesReturnsZeros() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.dailyBurnRate()).isEqualByComparingTo("0.00");
         assertThat(result.projectedEndBalance()).isEqualByComparingTo("0.00");
@@ -340,17 +387,17 @@ class SpendingProjectionServiceTest {
 
         assertThat(result.daysInPeriod()).isZero();
         assertThat(result.daysElapsed()).isZero();
-        assertThat(result.dailyBurnRate()).isEqualByComparingTo("0.00");
+        assertThat(result.dailyBurnRate()).isNull();
+        assertThat(result.variableDailyBurnRate()).isEqualByComparingTo("0.00");
     }
 
     @Test
     void negativeProjectedEndBalanceAllowed() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("1900.00"));
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.projectedEndBalance()).isNegative();
     }
@@ -359,15 +406,14 @@ class SpendingProjectionServiceTest {
     void negativeSafeToSpendTodayAllowed() {
         Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("100.00")).build();
         when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID)).thenReturn(wallet);
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("1900.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
                         any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(fixedTile(new BigDecimal("200.00")));
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.safeToSpendToday()).isNegative();
     }
@@ -389,15 +435,14 @@ class SpendingProjectionServiceTest {
 
     @Test
     void remainingFixedPaymentsIncludedForCurrentPeriod() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("190.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
                         any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(fixedTile(new BigDecimal("350.00")));
 
-        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+        SpendingProjectionDto result = service.getSpendingProjection(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("350.00");
         ArgumentCaptor<PeriodDto> captor = ArgumentCaptor.forClass(PeriodDto.class);
@@ -409,16 +454,15 @@ class SpendingProjectionServiceTest {
     @Test
     void asOfDateIsPassedToRemainingFixedPaymentsCalculation() {
         LocalDate asOfDate = LocalDate.of(2026, 5, 10);
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("100.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
                 any(), any(Wallet.class), eq(USER_ID), eq(asOfDate)))
                 .thenReturn(fixedTile(new BigDecimal("250.00")));
 
         SpendingProjectionDto result = service.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null, asOfDate);
+                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, asOfDate);
 
         assertThat(result.daysElapsed()).isEqualTo(10);
         assertThat(result.remainingFixedPayments()).isEqualByComparingTo("250.00");
@@ -428,15 +472,14 @@ class SpendingProjectionServiceTest {
 
     @Test
     void linkedFixedPaymentsExcludedFromBurnRateButKeptInProjectedTotal() {
-        when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(openCycle(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31)));
         // expensesToDate = 1990 (1800 linked fixed + 190 variable); variable = 190.
         sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"),
                 new BigDecimal("1990.00"), new BigDecimal("190.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null);
+                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
         // elapsed=19, remaining=12
         assertThat(result.expensesToDate()).isEqualByComparingTo("1990.00");
@@ -451,6 +494,21 @@ class SpendingProjectionServiceTest {
         assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("2110.00");
         verify(transactionQueryService).sumUnlinked(
                 eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class), eq(CategoryType.EXPENSE));
+    }
+
+    /** pay-cycle-v2 shape of the salary wallet's open cycle: end = next payday − 1, state OPEN. */
+    private static PeriodDto openCycle(LocalDate start, LocalDate end) {
+        return new PeriodDto(start, end, end.plusDays(1), PeriodType.PAY_CYCLE, CycleState.OPEN, end.plusDays(1), true);
+    }
+
+    /** Reporting periods carry actuals only: every projected / safe-to-spend figure is null. */
+    private static void assertReportingOnly(SpendingProjectionDto result) {
+        assertThat(result.dailyBurnRate()).isNull();
+        assertThat(result.projectedPeriodExpenses()).isNull();
+        assertThat(result.projectedEndBalance()).isNull();
+        assertThat(result.projectedVariableRemaining()).isNull();
+        assertThat(result.safeToSpendToday()).isNull();
+        assertThat(result.safeToSpendPerDay()).isNull();
     }
 
     private void sums(BigDecimal incomeToDate, BigDecimal incomeForPeriod, BigDecimal expensesToDate) {

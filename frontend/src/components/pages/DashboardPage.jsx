@@ -229,7 +229,7 @@ export default function DashboardPage() {
             />
 
             {/* Hero: Cycle Health */}
-            <CycleHealthHero cycleHealth={summary.cycleHealth} period={summary.period} />
+            <CycleHealthHero cycleHealth={summary.cycleHealth} period={summary.period} kpis={summary.kpis} />
 
             {/* KPI row */}
             <div className="mb-5">
@@ -241,11 +241,13 @@ export default function DashboardPage() {
             <div
                 className="grid grid-cols-1 gap-5 lg:[grid-template-columns:minmax(0,1.35fr)_minmax(360px,0.95fr)]"
             >
-                {/* Row 1 – left: Fixed Payments (primary operational card) */}
-                <FixedTransactionsTile
-                    fixedPayments={summary.fixedPayments}
-                    walletId={currentWallet?.id}
-                />
+                {/* Row 1 – left: Fixed Payments (primary operational card; absent on reporting periods — Stage 2.4) */}
+                {summary.fixedPayments && (
+                    <FixedTransactionsTile
+                        fixedPayments={summary.fixedPayments}
+                        walletId={currentWallet?.id}
+                    />
+                )}
                 {/* Row 1 – right: Category Pressure (fills to match Fixed Payments height) */}
                 <CategoryPressureCard
                   categoryPressure={summary.categoryPressure}

@@ -14,6 +14,7 @@ import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.repository.CategoryRepository;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
@@ -102,11 +103,12 @@ class AnalyticsRegressionSafetyTest {
                 walletService,
                 categoryAggregationService,
                 new OverviewStatusCalculator());
+        // Stage 2: only the salary wallet's OPEN pay cycle carries a projection; the Overview is fed PAY_CYCLE
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.CUSTOM, CURRENT_START, CURRENT_END))
+                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null))
                 .thenReturn(new SpendingProjectionDto(
-                        PeriodType.CUSTOM,
-                        "Custom range",
+                        PeriodType.PAY_CYCLE,
+                        "Current pay cycle",
                         CURRENT_START,
                         CURRENT_END,
                         31,
@@ -125,23 +127,25 @@ class AnalyticsRegressionSafetyTest {
                         BigDecimal.ZERO,
                         new BigDecimal("38.71"),
                         BigDecimal.ZERO,
-                        false,
-                        "Historical period"));
+                        true,
+                        null));
         when(categoryAggregationService.aggregateExpenses(
                 WALLET_ID, USER_ID, CURRENT_START, CURRENT_END, CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES))
                 .thenReturn(new CategoryAggregationResult(BigDecimal.ZERO, List.of()));
         when(transactionRepository.findHeatmapByWalletDateRangeAndType(
                 WALLET_ID, USER_ID, CURRENT_START, CURRENT_END, CategoryType.EXPENSE))
                 .thenReturn(List.of(heatmapRow(LocalDate.of(2026, 3, 31), CURRENT_EXPENSES)));
-        when(periodService.resolvePeriods(PeriodType.CUSTOM, WALLET_ID, USER_ID, CURRENT_START, CURRENT_END))
+        when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
                 .thenReturn(new ResolvedPeriods(
-                        PeriodDto.of(CURRENT_START, CURRENT_END, CURRENT_END, PeriodType.CUSTOM),
-                        PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
+                        new PeriodDto(CURRENT_START, CURRENT_END, CURRENT_END.plusDays(1), PeriodType.PAY_CYCLE,
+                                CycleState.OPEN, CURRENT_END.plusDays(1), true),
+                        new PeriodDto(COMPARE_START, COMPARE_END, CURRENT_START, PeriodType.LAST_PAY_CYCLE,
+                                CycleState.CLOSED, null, true)));
         when(transactionRepository.sumByWalletUserDateRangeAndType(
                 WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
                 .thenReturn(COMPARE_EXPENSES);
 
-        return service.getSummary(WALLET_ID, USER_ID, PeriodType.CUSTOM, CURRENT_START, CURRENT_END);
+        return service.getSummary(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
     }
 
     private CycleComparisonResponseDto cycleComparison() {

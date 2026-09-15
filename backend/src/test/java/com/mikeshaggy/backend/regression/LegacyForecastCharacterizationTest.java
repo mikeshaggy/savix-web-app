@@ -37,9 +37,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static com.mikeshaggy.backend.regression.September2026Fixture.CLOCK;
-import static com.mikeshaggy.backend.regression.September2026Fixture.LAST_PAY_CYCLE_PERIOD;
+import static com.mikeshaggy.backend.regression.September2026Fixture.LAST_PAY_CYCLE_PERIOD_V2;
 import static com.mikeshaggy.backend.regression.September2026Fixture.MONTHLY_PERIOD;
-import static com.mikeshaggy.backend.regression.September2026Fixture.PAY_CYCLE_PERIOD;
+import static com.mikeshaggy.backend.regression.September2026Fixture.PAY_CYCLE_PERIOD_V2;
 import static com.mikeshaggy.backend.regression.September2026Fixture.PREVIOUS_MONTH_PERIOD;
 import static com.mikeshaggy.backend.regression.September2026Fixture.SALARY_WALLET_BALANCE;
 import static com.mikeshaggy.backend.regression.September2026Fixture.SALARY_WALLET_ID;
@@ -52,6 +52,8 @@ import static com.mikeshaggy.backend.regression.September2026Fixture.projectionI
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -80,7 +82,6 @@ class LegacyForecastCharacterizationTest {
             assertThat(result.projectedEndBalance()).isEqualByComparingTo("-1105.46");
             assertThat(result.safeToSpendToday()).isEqualByComparingTo("-1105.46");
             assertThat(result.safeToSpendPerDay()).isEqualByComparingTo("-46.06");
-            assertThat(result.projectionAvailable()).isTrue();
         }
 
         @Test
@@ -182,6 +183,7 @@ class LegacyForecastCharacterizationTest {
                     .build();
         }
 
+        /** Stage 2: the open PAY_CYCLE (pay-cycle-v2 shape) still carries the legacy DANGER numbers until Stage 4. */
         @Test
         void payCycle_isDanger() {
             LocalDate cycleStart = LocalDate.of(2026, 9, 9);
@@ -192,7 +194,7 @@ class LegacyForecastCharacterizationTest {
             when(walletService.getWalletEntityByIdForUser(SALARY_WALLET_ID, USER_ID))
                     .thenReturn(salaryWallet());
             when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, SALARY_WALLET_ID, USER_ID, null, null))
-                    .thenReturn(new ResolvedPeriods(PAY_CYCLE_PERIOD, LAST_PAY_CYCLE_PERIOD));
+                    .thenReturn(new ResolvedPeriods(PAY_CYCLE_PERIOD_V2, LAST_PAY_CYCLE_PERIOD_V2));
             when(transactionQueryService.totals(SALARY_WALLET_ID, USER_ID, cycleStart, TODAY))
                     .thenReturn(new PeriodTotals(new BigDecimal("9444.81"), new BigDecimal("3547.92")));
             when(transactionQueryService.totals(SALARY_WALLET_ID, USER_ID, compareStart, compareEnd))
@@ -232,11 +234,20 @@ class LegacyForecastCharacterizationTest {
             assertThat(result.period().daysElapsed()).isEqualTo(6);
             assertThat(result.period().daysRemaining()).isEqualTo(24);
             assertThat(result.period().endDate()).isEqualTo(cycleEnd);
+            assertThat(result.period().cycleState()).isEqualTo(com.mikeshaggy.backend.common.paycycle.CycleState.OPEN);
+            assertThat(result.period().expectedPaydayDate()).isEqualTo(LocalDate.of(2026, 10, 9));
+            assertThat(result.period().salaryWallet()).isTrue();
+            assertThat(result.period().reporting()).isFalse();
             assertThat(result.fixedPayments().balanceAfterRemainingFixedPayments()).isEqualByComparingTo("5102.62");
         }
 
+        /**
+         * Stage 2.2/2.4: the calendar month is reporting-only on the dashboard — no verdict, no projection, no
+         * fixed-payments tile — while its KPIs equal the PAY_CYCLE ones. The legacy MONTHLY projection numbers
+         * (3941.15 / 246.32) are characterised at calculator level only ({@link Calculator#monthly_reproducesAuditNumbers}).
+         */
         @Test
-        void monthly_isOnTrack() {
+        void monthly_isReportingOnly() {
             LocalDate monthStart = LocalDate.of(2026, 9, 1);
             LocalDate monthEnd = LocalDate.of(2026, 9, 30);
             LocalDate compareStart = LocalDate.of(2026, 8, 1);
@@ -258,9 +269,6 @@ class LegacyForecastCharacterizationTest {
                     .thenReturn(new BigDecimal("3547.92"));
             when(transactionQueryService.sumUnlinked(SALARY_WALLET_ID, USER_ID, monthStart, TODAY, CategoryType.EXPENSE))
                     .thenReturn(new BigDecimal("1552.02"));
-            when(fixedPaymentDashboardService.getFixedPaymentsTileData(
-                    any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
-                    .thenReturn(monthlyFixedTile());
             when(insightEngine.getInsightsForWindow(
                     any(Wallet.class), eq(USER_ID), any(), any(), eq(TODAY), any()))
                     .thenReturn(new InsightResponseDto(monthStart, TODAY, List.of()));
@@ -275,16 +283,19 @@ class LegacyForecastCharacterizationTest {
                     SALARY_WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null, null,
                     com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
 
-            assertThat(result.cycleHealth().status()).isEqualTo(DashboardHealthStatus.ON_TRACK);
-            assertThat(result.cycleHealth().safeToSpend()).isEqualByComparingTo("3941.15");
-            assertThat(result.cycleHealth().safeToSpendPerDay()).isEqualByComparingTo("246.32");
-            assertThat(result.cycleHealth().projectedEndBalance()).isEqualByComparingTo("3941.15");
-            assertThat(result.cycleHealth().spendingPaceDeltaAmount()).isEqualByComparingTo("-1370.22");
-            assertThat(result.cycleHealth().spendingPaceDeltaPercent()).isEqualByComparingTo("-27.86");
+            assertThat(result.cycleHealth()).isNull();
+            assertThat(result.fixedPayments()).isNull();
+            assertThat(result.period().reporting()).isTrue();
+            assertThat(result.period().cycleState()).isNull();
             assertThat(result.period().daysInPeriod()).isEqualTo(30);
             assertThat(result.period().daysElapsed()).isEqualTo(14);
             assertThat(result.period().daysRemaining()).isEqualTo(16);
-            assertThat(result.fixedPayments().balanceAfterRemainingFixedPayments()).isEqualByComparingTo("5714.91");
+            // reporting numbers identical to PAY_CYCLE on the audit date
+            assertThat(result.kpis().income().amount()).isEqualByComparingTo("9444.81");
+            assertThat(result.kpis().expenses().amount()).isEqualByComparingTo("3547.92");
+            assertThat(result.kpis().expenses().deltaAmount()).isEqualByComparingTo("-1370.22");
+            assertThat(result.kpis().expenses().deltaPercent()).isEqualByComparingTo("-27.86");
+            verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(any(), any(Wallet.class), any(), any());
         }
 
         private FixedTransactionsTileDto payCycleFixedTile() {
@@ -303,28 +314,6 @@ class LegacyForecastCharacterizationTest {
                             new BigDecimal("408.30"), 8),
                     SALARY_WALLET_BALANCE,
                     new BigDecimal("5102.62"),
-                    new RiskIndicatorDto(false, null),
-                    List.of(),
-                    List.of(),
-                    List.of());
-        }
-
-        private FixedTransactionsTileDto monthlyFixedTile() {
-            return new FixedTransactionsTileDto(
-                    LocalDate.of(2026, 9, 1),
-                    LocalDate.of(2026, 9, 30),
-                    LocalDate.of(2026, 9, 30),
-                    new FixedSummaryDto(
-                            new BigDecimal("2232.96"), 6,
-                            new BigDecimal("2050.98"), 4,
-                            new BigDecimal("181.98"), 2,
-                            BigDecimal.ZERO, 0,
-                            new BigDecimal("38.00")),
-                    new FixedProgressDto(4, 6, new BigDecimal("66.67"),
-                            LocalDate.of(2026, 9, 20), "FX_UTILITY_A", "FX_MEMBERSHIP",
-                            new BigDecimal("169.00"), 6),
-                    SALARY_WALLET_BALANCE,
-                    new BigDecimal("5714.91"),
                     new RiskIndicatorDto(false, null),
                     List.of(),
                     List.of(),

@@ -4,6 +4,7 @@ import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCycleHealthDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardFixedPaymentsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
@@ -28,6 +29,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
@@ -74,9 +76,69 @@ class DashboardSummaryControllerTest {
                 .andExpect(jsonPath("$.walletId").value(1))
                 .andExpect(jsonPath("$.walletName").value("Main"))
                 .andExpect(jsonPath("$.period.type").value("PAY_CYCLE"))
+                .andExpect(jsonPath("$.period.cycleState").value("OPEN"))
+                .andExpect(jsonPath("$.period.expectedPaydayDate").value("2026-06-01"))
+                .andExpect(jsonPath("$.period.salaryWallet").value(true))
+                .andExpect(jsonPath("$.period.reporting").value(false))
                 .andExpect(jsonPath("$.cycleHealth.status").value("ON_TRACK"))
                 .andExpect(jsonPath("$.kpis.income.amount").value(5000.00))
                 .andExpect(jsonPath("$.fixedPayments.totalCount").value(2));
+    }
+
+    @Test
+    void reportingPeriodSerialisesExplicitNullsForHealthAndFixedPayments() throws Exception {
+        DashboardSummaryDto full = summary();
+        DashboardSummaryDto reporting = new DashboardSummaryDto(
+                full.walletId(), full.walletName(),
+                new DashboardPeriodDto(
+                        PeriodType.MONTHLY,
+                        LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), LocalDate.of(2026, 6, 1),
+                        LocalDate.of(2026, 5, 26), LocalDate.of(2026, 5, 26),
+                        31, 26, 5,
+                        true, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 26),
+                        null, null, null, true),
+                null,
+                full.kpis(),
+                null,
+                full.insights(), full.categoryPressure(), full.previousCyclePreview());
+        when(dashboardSummaryService.getSummary(
+                eq(1), eq(TEST_USER_ID), eq(PeriodType.MONTHLY),
+                isNull(), isNull(), isNull(),
+                eq(com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                .thenReturn(reporting);
+
+        mockMvc.perform(get("/api/wallets/1/dashboard/summary").queryParam("periodType", "MONTHLY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period.type").value("MONTHLY"))
+                .andExpect(jsonPath("$.period.reporting").value(true))
+                .andExpect(jsonPath("$.period.cycleState").value(nullValue()))
+                .andExpect(jsonPath("$.cycleHealth").value(nullValue()))
+                .andExpect(jsonPath("$.fixedPayments").value(nullValue()))
+                .andExpect(jsonPath("$.kpis.income.amount").value(5000.00));
+    }
+
+    @Test
+    void awaitingSalarySerialisesVerdictlessHealthShell() throws Exception {
+        DashboardSummaryDto full = summary();
+        DashboardSummaryDto awaiting = new DashboardSummaryDto(
+                full.walletId(), full.walletName(), full.period(),
+                new DashboardCycleHealthDto(null, new BigDecimal("410.50"), null, null, null, null, null,
+                        false, "AWAITING_SALARY"),
+                full.kpis(), full.fixedPayments(), full.insights(), full.categoryPressure(), full.previousCyclePreview());
+        when(dashboardSummaryService.getSummary(
+                eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE),
+                isNull(), isNull(), isNull(),
+                eq(com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                .thenReturn(awaiting);
+
+        mockMvc.perform(get("/api/wallets/1/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cycleHealth.status").value(nullValue()))
+                .andExpect(jsonPath("$.cycleHealth.currentBalance").value(410.50))
+                .andExpect(jsonPath("$.cycleHealth.safeToSpend").value(nullValue()))
+                .andExpect(jsonPath("$.cycleHealth.projectedEndBalance").value(nullValue()))
+                .andExpect(jsonPath("$.cycleHealth.projectionAvailable").value(false))
+                .andExpect(jsonPath("$.cycleHealth.projectionReason").value("AWAITING_SALARY"));
     }
 
     @Test
@@ -125,7 +187,11 @@ class DashboardSummaryControllerTest {
                         5,
                         true,
                         LocalDate.of(2026, 4, 1),
-                        LocalDate.of(2026, 4, 26)),
+                        LocalDate.of(2026, 4, 26),
+                        CycleState.OPEN,
+                        LocalDate.of(2026, 6, 1),
+                        true,
+                        false),
                 new DashboardCycleHealthDto(
                         DashboardHealthStatus.ON_TRACK,
                         new BigDecimal("2500.00"),

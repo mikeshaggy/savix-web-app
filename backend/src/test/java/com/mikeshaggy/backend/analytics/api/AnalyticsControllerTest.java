@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.analytics.api;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -255,6 +256,32 @@ class AnalyticsControllerTest {
                             .queryParam("periodType", "MONTHLY"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.periodType").value("MONTHLY"));
+        }
+
+        @Test
+        void monthlyProjectionsUnavailable_serialisesExplicitNullsForProjectedFields() throws Exception {
+            // AC-3: MONTHLY has projectionAvailable=false and the six projected/safe-to-spend fields
+            // are null; Jackson NON_NULL is not configured, so these must serialise as explicit JSON nulls
+            // rather than being omitted.
+            when(spendingProjectionService.getSpendingProjection(
+                    eq(1), eq(TEST_USER_ID), eq(PeriodType.MONTHLY), isNull(), isNull()))
+                    .thenReturn(reportingOnlyProjection(PeriodType.MONTHLY));
+
+            mockMvc.perform(get("/api/wallets/1/analytics/projections")
+                            .queryParam("periodType", "MONTHLY"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.periodType").value("MONTHLY"))
+                    .andExpect(jsonPath("$.projectionAvailable").value(false))
+                    .andExpect(jsonPath("$.projectionReason").value("REPORTING_PERIOD"))
+                    .andExpect(jsonPath("$.safeToSpendToday").value(nullValue()))
+                    .andExpect(jsonPath("$.safeToSpendPerDay").value(nullValue()))
+                    .andExpect(jsonPath("$.projectedEndBalance").value(nullValue()))
+                    .andExpect(jsonPath("$.projectedPeriodExpenses").value(nullValue()))
+                    .andExpect(jsonPath("$.projectedVariableRemaining").value(nullValue()))
+                    .andExpect(jsonPath("$.dailyBurnRate").value(nullValue()))
+                    // actuals are still present
+                    .andExpect(jsonPath("$.expensesToDate").value(1850.00))
+                    .andExpect(jsonPath("$.incomeForPeriod").value(4000.00));
         }
 
         @Test
@@ -566,6 +593,32 @@ class AnalyticsControllerTest {
                 new BigDecimal("3885.00"),
                 true,
                 null);
+    }
+
+    private SpendingProjectionDto reportingOnlyProjection(PeriodType periodType) {
+        return new SpendingProjectionDto(
+                periodType,
+                "Current month",
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 3, 31),
+                31,
+                20,
+                11,
+                new BigDecimal("4000.00"),
+                new BigDecimal("4000.00"),
+                new BigDecimal("1850.00"),
+                null,
+                null,
+                null,
+                BigDecimal.ZERO,
+                null,
+                null,
+                new BigDecimal("1850.00"),
+                BigDecimal.ZERO,
+                new BigDecimal("92.50"),
+                null,
+                false,
+                "REPORTING_PERIOD");
     }
 
     private CategoryBreakdownDto categoryBreakdown(PeriodType periodType) {

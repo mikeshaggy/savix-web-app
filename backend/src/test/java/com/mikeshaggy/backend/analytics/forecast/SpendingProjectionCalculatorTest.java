@@ -1,5 +1,7 @@
 package com.mikeshaggy.backend.analytics.forecast;
 
+import com.mikeshaggy.backend.common.paycycle.CycleState;
+import com.mikeshaggy.backend.common.period.PeriodType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -35,32 +37,39 @@ class SpendingProjectionCalculatorTest {
         assertThat(result.safeToSpendToday()).isEqualByComparingTo("-250.00");
         // -250.00 / 21 = -11.90 (HALF_UP)
         assertThat(result.safeToSpendPerDay()).isEqualByComparingTo("-11.90");
-        assertThat(result.projectionAvailable()).isTrue();
-        assertThat(result.projectionReason()).isNull();
     }
 
     @Test
-    void historicalPeriodReturnsActualsOnly() {
-        SpendingProjectionCalculator.ProjectionResult result = calculator.calculate(new ProjectionInput(
-                new PeriodWindow(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30)),
-                LocalDate.of(2026, 5, 10),
-                new BigDecimal("1000.00"),
-                new BigDecimal("3000.00"),
-                new BigDecimal("1200.00"),
-                new BigDecimal("1200.00"),
-                new BigDecimal("200.00")));
+    void projectionAvailableOnlyForOpenPayCycle() {
+        assertThat(calculator.isProjectionAvailable(PeriodType.PAY_CYCLE, CycleState.OPEN)).isTrue();
+        assertThat(calculator.projectionReason(PeriodType.PAY_CYCLE, CycleState.OPEN)).isNull();
 
-        assertThat(result.daysInPeriod()).isEqualTo(30);
-        assertThat(result.daysElapsed()).isEqualTo(30);
-        assertThat(result.daysRemaining()).isZero();
-        assertThat(result.projectedPeriodExpenses()).isEqualByComparingTo("1200.00");
-        assertThat(result.projectedEndBalance()).isEqualByComparingTo("1800.00");
-        assertThat(result.remainingFixedPayments()).isEqualByComparingTo("0.00");
-        assertThat(result.safeToSpendToday()).isEqualByComparingTo("0.00");
-        // daysRemaining = 0 → max(0,1) = 1; 0.00 / 1 = 0.00
-        assertThat(result.safeToSpendPerDay()).isEqualByComparingTo("0.00");
-        assertThat(result.projectionAvailable()).isFalse();
-        assertThat(result.projectionReason()).isEqualTo("Historical period");
+        assertThat(calculator.isProjectionAvailable(PeriodType.PAY_CYCLE, CycleState.AWAITING_SALARY)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.PAY_CYCLE, CycleState.AWAITING_SALARY))
+                .isEqualTo(SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+        assertThat(calculator.isProjectionAvailable(PeriodType.PAY_CYCLE, CycleState.CLOSED)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.PAY_CYCLE, CycleState.CLOSED))
+                .isEqualTo(SpendingProjectionCalculator.REASON_CLOSED_CYCLE);
+        // legacy resolver: a PAY_CYCLE without a resolved state is not a v2 cycle
+        assertThat(calculator.isProjectionAvailable(PeriodType.PAY_CYCLE, null)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.PAY_CYCLE, null))
+                .isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+
+        assertThat(calculator.isProjectionAvailable(PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED))
+                .isEqualTo(SpendingProjectionCalculator.REASON_CLOSED_CYCLE);
+        assertThat(calculator.isProjectionAvailable(PeriodType.MONTHLY, null)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.MONTHLY, null))
+                .isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+        assertThat(calculator.isProjectionAvailable(PeriodType.CUSTOM, null)).isFalse();
+        assertThat(calculator.projectionReason(PeriodType.CUSTOM, null))
+                .isEqualTo(SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+    }
+
+    @Test
+    void variableDailyBurnRateIsZeroWhenNothingElapsed() {
+        assertThat(calculator.variableDailyBurnRate(new BigDecimal("500.00"), 0)).isEqualByComparingTo("0.00");
+        assertThat(calculator.variableDailyBurnRate(new BigDecimal("500.00"), 4)).isEqualByComparingTo("125.00");
     }
 
     @Test

@@ -74,14 +74,14 @@ public class AnalyticsSummaryService {
                     proj.expensesToDate(), compareExpenses, NULL_ON_ZERO_BASELINE);
         }
 
-        // ── 5. Savings rate (projected) ───────────────────────────────────────
+        // ── 5. Savings rate (projected) — reporting periods have no projection, hence no projected rate ──
         BigDecimal savingsRate = null;
-        if (proj.incomeForPeriod().compareTo(BigDecimal.ZERO) > 0) {
+        if (proj.projectionAvailable() && proj.incomeForPeriod().compareTo(BigDecimal.ZERO) > 0) {
             savingsRate = fromIncomeAndExpenses(proj.incomeForPeriod(), proj.projectedPeriodExpenses());
         }
 
-        // ── 6. Status ─────────────────────────────────────────────────────────
-        OverviewStatus status = statusCalculator.compute(proj);
+        // ── 6. Status — null for reporting periods (no verdict without a projection) ──
+        OverviewStatus status = proj.projectionAvailable() ? statusCalculator.compute(proj) : null;
 
         return new AnalyticsSummaryDto(
                 status,

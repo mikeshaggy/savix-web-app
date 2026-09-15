@@ -3,6 +3,15 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import PeriodSelector from '@/components/common/PeriodSelector';
 
+function formatShortDate(dateStr) {
+  if (!dateStr) return null;
+  try {
+    return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function DashboardHeader({
   walletName,
   period,
@@ -16,10 +25,14 @@ export default function DashboardHeader({
 }) {
   const t = useTranslations();
 
-  // Show the active data window in the pill, not the full future cycle end.
-  // period.cutoffDate / period.asOfDate is the actual cutoff date used for data;
-  // period.endDate is the billing end which may be in the future.
-  const displayEnd = period?.cutoffDate ?? period?.asOfDate ?? period?.endDate ?? null;
+  // The pill shows the resolved period (for PAY_CYCLE the whole cycle, e.g. Sep 9 – Oct 8) plus a note:
+  // "next salary expected Oct 9" for the open cycle, "reporting" for MONTHLY / CUSTOM / LAST_PAY_CYCLE.
+  const displayEnd = period?.endDate ?? period?.cutoffDate ?? period?.asOfDate ?? null;
+  const pillNote = period?.reporting
+    ? t('dashboard.reportingPeriod')
+    : period?.type === 'PAY_CYCLE' && period?.expectedPaydayDate
+      ? t('dashboard.nextSalaryExpected', { date: formatShortDate(period.expectedPaydayDate) })
+      : null;
 
   return (
     <div
@@ -44,6 +57,7 @@ export default function DashboardHeader({
         endDate={customEndDate ?? null}
         displayStart={period?.startDate ?? null}
         displayEnd={displayEnd}
+        pillNote={pillNote}
         onPeriodTypeChange={onPeriodTypeChange}
         onMonthChange={onMonthChange}
         onCustomDateChange={onCustomDateChange}

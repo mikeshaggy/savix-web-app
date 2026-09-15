@@ -7,6 +7,7 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.budget.domain.CategoryBudget;
 import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
 import com.mikeshaggy.backend.common.calculation.budget.BudgetUsageCalculator;
+import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.insight.InsightDto;
@@ -16,6 +17,7 @@ import com.mikeshaggy.backend.analytics.insight.PrecomputedInsightData;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.PeriodTotals;
 import com.mikeshaggy.backend.common.calculation.DeltaCalculator;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
@@ -99,10 +101,9 @@ public class DashboardSummaryService {
 
         LocalDate today = LocalDate.now(clock);
         LocalDate asOfDate = requestedAsOfDate == null ? today : requestedAsOfDate;
-        LocalDate periodEnd = dashboardPeriodEnd(primary);
-        LocalDate cutoffDate = clamp(asOfDate, primary.startDate(), periodEnd);
-        PeriodDto fixedPaymentPeriod = PeriodDto.of(
-                primary.startDate(), periodEnd, periodEnd, primary.periodType());
+        LocalDate periodEnd = primary.endDate();
+        LocalDate cutoffDate = cutoffDate(asOfDate, today, primary);
+        boolean fixedPaymentsShown = fixedPaymentsShown(primary.periodType());
 
         ComparisonWindow comparison = comparisonWindow(compare, primary.startDate(), cutoffDate);
 
@@ -116,10 +117,14 @@ public class DashboardSummaryService {
         KpiSnapshot compareSnapshot = snapshot(compareTotals);
         DashboardKpisDto kpis = kpis(currentSnapshot, compareSnapshot, comparison.available());
 
-        FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentDashboardService
-                .getFixedPaymentsTileData(fixedPaymentPeriod, wallet, userId, cutoffDate);
+        FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentsShown
+                ? fixedPaymentDashboardService.getFixedPaymentsTileData(
+                        PeriodDto.of(primary.startDate(), periodEnd, periodEnd, primary.periodType()),
+                        wallet, userId, cutoffDate)
+                : null;
         SpendingProjectionDto projection = spendingProjectionService.getSpendingProjection(
-                wallet, userId, primary, cutoffDate, fixedPaymentsTile.summary().remainingAmount());
+                wallet, userId, primary, cutoffDate,
+                fixedPaymentsTile == null ? null : fixedPaymentsTile.summary().remainingAmount());
         CategoryAggregationResult currentCategories = categoryAggregationService.aggregateExpenses(
                 walletId, userId, primary.startDate(), cutoffDate, resolvedCategoryMode);
         CategoryAggregationResult compareCategories = comparison.available()
@@ -146,9 +151,9 @@ public class DashboardSummaryService {
 
         DeltaCalculator.Delta expensesDelta = delta(
                 currentSnapshot.expenses(), compareSnapshot.expenses(), comparison.available());
-        DashboardCycleHealthDto cycleHealth = cycleHealth(wallet.getBalance(), projection, expensesDelta);
+        DashboardCycleHealthDto cycleHealth = cycleHealth(primary, wallet.getBalance(), projection, expensesDelta);
         DashboardPeriodDto period = period(primary, cutoffDate, cutoffDate, periodEnd, comparison);
-        DashboardFixedPaymentsDto fixedPayments = fixedPayments(fixedPaymentsTile);
+        DashboardFixedPaymentsDto fixedPayments = fixedPaymentsTile == null ? null : fixedPayments(fixedPaymentsTile);
         DashboardPreviousCyclePreviewDto previousCyclePreview = previousCyclePreview(
                 kpis, categoryPressure, comparison.available());
 
@@ -166,9 +171,12 @@ public class DashboardSummaryService {
 
     private DashboardPeriodDto period(PeriodDto primary, LocalDate asOfDate, LocalDate cutoffDate,
                                       LocalDate periodEnd, ComparisonWindow comparison) {
-        int daysInPeriod = InclusiveDateRange.daysBetween(primary.startDate(), periodEnd);
         int daysElapsed = InclusiveDateRange.daysBetween(primary.startDate(), cutoffDate);
         int daysRemaining = Math.max(0, InclusiveDateRange.daysBetween(cutoffDate.plusDays(1), periodEnd));
+        // A cycle awaiting its salary is as long as it has been so far; every other period has a known end.
+        int daysInPeriod = primary.cycleState() == CycleState.AWAITING_SALARY
+                ? daysElapsed
+                : InclusiveDateRange.daysBetween(primary.startDate(), periodEnd);
         return new DashboardPeriodDto(
                 primary.periodType(),
                 primary.startDate(),
@@ -181,7 +189,11 @@ public class DashboardSummaryService {
                 daysRemaining,
                 comparison.available(),
                 comparison.available() ? comparison.startDate() : null,
-                comparison.available() ? comparison.endDate() : null);
+                comparison.available() ? comparison.endDate() : null,
+                primary.cycleState(),
+                primary.expectedNextAnchorDate(),
+                primary.salaryWallet(),
+                isReportingPeriod(primary.periodType()));
     }
 
     private DashboardKpisDto kpis(KpiSnapshot current, KpiSnapshot compare, boolean comparisonAvailable) {
@@ -209,9 +221,26 @@ public class DashboardSummaryService {
         return DeltaCalculator.amountAndPercent(money(current), money(compare), NULL_ON_ZERO_BASELINE);
     }
 
-    private DashboardCycleHealthDto cycleHealth(BigDecimal currentBalance,
+    /**
+     * A health verdict exists only for the salary wallet's open pay cycle. Reporting periods (MONTHLY, CUSTOM,
+     * LAST_PAY_CYCLE), non-salary wallets and legacy-resolved cycles get {@code null}; a cycle awaiting its salary
+     * gets a verdict-less shell carrying the current balance and the reason.
+     */
+    private DashboardCycleHealthDto cycleHealth(PeriodDto primary,
+                                                BigDecimal currentBalance,
                                                 SpendingProjectionDto projection,
                                                 DeltaCalculator.Delta expensesDelta) {
+        if (primary.periodType() != PeriodType.PAY_CYCLE || !Boolean.TRUE.equals(primary.salaryWallet())) {
+            return null;
+        }
+        if (primary.cycleState() == CycleState.AWAITING_SALARY) {
+            return new DashboardCycleHealthDto(
+                    null, money(currentBalance), null, null, null, null, null,
+                    false, SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+        }
+        if (primary.cycleState() != CycleState.OPEN || !projection.projectionAvailable()) {
+            return null;
+        }
         DashboardHealthStatus status = healthStatus(projection, expensesDelta.percent());
         return new DashboardCycleHealthDto(
                 status,
@@ -385,10 +414,29 @@ public class DashboardSummaryService {
         return new KpiSnapshot(income, expenses, saved, savingsRate);
     }
 
-    private LocalDate dashboardPeriodEnd(PeriodDto period) {
-        return period.periodType() == PeriodType.PAY_CYCLE
-                ? period.billingEndDate().minusDays(1)
-                : period.endDate();
+    /** MONTHLY, CUSTOM and LAST_PAY_CYCLE carry actuals only — no verdict, no projection, no fixed-payments tile. */
+    private boolean isReportingPeriod(PeriodType periodType) {
+        return periodType != PeriodType.PAY_CYCLE;
+    }
+
+    /** The fixed-payments tile is a cycle instrument; the calendar month and custom ranges do not show it (T4/R2). */
+    private boolean fixedPaymentsShown(PeriodType periodType) {
+        return periodType == PeriodType.PAY_CYCLE || periodType == PeriodType.LAST_PAY_CYCLE;
+    }
+
+    /**
+     * The data horizon: {@code min(asOfDate, today)} — never in the future — floored at the period start so every
+     * "to date" window is well-formed. A period that already ended (a closed cycle, a past month or range) is read
+     * up to its own end; only a cycle awaiting its salary keeps counting, and summing, the days after the expected
+     * payday — the audited clamp that hid late-salary days is gone.
+     */
+    private LocalDate cutoffDate(LocalDate asOfDate, LocalDate today, PeriodDto primary) {
+        LocalDate cutoff = asOfDate.isAfter(today) ? today : asOfDate;
+        if (cutoff.isBefore(primary.startDate())) {
+            return primary.startDate();
+        }
+        boolean horizonIsToday = primary.cycleState() == CycleState.AWAITING_SALARY;
+        return !horizonIsToday && cutoff.isAfter(primary.endDate()) ? primary.endDate() : cutoff;
     }
 
     private ComparisonWindow comparisonWindow(PeriodDto compare, LocalDate currentStart, LocalDate cutoffDate) {
@@ -402,16 +450,6 @@ public class DashboardSummaryService {
             return ComparisonWindow.unavailable();
         }
         return new ComparisonWindow(true, compare.startDate(), compareEnd);
-    }
-
-    private LocalDate clamp(LocalDate value, LocalDate min, LocalDate max) {
-        if (value.isBefore(min)) {
-            return min;
-        }
-        if (value.isAfter(max)) {
-            return max;
-        }
-        return value;
     }
 
     private BigDecimal share(BigDecimal amount, BigDecimal total) {

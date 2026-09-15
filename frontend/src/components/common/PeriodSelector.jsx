@@ -17,6 +17,8 @@ import { useTranslations } from 'next-intl';
  *                                                   (Dashboard passes the API-resolved period start).
  *                                                   Omit for Analytics (pill shows '—' for non-CUSTOM).
  * @param {string|null} [props.displayEnd]         - Same for end date.
+ * @param {string|null} [props.pillNote]           - Muted note rendered after the dates
+ *                                                   ("next salary expected Oct 9", "reporting").
  * @param {function}    props.onPeriodTypeChange   - Called with the new period type string
  * @param {function}    props.onMonthChange        - Called with new 'YYYY-MM' string
  * @param {function}    props.onCustomDateChange   - Called with (startDate, endDate) strings
@@ -29,6 +31,7 @@ export default function PeriodSelector({
   endDate,
   displayStart,
   displayEnd,
+  pillNote = null,
   onPeriodTypeChange,
   onMonthChange,
   onCustomDateChange,
@@ -98,6 +101,12 @@ export default function PeriodSelector({
             onChange={(e) => onMonthChange(e.target.value)}
             className="bg-transparent border border-transparent rounded text-white outline-none text-xs font-medium [color-scheme:dark] transition-all focus:border-purple-500/50 focus:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
           />
+          {pillNote && (
+            <>
+              <span className="w-[3px] h-[3px] rounded-full bg-white/25" />
+              <span className="text-white/40 text-xs" data-testid="period-pill-note">{pillNote}</span>
+            </>
+          )}
         </div>
 
       ) : !isEditing ? (
@@ -112,6 +121,12 @@ export default function PeriodSelector({
           <span className="font-semibold text-white">{pillStart}</span>
           <span className="w-[3px] h-[3px] rounded-full bg-white/25" />
           <span className="font-semibold text-white">{pillEnd}</span>
+          {pillNote && (
+            <>
+              <span className="w-[3px] h-[3px] rounded-full bg-white/25" />
+              <span className="text-white/40" data-testid="period-pill-note">{pillNote}</span>
+            </>
+          )}
         </div>
 
       ) : (

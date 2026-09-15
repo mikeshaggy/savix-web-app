@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.regression;
 
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.PeriodWindow;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.ProjectionInput;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
@@ -59,10 +60,22 @@ public final class September2026Fixture {
     public static final LocalDate MONTH_START = LocalDate.of(2026, 9, 1);
     public static final LocalDate MONTH_END = LocalDate.of(2026, 9, 30);
 
+    /** Legacy resolver shape (flag off): the open cycle ends "today" and has no state. */
     public static final PeriodDto PAY_CYCLE_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 14), LocalDate.of(2026, 10, 9), PeriodType.PAY_CYCLE);
     public static final PeriodDto LAST_PAY_CYCLE_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8), LocalDate.of(2026, 9, 10), PeriodType.LAST_PAY_CYCLE);
+    /** pay-cycle-v2 shape (Stage 1.5): the whole open cycle Sep 9 → Oct 8, next salary expected Oct 9, salary wallet. */
+    public static final LocalDate EXPECTED_NEXT_PAYDAY = LocalDate.of(2026, 10, 9);
+    public static final PeriodDto PAY_CYCLE_PERIOD_V2 = new PeriodDto(
+            CURRENT_CYCLE_START, LEGACY_CURRENT_CYCLE_END, EXPECTED_NEXT_PAYDAY, PeriodType.PAY_CYCLE,
+            CycleState.OPEN, EXPECTED_NEXT_PAYDAY, true);
+    public static final PeriodDto LAST_PAY_CYCLE_PERIOD_V2 = new PeriodDto(
+            LAST_CYCLE_START, LAST_CYCLE_END, CURRENT_CYCLE_START, PeriodType.LAST_PAY_CYCLE,
+            CycleState.CLOSED, null, true);
+    /** The savings wallet is not the salary wallet: pay-cycle-v2 answers with the calendar month typed MONTHLY. */
+    public static final PeriodDto SAVINGS_WALLET_MONTHLY_PERIOD = new PeriodDto(
+            MONTH_START, MONTH_END, LocalDate.of(2026, 10, 1), PeriodType.MONTHLY, null, null, false);
     public static final PeriodDto MONTHLY_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 1), PeriodType.MONTHLY);
     public static final PeriodDto PREVIOUS_MONTH_PERIOD = PeriodDto.of(

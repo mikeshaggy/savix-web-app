@@ -208,7 +208,10 @@
     "noCategoryPressure": "No category data for this period",
     "previousCycle": "vs Previous Cycle",
     "comparisonUnavailable": "No comparison available for this period",
-    "topChangedCategories": "Notable changes"
+    "topChangedCategories": "Notable changes",
+    "reportingPeriod": "reporting",
+    "awaitingSalary": "Salary expected {date} — not received yet",
+    "nextSalaryExpected": "next salary expected {date}"
   },
   "wallet": {
     "wallets": "Wallets",

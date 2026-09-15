@@ -36,11 +36,109 @@ function formatShortDate(dateStr) {
   }
 }
 
-export default function CycleHealthHero({ cycleHealth, period }) {
+function formatMonthYear(dateStr) {
+  if (!dateStr) return null;
+  try {
+    // Build from the Y/M parts: `new Date('YYYY-MM-DD')` is UTC midnight and would shift the month in UTC-negative zones.
+    const [y, m] = String(dateStr).split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Reporting header: MONTHLY / CUSTOM / LAST_PAY_CYCLE (and any period without a health verdict) show the
+ * period label plus income / spent / net actuals only — no status pill, no safe-to-spend, no projection,
+ * no "Cycle ends". Stage 2.2: these periods are reporting-only by contract.
+ */
+function ReportingHeader({ period, kpis, t, formatCurrency }) {
+  const label = period?.type === 'MONTHLY'
+    ? formatMonthYear(period?.startDate)
+    : `${formatShortDate(period?.startDate) ?? '—'} – ${formatShortDate(period?.endDate) ?? '—'}`;
+  const income = kpis?.income?.amount ?? null;
+  const spent = kpis?.expenses?.amount ?? null;
+  const net = kpis?.saved?.amount ?? null;
+
+  return (
+    <div
+      className="w-full bg-[#0e0e1c] rounded-[18px] overflow-hidden mb-5 border border-white/[0.06]"
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.04s' }}
+      data-testid="reporting-header"
+    >
+      <div className="flex items-center justify-between px-6 py-3 border-b border-white/[0.04]">
+        <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-white/45">
+          {t('dashboard.reportingPeriod')}
+        </span>
+        <span className="text-[11px] text-white/35">{label}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.035]">
+        {[
+          { key: 'income', label: t('dashboard.income'), value: income, cls: 'text-white' },
+          { key: 'spent', label: t('dashboard.expenses'), value: spent, cls: 'text-white' },
+          {
+            key: 'net',
+            label: t('dashboard.saved'),
+            value: net,
+            cls: net != null && Number(net) < 0 ? 'text-rose-400' : 'text-emerald-400',
+          },
+        ].map(({ key, label: l, value, cls }) => (
+          <div key={key} className="bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6 min-w-0">
+            <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">{l}</div>
+            <div
+              className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none tabular-nums ${cls}`}
+              style={{ overflowWrap: 'break-word' }}
+            >
+              {value != null ? formatCurrency(value) : '—'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Late salary: the expected payday has passed without a salary — balance only, no verdict, no projection. */
+function AwaitingSalaryHero({ cycleHealth, period, t, formatCurrency }) {
+  const expected = formatShortDate(period?.expectedPaydayDate);
+  return (
+    <div
+      className="w-full bg-[#0e0e1c] rounded-[18px] overflow-hidden mb-5 border border-amber-400/35"
+      style={{ boxShadow: '0 0 48px rgba(245,158,11,0.10)', animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
+      data-testid="awaiting-salary-hero"
+    >
+      <div className="flex items-center gap-2 px-6 py-3 border-b border-amber-400/20 bg-amber-400/[0.04]">
+        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+        <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-amber-400">
+          {t('dashboard.awaitingSalary', { date: expected ?? '—' })}
+        </span>
+      </div>
+      <div className="px-6 md:px-8 py-6 md:py-8">
+        <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-3">{t('dashboard.currentBalance')}</div>
+        <div
+          className="font-mono text-[clamp(24px,5vw,40px)] font-bold tracking-[-1px] leading-none tabular-nums text-white"
+          style={{ overflowWrap: 'break-word' }}
+        >
+          {formatCurrency(cycleHealth.currentBalance)}
+        </div>
+        {period?.daysElapsed != null && (
+          <div className="text-[9px] text-white/30 mt-3">{t('dashboard.daysElapsed', { days: period.daysElapsed })}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function CycleHealthHero({ cycleHealth, period, kpis }) {
   const t = useTranslations();
   const formatCurrency = useFormatCurrency();
 
-  if (!cycleHealth) return null;
+  if (!cycleHealth || period?.reporting) {
+    return <ReportingHeader period={period} kpis={kpis} t={t} formatCurrency={formatCurrency} />;
+  }
+  if (cycleHealth.projectionReason === 'AWAITING_SALARY') {
+    return <AwaitingSalaryHero cycleHealth={cycleHealth} period={period} t={t} formatCurrency={formatCurrency} />;
+  }
 
   const {
     status,
@@ -64,10 +162,10 @@ export default function CycleHealthHero({ cycleHealth, period }) {
   // Negative = spending less than before = good
   const paceIsGood = pacePercent != null ? pacePercent < 0 : null;
 
-  // Show "Cycle ends Jun 7" when the billing end is beyond the data cutoff
+  // "Cycle ends Oct 8" — only for the open PAY_CYCLE (reporting periods never reach this branch)
   const cycleEndDate = period?.endDate ?? null;
   const cutoffDate = period?.cutoffDate ?? period?.asOfDate ?? null;
-  const showCycleEnd = cycleEndDate && cycleEndDate !== cutoffDate;
+  const showCycleEnd = period?.type === 'PAY_CYCLE' && cycleEndDate && cycleEndDate !== cutoffDate;
   const cycleEndShort = showCycleEnd ? formatShortDate(cycleEndDate) : null;
 
   return (

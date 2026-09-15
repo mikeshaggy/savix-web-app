@@ -56,7 +56,7 @@ public class InsightEngine {
 
     public InsightResponseDto getInsights(Integer walletId, UUID userId,
                                           PeriodType periodType, LocalDate startDate, LocalDate endDate) {
-        walletService.getWalletEntityByIdForUser(walletId, userId);
+        Wallet wallet = walletService.getWalletEntityByIdForUser(walletId, userId);
 
         ResolvedPeriods resolved = periodService.resolvePeriods(periodType, walletId, userId, startDate, endDate);
         PeriodDto primary = resolved.primary();
@@ -69,7 +69,7 @@ public class InsightEngine {
                 ? zero()
                 : transactionQueryService.sum(
                         walletId, userId, compare.startDate(), compare.endDate(), CategoryType.EXPENSE);
-        SpendingProjectionDto projection = projectionForPeriod(walletId, userId, primary, today);
+        SpendingProjectionDto projection = projectionForPeriod(wallet, userId, primary, today);
         return buildInsights(walletId, userId, primary, compare, today,
                 new PrecomputedInsightData(projection, totals, compareExpenses, null, null));
     }
@@ -82,13 +82,21 @@ public class InsightEngine {
         return buildInsights(wallet.getId(), userId, primary, compare, effectiveAsOfDate, precomputed);
     }
 
-    private SpendingProjectionDto projectionForPeriod(Integer walletId, UUID userId,
+    /**
+     * Projects the resolved period itself (not a CUSTOM copy of its window) so that only the salary wallet's
+     * open pay cycle yields a projection; reporting periods come back with {@code projectionAvailable == false}.
+     */
+    private SpendingProjectionDto projectionForPeriod(Wallet wallet, UUID userId,
                                                       PeriodDto period, LocalDate today) {
         if (today.isBefore(period.startDate()) || today.isAfter(period.endDate())) {
             return null;
         }
-        return spendingProjectionService.getSpendingProjection(
-                walletId, userId, PeriodType.CUSTOM, period.startDate(), period.endDate(), today);
+        return spendingProjectionService.getSpendingProjection(wallet, userId, period, today);
+    }
+
+    /** Safe-to-spend and pace insights presuppose a projection; reporting periods carry neither. */
+    private boolean projectionAvailable(SpendingProjectionDto projection) {
+        return projection != null && projection.projectionAvailable();
     }
 
     private InsightResponseDto buildInsights(Integer walletId, UUID userId,
@@ -109,13 +117,16 @@ public class InsightEngine {
         }
         highImpulseSpendingInsight(walletId, userId, primary.startDate(), primary.elapsedEndDate(asOfDate), expenses)
                 .ifPresent(insights::add);
-        if (compare != null) {
+        boolean projectionAvailable = projectionAvailable(precomputed.projection());
+        if (compare != null && projectionAvailable) {
             spendingPaceInsight(walletId, userId, primary, compare, compareExpenses, asOfDate,
                     totals.expenses())
                     .ifPresent(insights::add);
         }
         lowSavingsRateInsight(income, expenses, savingsRate).ifPresent(insights::add);
-        safeToSpendInsight(precomputed.projection()).ifPresent(insights::add);
+        if (projectionAvailable) {
+            safeToSpendInsight(precomputed.projection()).ifPresent(insights::add);
+        }
         if (compare != null) {
             goodMonthInsight(income, expenses, saved, savingsRate, compareExpenses).ifPresent(insights::add);
         }
@@ -256,7 +267,7 @@ public class InsightEngine {
     }
 
     private Optional<InsightDto> safeToSpendInsight(SpendingProjectionDto projection) {
-        if (projection == null) {
+        if (projection == null || projection.safeToSpendToday() == null) {
             return Optional.empty();
         }
         BigDecimal safeToSpend = money(projection.safeToSpendToday());

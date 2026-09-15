@@ -209,7 +209,10 @@
     "noCategoryPressure": "Brak danych kategorii dla tego okresu",
     "previousCycle": "vs Poprzedni cykl",
     "comparisonUnavailable": "Brak porównania dla tego okresu",
-    "topChangedCategories": "Znaczące zmiany"
+    "topChangedCategories": "Znaczące zmiany",
+    "reportingPeriod": "raportowanie",
+    "awaitingSalary": "Wypłata oczekiwana {date} — jeszcze nie wpłynęła",
+    "nextSalaryExpected": "następna wypłata oczekiwana {date}"
   },
   "wallet": {
     "wallets": "Portfele",
