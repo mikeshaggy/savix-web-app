@@ -109,6 +109,30 @@
     </dependencies>
 
     <build>
+        <!-- Also protect JARs built outside Docker from local secret resources. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>**/application-local*</exclude>
+                    <exclude>**/.env*</exclude>
+                    <exclude>**/*.env*</exclude>
+                    <exclude>**/secrets/**</exclude>
+                    <exclude>**/keys/**</exclude>
+                    <exclude>**/jwt-private-key*</exclude>
+                    <exclude>**/jwt-public-key*</exclude>
+                    <exclude>**/*.pem</exclude>
+                    <exclude>**/*.der</exclude>
+                    <exclude>**/*.key</exclude>
+                    <exclude>**/*.p12</exclude>
+                    <exclude>**/*.pfx</exclude>
+                    <exclude>**/*.jks</exclude>
+                    <exclude>**/*.keystore</exclude>
+                    <exclude>**/*.crt</exclude>
+                    <exclude>**/*.cer</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

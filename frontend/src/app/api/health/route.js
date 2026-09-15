@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const base = process.env.PROXY_BASE;
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const base = process.env.PROXY_BASE;
+  if (!base) return NextResponse.json({ status: 'DOWN' }, { status: 503 });
   try {
     const response = await fetch(`${base}/actuator/health`, {
       method: 'GET',

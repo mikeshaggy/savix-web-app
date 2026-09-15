@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const PROXY_SECRET = process.env.PROXY_SECRET;
+export const dynamic = "force-dynamic";
 
 async function forward(req, { params }) {
+  // Read server-only configuration when handling the request, never during build.
+  const PROXY_SECRET = process.env.PROXY_SECRET;
 
   if (!PROXY_SECRET) {
     return NextResponse.json(

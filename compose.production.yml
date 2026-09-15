@@ -63,7 +63,7 @@ services:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: "3000"
-      PROXY_BASE: http://savix-backend:8000
+      PROXY_BASE: ${PROXY_BASE:?Supply the existing internal backend URL}
       PROXY_SECRET: ${PROXY_SECRET:?Supply the existing shared proxy secret}
     ports:
       - "3000:3000"

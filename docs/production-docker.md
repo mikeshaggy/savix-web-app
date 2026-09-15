@@ -131,11 +131,11 @@ Before later adoption, an operator must supply **existing** values:
 - Existing SMTP host, username/password, sender address/name, frontend origin,
   JWT issuer/audience, and cookie domain (empty if currently unset).
 - Existing proxy secret, injected from the same variable into backend and frontend;
-  frontend `PROXY_BASE` stays `http://savix-backend:8000`.
+  runtime `PROXY_BASE` must retain `http://savix-backend:8000` for this topology.
 - Absolute `JWT_PRIVATE_KEY_FILE` and `JWT_PUBLIC_KEY_FILE` host paths to the
   **current** key pair. The inventory found these keys packaged inside the running
   backend JAR. Preserving/extracting them and provisioning protected host files is
-  deliberately deferred to SHG-13. Do not generate replacements. New images contain
+  documented in [SHG-13 runtime secrets](production-secrets.md). Do not generate replacements. New images contain
   no key pair and cannot start production authentication until these files exist.
 
 Compose mounts those files read-only at `/run/savix/jwt-private-key.pem` and
@@ -182,7 +182,10 @@ proxy configuration becomes runtime environment; these are the minimum packaging
 changes required to keep secrets out of new artifacts. They require later operator
 preparation before adoption. No production change has occurred.
 
-Deferred: full secret externalization and key provisioning (SHG-13), Flyway,
+SHG-13 completes runtime secret configuration and documents key provisioning in
+[production-secrets.md](production-secrets.md). Provisioning/adoption has not run.
+
+Deferred: Flyway,
 baseline/schema reconciliation (SHG-14 / later), health/readiness improvements,
 immutable release automation, deployment scripts, GitHub Actions, runner setup,
 backups/restore rehearsal, rollout/rollback and first production adoption. No

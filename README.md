@@ -147,6 +147,13 @@ See [.env.example](.env.example) for all required variables.
 | `PROXY_SECRET` | Shared secret for frontend → backend auth |
 | `COOKIE_DOMAIN` | Cookie domain for cross-subdomain auth |
 
+### Production runtime secrets (SHG-13)
+
+Production requires the existing JWT key pair in read-only host file mounts and
+proxy configuration supplied at runtime. See [the runtime contract and later
+adoption procedure](docs/production-secrets.md). Never generate replacement
+production keys or pass secrets into Docker builds.
+
 ---
 
 ## Screenshots

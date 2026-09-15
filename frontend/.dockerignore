@@ -33,6 +33,9 @@
 **/credentials*
 **/id_rsa*
 **/id_ed25519*
+**/jwt-private-key*
+**/jwt-public-key*
+**/*.der
 **/*.pem
 **/*.key
 **/*.p12
