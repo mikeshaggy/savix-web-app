@@ -63,7 +63,8 @@ public class InsightEngine {
         PeriodDto compare = resolved.compare();
 
         LocalDate today = LocalDate.now(clock);
-        PeriodTotals totals = transactionQueryService.totals(walletId, userId, primary.startDate(), primary.endDate());
+        PeriodTotals totals = transactionQueryService.totals(
+                walletId, userId, primary.startDate(), primary.elapsedEndDate(today));
         BigDecimal compareExpenses = compare == null
                 ? zero()
                 : transactionQueryService.sum(
@@ -103,10 +104,10 @@ public class InsightEngine {
 
         List<InsightDto> insights = new ArrayList<>();
         if (compare != null) {
-            insights.addAll(categorySpikeInsights(walletId, userId, primary, compare,
+            insights.addAll(categorySpikeInsights(walletId, userId, primary, compare, asOfDate,
                     precomputed.currentCategories(), precomputed.compareCategories()));
         }
-        highImpulseSpendingInsight(walletId, userId, primary.startDate(), primary.endDate(), expenses)
+        highImpulseSpendingInsight(walletId, userId, primary.startDate(), primary.elapsedEndDate(asOfDate), expenses)
                 .ifPresent(insights::add);
         if (compare != null) {
             spendingPaceInsight(walletId, userId, primary, compare, compareExpenses, asOfDate,
@@ -126,12 +127,12 @@ public class InsightEngine {
     }
 
     private List<InsightDto> categorySpikeInsights(
-            Integer walletId, UUID userId, PeriodDto primary, PeriodDto compare,
+            Integer walletId, UUID userId, PeriodDto primary, PeriodDto compare, LocalDate asOfDate,
             CategoryAggregationResult precomputedCurrent, CategoryAggregationResult precomputedCompare) {
         CategoryAggregationResult currentRows = precomputedCurrent != null
                 ? precomputedCurrent
-                : categoryAggregationService.aggregateExpenses(walletId, userId, primary.startDate(), primary.endDate(),
-                        CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+                : categoryAggregationService.aggregateExpenses(walletId, userId, primary.startDate(),
+                        primary.elapsedEndDate(asOfDate), CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
         CategoryAggregationResult compareRows = precomputedCompare != null
                 ? precomputedCompare
                 : categoryAggregationService.aggregateExpenses(walletId, userId, compare.startDate(), compare.endDate(),

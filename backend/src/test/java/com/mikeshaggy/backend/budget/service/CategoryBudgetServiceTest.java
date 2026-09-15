@@ -366,7 +366,7 @@ class CategoryBudgetServiceTest {
 
         @Test
         void resolvesPeriodAndDelegatesToCalculator() {
-            PeriodDto period = new PeriodDto(
+            PeriodDto period = PeriodDto.of(
                     LocalDate.of(2026, 5, 1),
                     LocalDate.of(2026, 5, 31),
                     LocalDate.of(2026, 6, 1),

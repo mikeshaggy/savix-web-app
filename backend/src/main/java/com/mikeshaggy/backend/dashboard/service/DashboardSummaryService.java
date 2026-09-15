@@ -101,7 +101,7 @@ public class DashboardSummaryService {
         LocalDate asOfDate = requestedAsOfDate == null ? today : requestedAsOfDate;
         LocalDate periodEnd = dashboardPeriodEnd(primary);
         LocalDate cutoffDate = clamp(asOfDate, primary.startDate(), periodEnd);
-        PeriodDto fixedPaymentPeriod = new PeriodDto(
+        PeriodDto fixedPaymentPeriod = PeriodDto.of(
                 primary.startDate(), periodEnd, periodEnd, primary.periodType());
 
         ComparisonWindow comparison = comparisonWindow(compare, primary.startDate(), cutoffDate);
@@ -270,13 +270,13 @@ public class DashboardSummaryService {
     private List<DashboardInsightDto> insights(Wallet wallet, UUID userId, PeriodDto primary,
                                                ComparisonWindow comparison, LocalDate cutoffDate,
                                                PrecomputedInsightData precomputed) {
-        PeriodDto primaryWindow = new PeriodDto(
+        PeriodDto primaryWindow = PeriodDto.of(
                 primary.startDate(),
                 cutoffDate,
                 cutoffDate,
                 primary.periodType());
         PeriodDto compareWindow = comparison.available()
-                ? new PeriodDto(comparison.startDate(), comparison.endDate(), comparison.endDate(), primary.periodType())
+                ? PeriodDto.of(comparison.startDate(), comparison.endDate(), comparison.endDate(), primary.periodType())
                 : null;
         InsightResponseDto response = insightEngine.getInsightsForWindow(
                 wallet, userId, primaryWindow, compareWindow, cutoffDate, precomputed);

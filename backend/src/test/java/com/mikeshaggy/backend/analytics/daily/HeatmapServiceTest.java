@@ -47,13 +47,14 @@ class HeatmapServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new HeatmapService(transactionRepository, walletService, periodService);
+        service = new HeatmapService(transactionRepository, walletService, periodService,
+                java.time.Clock.fixed(java.time.Instant.parse("2026-03-31T00:00:00Z"), java.time.ZoneOffset.UTC));
     }
 
     // ─── helpers ─────────────────────────────────────────────────────────────────
 
     private PeriodDto period(LocalDate from, LocalDate to) {
-        return new PeriodDto(from, to, to, PeriodType.CUSTOM);
+        return PeriodDto.of(from, to, to, PeriodType.CUSTOM);
     }
 
     private void stubPeriod(LocalDate from, LocalDate to) {
@@ -174,6 +175,31 @@ class HeatmapServiceTest {
         assertThat(result.days()).hasSize(30);
         assertThat(result.days().getFirst().date()).isEqualTo(from);
         assertThat(result.days().getLast().date()).isEqualTo(to);
+    }
+
+    @Test
+    void payCycleEndingAfterTodayIsClampedToTodayForTheQueryAndTheResponseRange() {
+        // given: a PAY_CYCLE period whose end (Mar 31) is after the clock's today (Mar 11)
+        LocalDate from = LocalDate.of(2026, 3, 1);
+        LocalDate to = LocalDate.of(2026, 3, 31);
+        LocalDate today = LocalDate.of(2026, 3, 11);
+        HeatmapService clampedService = new HeatmapService(transactionRepository, walletService, periodService,
+                java.time.Clock.fixed(today.atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), java.time.ZoneOffset.UTC));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(from, to, to.plusDays(1), PeriodType.PAY_CYCLE,
+                        com.mikeshaggy.backend.common.paycycle.CycleState.OPEN, to.plusDays(1), true));
+        when(transactionRepository.findHeatmapByWalletDateRangeAndType(
+                WALLET_ID, USER_ID, from, today, CategoryType.EXPENSE)).thenReturn(List.of());
+
+        // when
+        HeatmapResponseDto result = clampedService.getHeatmap(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        // then: both the repository query and the response range stop at today, not the cycle's endDate
+        assertThat(result.startDate()).isEqualTo(from);
+        assertThat(result.endDate()).isEqualTo(today);
+        assertThat(result.days()).hasSize(11);
+        verify(transactionRepository).findHeatmapByWalletDateRangeAndType(
+                WALLET_ID, USER_ID, from, today, CategoryType.EXPENSE);
     }
 
     @Test

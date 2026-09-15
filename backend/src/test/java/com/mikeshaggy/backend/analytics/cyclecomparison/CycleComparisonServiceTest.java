@@ -4,6 +4,10 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.repository.CategoryRepository;
+import com.mikeshaggy.backend.common.paycycle.PayCycle;
+import com.mikeshaggy.backend.common.paycycle.PayCycleService;
+import com.mikeshaggy.backend.config.FeatureFlags;
+import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.repository.DailyCategorySpendProjection;
@@ -31,7 +35,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,14 +54,206 @@ class CycleComparisonServiceTest {
     @Mock private TransactionRepository transactionRepository;
     @Mock private WalletService walletService;
     @Mock private CategoryRepository categoryRepository;
+    @Mock private PayCycleService payCycleService;
+
+    private static final FeatureFlags FLAG_OFF = new FeatureFlags(false, false, false, false, false);
+    private static final FeatureFlags FLAG_ON = new FeatureFlags(true, false, false, false, false);
 
     private CycleComparisonService service;
 
     @BeforeEach
     void setUp() {
-        service = new CycleComparisonService(transactionRepository, walletService, categoryRepository, CLOCK);
-        when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
+        service = new CycleComparisonService(transactionRepository, walletService, categoryRepository, CLOCK,
+                FLAG_OFF, payCycleService);
+        lenient().when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                 .thenReturn(Wallet.builder().id(WALLET_ID).build());
+    }
+
+    private CycleComparisonService v2Service(Clock clock) {
+        return new CycleComparisonService(transactionRepository, walletService, categoryRepository, clock,
+                FLAG_ON, payCycleService);
+    }
+
+    @Test
+    void legacyPathLabelsAnchorBaselineAsPayCycle_andNeverTouchesPayCycleService() {
+        givenAnchorDates(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 4, 1));
+        givenRows(List.of());
+
+        CycleComparisonResponseDto result = service.getCycleComparison(
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.PAY_CYCLE);
+        verifyNoInteractions(payCycleService);
+    }
+
+    @Test
+    void legacyPathLabelsCalendarMonthsAsMonthlyFallback() {
+        when(categoryRepository.findByUserIdAndIsCycleAnchorTrue(USER_ID)).thenReturn(Optional.empty());
+        givenRows(List.of());
+
+        CycleComparisonResponseDto result = service.getCycleComparison(
+                WALLET_ID, USER_ID, AS_OF, 1, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.MONTHLY_FALLBACK);
+        verifyNoInteractions(payCycleService);
+    }
+
+    @Test
+    void v2_baselineWindowsAreTheActualClosedCycles() {
+        // September fixture: today Sep 14, open cycle Sep 9 → Oct 8, six closed cycles before it.
+        UUID userId = September2026Fixture.USER_ID;
+        Integer walletId = September2026Fixture.SALARY_WALLET_ID;
+        when(walletService.getWalletEntityByIdForUser(walletId, userId))
+                .thenReturn(Wallet.builder().id(walletId).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.of(
+                PayCycle.open(userId, walletId, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
+        when(payCycleService.history(userId, 6)).thenReturn(List.of(
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 7, 10), LocalDate.of(2026, 8, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 6, 10), LocalDate.of(2026, 7, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 5, 8), LocalDate.of(2026, 6, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 7)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 3, 10), LocalDate.of(2026, 4, 9))));
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(walletId), eq(userId), eq(LocalDate.of(2026, 3, 10)), eq(September2026Fixture.TODAY),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of());
+
+        CycleComparisonResponseDto result = v2Service(September2026Fixture.CLOCK).getCycleComparison(
+                walletId, userId, September2026Fixture.TODAY, 6, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 9, 9));
+        assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 10, 8));
+        assertThat(result.currentCycle().cutoffDate()).isEqualTo(September2026Fixture.TODAY);
+        assertThat(result.currentCycle().dayIndex()).isEqualTo(6);
+        assertThat(result.currentCycle().totalDays()).isEqualTo(30);
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.PAY_CYCLE);
+        assertThat(result.baseline().cyclesUsed()).isEqualTo(6);
+        assertThat(result.baseline().cycles())
+                .extracting(CycleComparisonBaselineCycleDto::startDate, CycleComparisonBaselineCycleDto::endDate)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 7, 10), LocalDate.of(2026, 8, 9)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 6, 10), LocalDate.of(2026, 7, 9)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 5, 8), LocalDate.of(2026, 6, 9)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 7)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 3, 10), LocalDate.of(2026, 4, 9)));
+        assertThat(result.baseline().cycles()).allSatisfy(cycle -> {
+            assertThat(cycle.totalDays()).isGreaterThanOrEqualTo(28);
+            assertThat(cycle.cutoffDate()).isEqualTo(cycle.startDate().plusDays(5));
+        });
+        verify(payCycleService).current(userId);
+        verify(payCycleService).history(userId, 6);
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void v2_historicalAsOfDateSelectsTheClosedCycleContainingIt() {
+        // Comparison page for LAST_PAY_CYCLE sends asOfDate = Sep 8 (the last cycle's end) while today is Sep 14.
+        UUID userId = September2026Fixture.USER_ID;
+        Integer walletId = September2026Fixture.SALARY_WALLET_ID;
+        LocalDate asOf = LocalDate.of(2026, 9, 8);
+        when(walletService.getWalletEntityByIdForUser(walletId, userId))
+                .thenReturn(Wallet.builder().id(walletId).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.of(
+                PayCycle.open(userId, walletId, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
+        when(payCycleService.history(userId, Integer.MAX_VALUE)).thenReturn(List.of(
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 7, 10), LocalDate.of(2026, 8, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 6, 10), LocalDate.of(2026, 7, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 5, 8), LocalDate.of(2026, 6, 9)),
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 7))));
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(walletId), eq(userId), eq(LocalDate.of(2026, 5, 8)), eq(asOf),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of());
+
+        CycleComparisonResponseDto result = v2Service(September2026Fixture.CLOCK).getCycleComparison(
+                walletId, userId, asOf, 3, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.asOfDate()).isEqualTo(asOf);
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 8, 10));
+        assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 9, 8));
+        assertThat(result.currentCycle().cutoffDate()).isEqualTo(asOf);
+        assertThat(result.currentCycle().dayIndex()).isEqualTo(30);
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.PAY_CYCLE);
+        assertThat(result.baseline().cycles())
+                .extracting(CycleComparisonBaselineCycleDto::startDate, CycleComparisonBaselineCycleDto::endDate)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 7, 10), LocalDate.of(2026, 8, 9)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 6, 10), LocalDate.of(2026, 7, 9)),
+                        org.assertj.core.groups.Tuple.tuple(LocalDate.of(2026, 5, 8), LocalDate.of(2026, 6, 9)));
+        verify(payCycleService).current(userId);
+        verify(payCycleService).history(userId, Integer.MAX_VALUE);
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void v2_asOfDateBeforeEveryKnownCycleFallsBackToCalendarMonths() {
+        UUID userId = September2026Fixture.USER_ID;
+        Integer walletId = September2026Fixture.SALARY_WALLET_ID;
+        LocalDate asOf = LocalDate.of(2025, 6, 15);
+        when(walletService.getWalletEntityByIdForUser(walletId, userId))
+                .thenReturn(Wallet.builder().id(walletId).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.of(
+                PayCycle.open(userId, walletId, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
+        when(payCycleService.history(userId, Integer.MAX_VALUE)).thenReturn(List.of(
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8))));
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(walletId), eq(userId), eq(LocalDate.of(2025, 5, 1)), eq(asOf),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of());
+
+        CycleComparisonResponseDto result = v2Service(September2026Fixture.CLOCK).getCycleComparison(
+                walletId, userId, asOf, 1, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.MONTHLY_FALLBACK);
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2025, 6, 1));
+        assertThat(result.baseline().cycles().getFirst().startDate()).isEqualTo(LocalDate.of(2025, 5, 1));
+    }
+
+    @Test
+    void v2_nonSalaryWalletGetsCalendarMonthsLabelledNotSalaryWallet() {
+        UUID userId = September2026Fixture.USER_ID;
+        Integer savings = September2026Fixture.SAVINGS_WALLET_ID;
+        when(walletService.getWalletEntityByIdForUser(savings, userId))
+                .thenReturn(Wallet.builder().id(savings).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.of(PayCycle.open(
+                userId, September2026Fixture.SALARY_WALLET_ID, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(savings), eq(userId), any(LocalDate.class), any(LocalDate.class),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of());
+
+        CycleComparisonResponseDto result = v2Service(September2026Fixture.CLOCK).getCycleComparison(
+                savings, userId, September2026Fixture.TODAY, 2, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.NOT_SALARY_WALLET);
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 9, 30));
+        assertThat(result.baseline().cycles().getFirst().startDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+        verify(payCycleService).current(userId);
+        verifyNoInteractions(categoryRepository);
+    }
+
+    @Test
+    void v2_noCycleAtAllGetsCalendarMonthsLabelledMonthlyFallback() {
+        UUID userId = September2026Fixture.USER_ID;
+        Integer walletId = September2026Fixture.SALARY_WALLET_ID;
+        when(walletService.getWalletEntityByIdForUser(walletId, userId))
+                .thenReturn(Wallet.builder().id(walletId).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.empty());
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(walletId), eq(userId), any(LocalDate.class), any(LocalDate.class),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of());
+
+        CycleComparisonResponseDto result = v2Service(September2026Fixture.CLOCK).getCycleComparison(
+                walletId, userId, September2026Fixture.TODAY, 1, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.MONTHLY_FALLBACK);
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        verifyNoInteractions(categoryRepository);
     }
 
     @Test

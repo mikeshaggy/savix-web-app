@@ -59,13 +59,13 @@ public final class September2026Fixture {
     public static final LocalDate MONTH_START = LocalDate.of(2026, 9, 1);
     public static final LocalDate MONTH_END = LocalDate.of(2026, 9, 30);
 
-    public static final PeriodDto PAY_CYCLE_PERIOD = new PeriodDto(
+    public static final PeriodDto PAY_CYCLE_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 14), LocalDate.of(2026, 10, 9), PeriodType.PAY_CYCLE);
-    public static final PeriodDto LAST_PAY_CYCLE_PERIOD = new PeriodDto(
+    public static final PeriodDto LAST_PAY_CYCLE_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8), LocalDate.of(2026, 9, 10), PeriodType.LAST_PAY_CYCLE);
-    public static final PeriodDto MONTHLY_PERIOD = new PeriodDto(
+    public static final PeriodDto MONTHLY_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 1), PeriodType.MONTHLY);
-    public static final PeriodDto PREVIOUS_MONTH_PERIOD = new PeriodDto(
+    public static final PeriodDto PREVIOUS_MONTH_PERIOD = PeriodDto.of(
             LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), LocalDate.of(2026, 9, 1), PeriodType.MONTHLY);
 
     // Audit-date inputs (salary wallet, 2026-09-14)

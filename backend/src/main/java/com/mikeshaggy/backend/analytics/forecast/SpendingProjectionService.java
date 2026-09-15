@@ -132,7 +132,7 @@ public class SpendingProjectionService {
 
     private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
                                              Integer walletId, UUID userId, LocalDate asOfDate) {
-        PeriodDto fixedPaymentPeriod = new PeriodDto(
+        PeriodDto fixedPaymentPeriod = PeriodDto.of(
                 period.startDate(),
                 period.endDate(),
                 period.endDate(),
@@ -144,7 +144,7 @@ public class SpendingProjectionService {
 
     private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
                                              Wallet wallet, UUID userId, LocalDate asOfDate) {
-        PeriodDto fixedPaymentPeriod = new PeriodDto(
+        PeriodDto fixedPaymentPeriod = PeriodDto.of(
                 period.startDate(),
                 period.endDate(),
                 period.endDate(),

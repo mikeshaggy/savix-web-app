@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,7 @@ public class HeatmapService {
     private final TransactionRepository transactionRepository;
     private final WalletService walletService;
     private final PeriodService periodService;
+    private final Clock clock;
 
     public HeatmapResponseDto getHeatmap(Integer walletId, UUID userId,
                                          PeriodType periodType, LocalDate startDate, LocalDate endDate) {
@@ -42,7 +44,7 @@ public class HeatmapService {
 
         PeriodDto period = periodService.resolve(periodType, walletId, userId, startDate, endDate);
         LocalDate from = period.startDate();
-        LocalDate to = period.endDate();
+        LocalDate to = period.elapsedEndDate(LocalDate.now(clock));
 
         List<HeatmapProjection> rows = transactionRepository.findHeatmapByWalletDateRangeAndType(
                 walletId, userId, from, to, CategoryType.EXPENSE);

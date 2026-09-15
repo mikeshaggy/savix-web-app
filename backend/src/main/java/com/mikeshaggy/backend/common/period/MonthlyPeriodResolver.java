@@ -27,7 +27,7 @@ public class MonthlyPeriodResolver implements PeriodResolver {
         LocalDate startDate = month.atDay(1);
         LocalDate endDate = month.atEndOfMonth();
 
-        return new PeriodDto(startDate, endDate, month.plusMonths(1).atDay(1), PeriodType.MONTHLY);
+        return PeriodDto.of(startDate, endDate, month.plusMonths(1).atDay(1), PeriodType.MONTHLY);
     }
 
     private YearMonth resolveMonth(LocalDate customStart, LocalDate customEnd) {

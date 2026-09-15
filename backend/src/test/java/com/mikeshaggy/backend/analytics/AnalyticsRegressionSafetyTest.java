@@ -135,8 +135,8 @@ class AnalyticsRegressionSafetyTest {
                 .thenReturn(List.of(heatmapRow(LocalDate.of(2026, 3, 31), CURRENT_EXPENSES)));
         when(periodService.resolvePeriods(PeriodType.CUSTOM, WALLET_ID, USER_ID, CURRENT_START, CURRENT_END))
                 .thenReturn(new ResolvedPeriods(
-                        new PeriodDto(CURRENT_START, CURRENT_END, CURRENT_END, PeriodType.CUSTOM),
-                        new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
+                        PeriodDto.of(CURRENT_START, CURRENT_END, CURRENT_END, PeriodType.CUSTOM),
+                        PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
         when(transactionRepository.sumByWalletUserDateRangeAndType(
                 WALLET_ID, USER_ID, COMPARE_START, COMPARE_END, CategoryType.EXPENSE))
                 .thenReturn(COMPARE_EXPENSES);
@@ -149,7 +149,9 @@ class AnalyticsRegressionSafetyTest {
                 transactionRepository,
                 walletService,
                 categoryRepository,
-                Clock.fixed(CURRENT_END.atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()));
+                Clock.fixed(CURRENT_END.atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()),
+                new com.mikeshaggy.backend.config.FeatureFlags(false, false, false, false, false),
+                org.mockito.Mockito.mock(com.mikeshaggy.backend.common.paycycle.PayCycleService.class));
         when(categoryRepository.findByUserIdAndIsCycleAnchorTrue(USER_ID)).thenReturn(Optional.empty());
         when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
                 eq(WALLET_ID),

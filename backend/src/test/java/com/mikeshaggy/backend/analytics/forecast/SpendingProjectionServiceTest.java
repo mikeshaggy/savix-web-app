@@ -73,7 +73,7 @@ class SpendingProjectionServiceTest {
     @Test
     void defaultPayCycleCurrentPeriod_projectsThroughBillingEndDate() {
         when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 10), TODAY,
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), TODAY,
                         LocalDate.of(2026, 6, 10), PeriodType.PAY_CYCLE));
         sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"), new BigDecimal("1850.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
@@ -105,7 +105,7 @@ class SpendingProjectionServiceTest {
     @Test
     void explicitPayCycleCurrentPeriod_usesSameContract() {
         when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), TODAY,
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), TODAY,
                         LocalDate.of(2026, 6, 1), PeriodType.PAY_CYCLE));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("190.00"));
 
@@ -120,7 +120,7 @@ class SpendingProjectionServiceTest {
     @Test
     void lastPayCycleHistoricalPeriod_returnsActualsOnly() {
         when(periodService.resolve(PeriodType.LAST_PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 9),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 9),
                         LocalDate.of(2026, 5, 10), PeriodType.LAST_PAY_CYCLE));
         sums(new BigDecimal("4000.00"), new BigDecimal("4000.00"), new BigDecimal("2500.00"));
 
@@ -142,7 +142,7 @@ class SpendingProjectionServiceTest {
     @Test
     void lastPayCycleUsesResolvedEndDateNotBillingEndDate() {
         when(periodService.resolve(PeriodType.LAST_PAY_CYCLE, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 14),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 14),
                         LocalDate.of(2026, 5, 10), PeriodType.LAST_PAY_CYCLE));
         sums(new BigDecimal("4000.00"), new BigDecimal("4000.00"), new BigDecimal("2500.00"));
 
@@ -157,7 +157,7 @@ class SpendingProjectionServiceTest {
     @Test
     void monthlyCurrentMonth_usesCalendarMonth() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("3100.00"), new BigDecimal("3100.00"), new BigDecimal("950.00"));
 
@@ -175,7 +175,7 @@ class SpendingProjectionServiceTest {
         LocalDate start = LocalDate.of(2026, 5, 15);
         LocalDate end = LocalDate.of(2026, 5, 25);
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, start, end))
-                .thenReturn(new PeriodDto(start, end, start.plusMonths(1), PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(start, end, start.plusMonths(1), PeriodType.CUSTOM));
         sums(new BigDecimal("700.00"), new BigDecimal("900.00"), new BigDecimal("250.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
@@ -195,7 +195,7 @@ class SpendingProjectionServiceTest {
         LocalDate start = LocalDate.of(2026, 3, 1);
         LocalDate end = LocalDate.of(2026, 3, 31);
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, start, end))
-                .thenReturn(new PeriodDto(start, end, start.plusMonths(1), PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(start, end, start.plusMonths(1), PeriodType.CUSTOM));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("800.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
@@ -211,7 +211,7 @@ class SpendingProjectionServiceTest {
         LocalDate start = LocalDate.of(2026, 6, 1);
         LocalDate end = LocalDate.of(2026, 6, 30);
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, start, end))
-                .thenReturn(new PeriodDto(start, end, start.plusMonths(1), PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(start, end, start.plusMonths(1), PeriodType.CUSTOM));
 
         assertThatThrownBy(() -> service.getSpendingProjection(
                 WALLET_ID, USER_ID, PeriodType.CUSTOM, start, end))
@@ -248,7 +248,7 @@ class SpendingProjectionServiceTest {
         service = serviceWithDate(LocalDate.of(2026, 5, 10));
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID,
                 LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20)))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 20),
                         LocalDate.of(2026, 6, 10), PeriodType.CUSTOM));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("25.00"));
 
@@ -264,7 +264,7 @@ class SpendingProjectionServiceTest {
     void middleOfPeriod_countsInclusiveElapsedDays() {
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID,
                 LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 30)))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 30),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 5, 30),
                         LocalDate.of(2026, 6, 10), PeriodType.CUSTOM));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("100.00"));
 
@@ -279,7 +279,7 @@ class SpendingProjectionServiceTest {
     void lastDayOfPeriod_hasNoRemainingDays() {
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID,
                 LocalDate.of(2026, 5, 10), TODAY))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 10), TODAY,
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 10), TODAY,
                         LocalDate.of(2026, 6, 10), PeriodType.CUSTOM));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("100.00"));
 
@@ -293,7 +293,7 @@ class SpendingProjectionServiceTest {
     @Test
     void zeroExpensesReturnsZeroBurnRateAndProjectedExpenses() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), BigDecimal.ZERO);
 
@@ -306,7 +306,7 @@ class SpendingProjectionServiceTest {
     @Test
     void zeroIncomeDoesNotCrash() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("190.00"));
 
@@ -319,7 +319,7 @@ class SpendingProjectionServiceTest {
     @Test
     void zeroIncomeAndZeroExpensesReturnsZeros() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
 
@@ -332,7 +332,7 @@ class SpendingProjectionServiceTest {
     @Test
     void divisionByZeroGuardReturnsZeroBurnRate() {
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, TODAY, TODAY.minusDays(1)))
-                .thenReturn(new PeriodDto(TODAY, TODAY.minusDays(1), TODAY, PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(TODAY, TODAY.minusDays(1), TODAY, PeriodType.CUSTOM));
         sums(BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("100.00"));
 
         SpendingProjectionDto result = service.getSpendingProjection(
@@ -346,7 +346,7 @@ class SpendingProjectionServiceTest {
     @Test
     void negativeProjectedEndBalanceAllowed() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("1900.00"));
 
@@ -360,7 +360,7 @@ class SpendingProjectionServiceTest {
         Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("100.00")).build();
         when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID)).thenReturn(wallet);
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("1900.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
@@ -376,7 +376,7 @@ class SpendingProjectionServiceTest {
     void leapYearFebruaryMonthlyCountsTwentyNineDays() {
         service = serviceWithDate(LocalDate.of(2028, 2, 10));
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2028, 2, 1), LocalDate.of(2028, 2, 29),
+                .thenReturn(PeriodDto.of(LocalDate.of(2028, 2, 1), LocalDate.of(2028, 2, 29),
                         LocalDate.of(2028, 3, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("100.00"));
 
@@ -390,7 +390,7 @@ class SpendingProjectionServiceTest {
     @Test
     void remainingFixedPaymentsIncludedForCurrentPeriod() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("190.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
@@ -410,7 +410,7 @@ class SpendingProjectionServiceTest {
     void asOfDateIsPassedToRemainingFixedPaymentsCalculation() {
         LocalDate asOfDate = LocalDate.of(2026, 5, 10);
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         sums(new BigDecimal("1000.00"), new BigDecimal("1000.00"), new BigDecimal("100.00"));
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
@@ -429,7 +429,7 @@ class SpendingProjectionServiceTest {
     @Test
     void linkedFixedPaymentsExcludedFromBurnRateButKeptInProjectedTotal() {
         when(periodService.resolve(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
-                .thenReturn(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                .thenReturn(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 6, 1), PeriodType.MONTHLY));
         // expensesToDate = 1990 (1800 linked fixed + 190 variable); variable = 190.
         sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"),

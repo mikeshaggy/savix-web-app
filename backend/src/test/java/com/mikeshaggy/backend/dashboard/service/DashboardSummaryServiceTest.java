@@ -102,12 +102,12 @@ class DashboardSummaryServiceTest {
 
     @Test
     void payCycleSummaryUsesSameCutoffComparisonAndMapsAllSections() {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
                 PeriodType.PAY_CYCLE);
-        PeriodDto compare = new PeriodDto(
+        PeriodDto compare = PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),
@@ -186,7 +186,7 @@ class DashboardSummaryServiceTest {
         assertThat(result.previousCyclePreview().expensesDeltaAmount()).isEqualByComparingTo("240.00");
 
         verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
-                eq(new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                eq(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
                         LocalDate.of(2026, 5, 31), PeriodType.PAY_CYCLE)),
                 any(Wallet.class),
                 eq(USER_ID),
@@ -195,7 +195,7 @@ class DashboardSummaryServiceTest {
 
     @Test
     void noComparisonKeepsCurrentValuesAndNullDeltas() {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
@@ -305,12 +305,12 @@ class DashboardSummaryServiceTest {
 
     @Test
     void spendingProjectionIsComputedExactlyOncePerDashboardRequest() {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
                 PeriodType.PAY_CYCLE);
-        PeriodDto compare = new PeriodDto(
+        PeriodDto compare = PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),
@@ -352,12 +352,12 @@ class DashboardSummaryServiceTest {
 
     @Test
     void walletIsLookedUpExactlyOncePerDashboardRequest() {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
                 PeriodType.PAY_CYCLE);
-        PeriodDto compare = new PeriodDto(
+        PeriodDto compare = PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),
@@ -398,12 +398,12 @@ class DashboardSummaryServiceTest {
 
     @Test
     void fixedPaymentTileIsComputedExactlyOncePerDashboardRequest() {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
                 PeriodType.PAY_CYCLE);
-        PeriodDto compare = new PeriodDto(
+        PeriodDto compare = PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),
@@ -451,12 +451,12 @@ class DashboardSummaryServiceTest {
 
     private void assertStatusForProjection(String safeToSpend, String projectedEndBalance,
                                            String compareExpenses, DashboardHealthStatus expected) {
-        PeriodDto current = new PeriodDto(
+        PeriodDto current = PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
                 PeriodType.PAY_CYCLE);
-        PeriodDto compare = new PeriodDto(
+        PeriodDto compare = PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),
@@ -594,7 +594,7 @@ class DashboardSummaryServiceTest {
     }
 
     private PeriodDto payCycle() {
-        return new PeriodDto(
+        return PeriodDto.of(
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 26),
                 LocalDate.of(2026, 6, 1),
@@ -602,7 +602,7 @@ class DashboardSummaryServiceTest {
     }
 
     private PeriodDto previousCycle() {
-        return new PeriodDto(
+        return PeriodDto.of(
                 LocalDate.of(2026, 4, 1),
                 LocalDate.of(2026, 4, 30),
                 LocalDate.of(2026, 5, 1),

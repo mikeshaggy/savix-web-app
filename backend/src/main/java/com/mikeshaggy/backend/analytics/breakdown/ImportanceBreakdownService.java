@@ -51,13 +51,14 @@ public class ImportanceBreakdownService {
         walletService.getWalletEntityByIdForUser(walletId, userId);
 
         PeriodDto period = periodService.resolve(periodType, walletId, userId, startDate, endDate);
-        if (period.startDate().isAfter(LocalDate.now(clock))) {
+        LocalDate today = LocalDate.now(clock);
+        if (period.startDate().isAfter(today)) {
             throw new IllegalArgumentException("period must not be in the future");
         }
 
         List<ImportanceBreakdownProjection> rows = transactionRepository
                 .findImportanceBreakdownByWalletDateRangeAndType(
-                        walletId, userId, period.startDate(), period.endDate(), CategoryType.EXPENSE);
+                        walletId, userId, period.startDate(), period.elapsedEndDate(today), CategoryType.EXPENSE);
         // Defensive only: by domain rule, null importance is allowed for income transactions,
         // while expense transactions must have non-null importance.
         List<ImportanceBreakdownProjection> nonNullRows = rows.stream()

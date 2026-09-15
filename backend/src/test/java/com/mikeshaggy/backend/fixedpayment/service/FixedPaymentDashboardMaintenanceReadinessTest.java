@@ -45,7 +45,7 @@ class FixedPaymentDashboardMaintenanceReadinessTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 3, 11);
     private static final Clock CLOCK =
             Clock.fixed(Instant.parse("2026-03-11T00:00:00Z"), ZoneOffset.UTC);
-    private static final PeriodDto PERIOD = new PeriodDto(
+    private static final PeriodDto PERIOD = PeriodDto.of(
             LocalDate.of(2026, 3, 1),
             LocalDate.of(2026, 3, 31),
             LocalDate.of(2026, 4, 5),

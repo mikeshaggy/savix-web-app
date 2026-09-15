@@ -6,6 +6,7 @@ public record CycleComparisonBaselineDto(
         int requestedCycles,
         int cyclesUsed,
         boolean available,
-        List<CycleComparisonBaselineCycleDto> cycles
+        List<CycleComparisonBaselineCycleDto> cycles,
+        CycleComparisonBaselineKind kind
 ) {
 }

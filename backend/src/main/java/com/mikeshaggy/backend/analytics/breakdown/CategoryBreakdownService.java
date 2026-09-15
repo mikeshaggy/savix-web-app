@@ -31,12 +31,13 @@ public class CategoryBreakdownService {
         walletService.getWalletEntityByIdForUser(walletId, userId);
 
         PeriodDto period = periodService.resolve(periodType, walletId, userId, startDate, endDate);
-        if (period.startDate().isAfter(LocalDate.now(clock))) {
+        LocalDate today = LocalDate.now(clock);
+        if (period.startDate().isAfter(today)) {
             throw new IllegalArgumentException("period must not be in the future");
         }
 
         CategoryAggregationResult result = categoryAggregationService.aggregateExpenses(
-                walletId, userId, period.startDate(), period.endDate(),
+                walletId, userId, period.startDate(), period.elapsedEndDate(today),
                 CategoryAggregationMode.ALL);
 
         return new CategoryBreakdownDto(

@@ -147,6 +147,28 @@ class CategoryBreakdownServiceTest {
     }
 
     @Test
+    void payCycleEndingAfterTodayIsClampedToTodayForTheAggregationQuery() {
+        // given: a PAY_CYCLE period whose end (Mar 31) is after the clock's today (May 19 is after START/END,
+        // so use a period straddling the fixed clock instead: today = May 19, cycle end = Jun 5)
+        LocalDate today = LocalDate.of(2026, 5, 19);
+        LocalDate cycleStart = LocalDate.of(2026, 5, 9);
+        LocalDate cycleEnd = LocalDate.of(2026, 6, 8);
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(cycleStart, cycleEnd, cycleEnd.plusDays(1), PeriodType.PAY_CYCLE,
+                        com.mikeshaggy.backend.common.paycycle.CycleState.OPEN, cycleEnd.plusDays(1), true));
+        when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, cycleStart, today, CategoryType.EXPENSE)).thenReturn(List.of());
+
+        // when
+        CategoryBreakdownDto result = service.getCategoryBreakdown(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        // then: the aggregation query stops at today, not the cycle's endDate, but the reported endDate is unchanged
+        assertThat(result.endDate()).isEqualTo(cycleEnd);
+        verify(transactionRepository).findCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, cycleStart, today, CategoryType.EXPENSE);
+    }
+
+    @Test
     void walletOwnershipIsCheckedBeforeQueryingBreakdown() {
         resolvedPeriod();
         when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
@@ -159,7 +181,7 @@ class CategoryBreakdownServiceTest {
 
     private void resolvedPeriod() {
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, START, END))
-                .thenReturn(new PeriodDto(START, END, END.plusDays(1), PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(START, END, END.plusDays(1), PeriodType.CUSTOM));
     }
 
     private CategoryBreakdownProjection row(Integer categoryId, String name, String emoji,

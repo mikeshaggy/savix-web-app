@@ -102,7 +102,7 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
 
         when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID)).thenReturn(wallet);
 
-        PeriodDto primary = new PeriodDto(START, END, LocalDate.of(2026, 6, 1), PeriodType.PAY_CYCLE);
+        PeriodDto primary = PeriodDto.of(START, END, LocalDate.of(2026, 6, 1), PeriodType.PAY_CYCLE);
         when(periodService.resolvePeriods(any(), eq(WALLET_ID), eq(USER_ID), any(), any()))
                 .thenReturn(new ResolvedPeriods(primary, null));
 

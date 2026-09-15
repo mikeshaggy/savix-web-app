@@ -110,7 +110,7 @@ class FixedPaymentDashboardServiceTest {
     class TileData {
 
         private final PeriodDto period =
-                new PeriodDto(
+                PeriodDto.of(
                         LocalDate.of(2026, 3, 1),
                         LocalDate.of(2026, 3, 31),
                         LocalDate.of(2026, 4, 5),

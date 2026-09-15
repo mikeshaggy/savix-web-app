@@ -66,8 +66,8 @@ class InsightEngineTest {
         lenient().when(periodService.resolvePeriods(
                         eq(PeriodType.CUSTOM), eq(WALLET_ID), eq(USER_ID), any(), any()))
                 .thenReturn(new ResolvedPeriods(
-                        new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM),
-                        new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
+                        PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM),
+                        PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM)));
         // Default: zero income/expenses for all date-range sum queries
         lenient().when(transactionQueryService.totals(
                         eq(WALLET_ID), eq(USER_ID), any(LocalDate.class), any(LocalDate.class)))
@@ -145,6 +145,36 @@ class InsightEngineTest {
         assertThat(insight.severity()).isEqualTo(InsightSeverity.WARN);
         assertThat(insight.relatedAmount()).isEqualByComparingTo("250.00");
         assertThat(insight.description()).contains("25%");
+    }
+
+    // ─── pay-cycle elapsedEndDate clamp (AC-8) ──────────────────────────────────
+
+    @Test
+    void payCycleEndingAfterTodayClampsTotalsSpikeAndImpulseWindowsToToday() {
+        // given: a PAY_CYCLE period whose end (Mar 31) lies after today (Mar 15); the compare period is unaffected
+        LocalDate cycleStart = LocalDate.of(2026, 3, 1);
+        LocalDate cycleEnd = LocalDate.of(2026, 3, 31);
+        LocalDate today = LocalDate.of(2026, 3, 15);
+        insightEngine = engineAt("2026-03-15T10:00:00Z");
+
+        PeriodDto primaryPayCycle = new PeriodDto(cycleStart, cycleEnd, cycleEnd.plusDays(1), PeriodType.PAY_CYCLE,
+                com.mikeshaggy.backend.common.paycycle.CycleState.OPEN, cycleEnd.plusDays(1), true);
+        PeriodDto comparePeriod = PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END.plusDays(1), PeriodType.CUSTOM);
+        lenient().when(periodService.resolvePeriods(
+                        eq(PeriodType.PAY_CYCLE), eq(WALLET_ID), eq(USER_ID), any(), any()))
+                .thenReturn(new ResolvedPeriods(primaryPayCycle, comparePeriod));
+
+        when(transactionQueryService.totals(WALLET_ID, USER_ID, cycleStart, today))
+                .thenReturn(new PeriodTotals(new BigDecimal("500.00"), new BigDecimal("300.00")));
+
+        insightEngine.getInsights(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        // then: the "to date" reads stop at today, never at the cycle's future endDate
+        verify(transactionQueryService).totals(WALLET_ID, USER_ID, cycleStart, today);
+        verify(transactionRepository).findIncludedCategorySpendByWalletUserAndDateRange(
+                WALLET_ID, USER_ID, cycleStart, today, CategoryType.EXPENSE);
+        verify(transactionQueryService).expenseByImportance(
+                WALLET_ID, USER_ID, cycleStart, today, Importance.SHOULDNT_HAVE);
     }
 
     // ─── spending pace ───────────────────────────────────────────────────────────
@@ -284,9 +314,9 @@ class InsightEngineTest {
 
     @Test
     void dashboardWindowUsesExplicitCutoffDatesAndAsOfDate() {
-        PeriodDto primaryWindow = new PeriodDto(
+        PeriodDto primaryWindow = PeriodDto.of(
                 PRIMARY_START, LocalDate.of(2026, 3, 10), LocalDate.of(2026, 3, 10), PeriodType.CUSTOM);
-        PeriodDto compareWindow = new PeriodDto(
+        PeriodDto compareWindow = PeriodDto.of(
                 COMPARE_START, LocalDate.of(2026, 2, 10), LocalDate.of(2026, 2, 10), PeriodType.CUSTOM);
         LocalDate asOfDate = LocalDate.of(2026, 3, 10);
         // null categories → InsightEngine still queries transactionRepository for category spikes
@@ -317,8 +347,8 @@ class InsightEngineTest {
 
     @Test
     void getInsightsForWindowDoesNotQueryCurrentTotalsWhenPrecomputedDataIsSupplied() {
-        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
-        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        PeriodDto primaryWindow = PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
         PrecomputedInsightData precomputed = new PrecomputedInsightData(
                 projection("250.00"),
                 new PeriodTotals(new BigDecimal("1000.00"), new BigDecimal("300.00")),
@@ -337,8 +367,8 @@ class InsightEngineTest {
         // Primary March: 4000 over 31 days → 129.03/day; compare Feb: 2800 over 28 days → 100/day
         // 129.03 > 100 * 1.20 = 120 → pace insight triggered
         // asOfDate == PRIMARY_END → paceEnd == primary.endDate() → uses currentTotals.expenses(), no sum query
-        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
-        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        PeriodDto primaryWindow = PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
         PrecomputedInsightData precomputed = new PrecomputedInsightData(
                 null,
                 new PeriodTotals(new BigDecimal("10000.00"), new BigDecimal("4000.00")),
@@ -358,8 +388,8 @@ class InsightEngineTest {
 
     @Test
     void getInsightsForWindowDoesNotQueryCategoryAggregationsWhenPrecomputedCategoriesAreSupplied() {
-        PeriodDto primaryWindow = new PeriodDto(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
-        PeriodDto compareWindow = new PeriodDto(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
+        PeriodDto primaryWindow = PeriodDto.of(PRIMARY_START, PRIMARY_END, PRIMARY_END, PeriodType.CUSTOM);
+        PeriodDto compareWindow = PeriodDto.of(COMPARE_START, COMPARE_END, COMPARE_END, PeriodType.CUSTOM);
         CategoryAggregationResult emptyCats = new CategoryAggregationResult(BigDecimal.ZERO, List.of());
         PrecomputedInsightData precomputed = new PrecomputedInsightData(
                 projection("250.00"),

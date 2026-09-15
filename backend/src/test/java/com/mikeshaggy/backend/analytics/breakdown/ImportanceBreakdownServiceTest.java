@@ -165,6 +165,27 @@ class ImportanceBreakdownServiceTest {
     }
 
     @Test
+    void payCycleEndingAfterTodayIsClampedToTodayForTheRepositoryQuery() {
+        // given: a PAY_CYCLE period whose end (Jun 8) is after the clock's today (May 19)
+        LocalDate today = LocalDate.of(2026, 5, 19);
+        LocalDate cycleStart = LocalDate.of(2026, 5, 9);
+        LocalDate cycleEnd = LocalDate.of(2026, 6, 8);
+        when(periodService.resolve(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                .thenReturn(new PeriodDto(cycleStart, cycleEnd, cycleEnd.plusDays(1), PeriodType.PAY_CYCLE,
+                        com.mikeshaggy.backend.common.paycycle.CycleState.OPEN, cycleEnd.plusDays(1), true));
+        when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
+                WALLET_ID, USER_ID, cycleStart, today, CategoryType.EXPENSE)).thenReturn(List.of());
+
+        // when
+        ImportanceBreakdownDto result = service.getImportanceBreakdown(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        // then: the repository query stops at today, not the cycle's endDate, but the reported endDate is unchanged
+        assertThat(result.endDate()).isEqualTo(cycleEnd);
+        verify(transactionRepository).findImportanceBreakdownByWalletDateRangeAndType(
+                WALLET_ID, USER_ID, cycleStart, today, CategoryType.EXPENSE);
+    }
+
+    @Test
     void dateRangeFilteringUsesResolvedDates() {
         resolvedPeriod();
         when(transactionRepository.findImportanceBreakdownByWalletDateRangeAndType(
@@ -179,7 +200,7 @@ class ImportanceBreakdownServiceTest {
 
     private void resolvedPeriod() {
         when(periodService.resolve(PeriodType.CUSTOM, WALLET_ID, USER_ID, START, END))
-                .thenReturn(new PeriodDto(START, END, END.plusDays(1), PeriodType.CUSTOM));
+                .thenReturn(PeriodDto.of(START, END, END.plusDays(1), PeriodType.CUSTOM));
     }
 
     private ImportanceBreakdownProjection row(Importance importance, String amount, Long count) {

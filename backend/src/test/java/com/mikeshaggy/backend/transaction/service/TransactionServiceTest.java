@@ -1056,7 +1056,7 @@ class TransactionServiceTest {
             // given
             LocalDate start = LocalDate.of(2026, 2, 15);
             LocalDate end = LocalDate.of(2026, 3, 14);
-            PeriodDto period = new PeriodDto(start, end, end, PeriodType.PAY_CYCLE);
+            PeriodDto period = PeriodDto.of(start, end, end, PeriodType.PAY_CYCLE);
 
             Transaction t =
                     Transaction.builder()

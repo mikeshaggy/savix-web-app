@@ -183,6 +183,29 @@ class AnalyticsControllerTest {
     }
 
     @Nested
+    class Period {
+
+        @Test
+        void legacyResolvedPeriodSerialisesPayCycleMetadataFieldsAsNull() throws Exception {
+            // given: the legacy (flag-off) shape never populates pay-cycle metadata
+            when(periodService.resolve(PeriodType.PAY_CYCLE, 1, TEST_USER_ID, null, null))
+                    .thenReturn(com.mikeshaggy.backend.common.period.PeriodDto.of(
+                            LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31),
+                            LocalDate.of(2026, 4, 1), PeriodType.PAY_CYCLE));
+
+            mockMvc.perform(get("/api/wallets/1/analytics/period")
+                            .queryParam("periodType", "PAY_CYCLE"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.periodType").value("PAY_CYCLE"))
+                    .andExpect(jsonPath("$.startDate").value("2026-03-01"))
+                    .andExpect(jsonPath("$.endDate").value("2026-03-31"))
+                    .andExpect(jsonPath("$.cycleState").doesNotExist())
+                    .andExpect(jsonPath("$.expectedNextAnchorDate").doesNotExist())
+                    .andExpect(jsonPath("$.salaryWallet").doesNotExist());
+        }
+    }
+
+    @Nested
     class SpendingProjections {
 
         @Test
@@ -584,7 +607,8 @@ class AnalyticsControllerTest {
                         17,
                         17,
                         31),
-                new CycleComparisonBaselineDto(3, 3, true, List.of()),
+                new CycleComparisonBaselineDto(3, 3, true, List.of(),
+                        com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonBaselineKind.PAY_CYCLE),
                 new CycleComparisonSummaryDto(
                         new BigDecimal("1234.56"),
                         new BigDecimal("1050.00"),

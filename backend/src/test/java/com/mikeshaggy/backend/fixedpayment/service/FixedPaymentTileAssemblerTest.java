@@ -28,7 +28,7 @@ class FixedPaymentTileAssemblerTest {
     private final FixedPaymentTileAssembler assembler = new FixedPaymentTileAssembler(FIXED_CLOCK);
 
     private static final PeriodDto PERIOD =
-            new PeriodDto(
+            PeriodDto.of(
                     LocalDate.of(2026, 3, 1),
                     LocalDate.of(2026, 3, 31),
                     LocalDate.of(2026, 4, 5),
