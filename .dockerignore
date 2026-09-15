@@ -1,0 +1,3 @@
+# Production builds use backend/ and frontend/ as separate contexts.
+# Fail closed if the repository root is accidentally supplied as a context.
+**

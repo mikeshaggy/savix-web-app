@@ -1,0 +1,153 @@
+# Inventory: Raspberry Pi, 2026-09-15. Select this file alone, never merge
+# with the development docker-compose.yml. This is NOT a deployment command.
+name: savix
+
+services:
+  savix-backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the selected local backend image}
+    pull_policy: never
+    container_name: savix-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8000"
+      DB_URL: jdbc:postgresql://savix-db:5432/${POSTGRES_DB:-savix}
+      DB_USERNAME: ${POSTGRES_USER:-savix-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Supply the existing database password}
+      REDIS_HOST: savix-redis
+      REDIS_PORT: "6379"
+      SMTP_HOST: ${SMTP_HOST:?Supply the existing SMTP host}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:?Supply the existing SMTP username}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Supply the existing SMTP password}
+      FRONTEND_URL: ${FRONTEND_URL:-https://savix.mikeshaggy.com}
+      PROXY_SECRET: ${PROXY_SECRET:?Supply the existing shared proxy secret}
+      EMAIL_FROM: ${EMAIL_FROM:?Supply the existing sender address}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Savix}
+      JWT_ISSUER: ${JWT_ISSUER:?Supply the existing JWT issuer}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?Supply the existing JWT audience}
+      JWT_PRIVATE_KEY: file:/run/savix/jwt-private-key.pem
+      JWT_PUBLIC_KEY: file:/run/savix/jwt-public-key.pem
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - type: bind
+        source: ${JWT_PRIVATE_KEY_FILE:?Supply an absolute path to the EXISTING private key}
+        target: /run/savix/jwt-private-key.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${JWT_PUBLIC_KEY_FILE:?Supply an absolute path to the EXISTING public key}
+        target: /run/savix/jwt-public-key.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - savix_internal
+      - monitoring_shared
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+
+  savix-frontend:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE to the selected local frontend image}
+    pull_policy: never
+    container_name: savix-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      PROXY_BASE: http://savix-backend:8000
+      PROXY_SECRET: ${PROXY_SECRET:?Supply the existing shared proxy secret}
+    ports:
+      - "3000:3000"
+    networks:
+      - savix_internal
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      start_period: 30s
+      retries: 3
+
+  savix-db:
+    # Retain installed images. Never implicitly upgrade the inventoried 16.11.
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    pull_policy: never
+    container_name: savix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-savix-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Supply the existing database password}
+      POSTGRES_DB: ${POSTGRES_DB:-savix}
+    ports:
+      - "5432:5432"
+    volumes:
+      - savix-db-data:/var/lib/postgresql/data
+    networks:
+      - savix_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  savix-redis:
+    # Installed Redis is 8.4.0, RDB enabled, AOF/auth disabled.
+    image: ${REDIS_IMAGE:-redis:alpine}
+    pull_policy: never
+    container_name: savix-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - savix-redis-existing-data:/data
+    networks:
+      - savix_internal
+
+  postgres-exporter:
+    image: ${POSTGRES_EXPORTER_IMAGE:-prometheuscommunity/postgres-exporter:latest}
+    pull_policy: never
+    container_name: savix-postgres-exporter
+    restart: unless-stopped
+    environment:
+      # Full existing DSN: preserve credentials/options and URI escaping.
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DATA_SOURCE_NAME:?Supply the existing exporter DSN for savix-db:5432/savix}
+    networks:
+      - savix_internal
+      - monitoring_shared
+
+  redis-exporter:
+    image: ${REDIS_EXPORTER_IMAGE:-oliver006/redis_exporter:latest}
+    pull_policy: never
+    container_name: savix-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://savix-redis:6379
+    networks:
+      - savix_internal
+      - monitoring_shared
+
+# Existing identities are literal and external: missing resources fail closed.
+networks:
+  savix_internal:
+    name: savix_savix_internal
+    external: true
+  monitoring_shared:
+    name: monitoring_shared
+    external: true
+
+volumes:
+  savix-db-data:
+    name: savix_savix-db-data
+    external: true
+  savix-redis-existing-data:
+    # Reference the inventoried anonymous volume directly; do not copy/migrate it.
+    name: 30e5abda8a6c7b41a64cc8363266d09a1424d4a025800857f72dd636e0a2eb5d
+    external: true

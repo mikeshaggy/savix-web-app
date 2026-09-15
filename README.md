@@ -28,7 +28,7 @@ Savix is a full-stack monorepo project demonstrating backend architecture built 
 - **Icons:** Lucide React
 
 ### Infrastructure
-- **Containerization:** Docker Compose (PostgreSQL, Redis)
+- **Containerization:** Docker Compose (local infrastructure and inventoried production topology)
 - **Deployment:** Docker-based with standalone Next.js output
 - **Security:** Cloudflare Tunnel (Zero Trust) in production
 
@@ -90,6 +90,10 @@ savix-web-app/
 - Java 21+
 - Node.js 20+
 - Docker & Docker Compose
+
+For production image builds and the Raspberry Pi topology, see
+[Production Docker setup](docs/production-docker.md). The development Compose
+file below must not be run on the production host.
 
 ### 1. Clone and configure
 
