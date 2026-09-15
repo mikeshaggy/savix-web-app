@@ -71,9 +71,11 @@ export default function AnalyticsBreakdownPage() {
   const [importanceLoading, setImportanceLoading] = useState(false);
   const [fetchError,        setFetchError]        = useState(null);
 
-  // Budget usage keyed by categoryId for overlay in the breakdown list
+  // Budget usage keyed by categoryId for overlay in the breakdown list.
+  // Budgets are per pay cycle (Stage 2.6): no overlay on MONTHLY / CUSTOM reporting periods.
+  const budgetPeriod = periodType === 'PAY_CYCLE' || periodType === 'LAST_PAY_CYCLE';
   const { usage: budgetUsage } = useBudgetUsage(
-    currentWallet?.id,
+    budgetPeriod ? currentWallet?.id : null,
     { periodType, startDate: resolvedStart, endDate: resolvedEnd },
   );
   const budgetMap = useMemo(

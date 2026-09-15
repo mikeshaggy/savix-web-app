@@ -496,6 +496,14 @@ class DashboardSummaryServiceTest {
         assertThat(result.cycleHealth().projectedEndBalance()).isNull();
         assertThat(result.cycleHealth().spendingPaceDeltaPercent()).isNull();
         verify(transactionQueryService).totals(WALLET_ID, USER_ID, start, TODAY);
+        // 2.7: the fixed-payments window extends to today so occurrences due between the expected payday
+        // and the actual one stay in this cycle
+        ArgumentCaptor<PeriodDto> tileWindow = ArgumentCaptor.forClass(PeriodDto.class);
+        verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
+                tileWindow.capture(), any(Wallet.class), eq(USER_ID), eq(TODAY));
+        assertThat(tileWindow.getValue().startDate()).isEqualTo(start);
+        assertThat(tileWindow.getValue().endDate()).isEqualTo(TODAY);
+        assertThat(tileWindow.getValue().billingEndDate()).isEqualTo(TODAY);
     }
 
     @Test

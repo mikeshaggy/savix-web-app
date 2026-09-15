@@ -32,6 +32,7 @@ function TrajectorySVG({
   expensesToDate,
   projectedTotal,
   income,
+  reporting = false,
   todayLabel,
   incomeLabel,
 }) {
@@ -65,10 +66,13 @@ function TrajectorySVG({
   const yNow     = yAt(expensesToDate);
   const yEnd     = yAt(projectedTotal);
   const yIncome  = income > 0 ? yAt(income) : null;
-  // ySafe kept as alias so the rest of the code is unchanged
-  const ySafe    = yIncome;
+  // Safe-pace diagonal is a planning reference; a reporting period has none.
+  const ySafe    = reporting ? null : yIncome;
 
-  const isPast = daysElapsed >= daysInPeriod;
+  // No projection to draw past today: the period is over, or it is reporting-only.
+  const isPast = reporting || daysElapsed >= daysInPeriod;
+  // The "today" marker still makes sense for a reporting period that is not over yet (current month).
+  const showToday = daysElapsed < daysInPeriod;
 
   // Area path helpers (filled regions beneath lines)
   const actualAreaD  = `M ${x0},${yBase} L ${xNow},${yNow} L ${xNow},${yBase} Z`;
@@ -111,7 +115,7 @@ function TrajectorySVG({
       )}
 
       {/* ── Today vertical marker ── */}
-      {!isPast && (
+      {showToday && (
         <line
           x1={xNow} y1={PT}
           x2={xNow} y2={yBase}
@@ -160,7 +164,7 @@ function TrajectorySVG({
 
       {/* ── Labels ── */}
       {/* "Today" above the vertical marker */}
-      {!isPast && daysElapsed > 0 && (
+      {showToday && daysElapsed > 0 && (
         <text
           x={xNow}
           y={PT - 7}
@@ -221,19 +225,22 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
 
   if (!projData) return null;
 
+  // Reporting mode (Stage 2.8): the projected fields are null — draw the actual spend against income only,
+  // no projected line, no pace verdict, no "% over income".
+  const isReporting    = !projData.projectionAvailable;
   const daysInPeriod   = projData.daysInPeriod ?? 0;
   const daysElapsed    = projData.daysElapsed  ?? 0;
   const spentSoFar     = projData.expensesToDate ?? 0;
-  const projectedTotal = projData.projectedPeriodExpenses ?? 0;
+  const projectedTotal = isReporting ? spentSoFar : (projData.projectedPeriodExpenses ?? 0);
   const income         = projData.incomeForPeriod ?? 0;
 
-  const pct     = income > 0 ? (projectedTotal / income) * 100 : null;
+  const pct     = !isReporting && income > 0 ? (projectedTotal / income) * 100 : null;
   const isOver  = pct !== null && pct > 100;
-  const statusColor = isOver ? '#f87171' : pct !== null && pct > 80 ? '#fbbf24' : '#4ade80';
+  const statusColor = isReporting ? '#f87171' : isOver ? '#f87171' : pct !== null && pct > 80 ? '#fbbf24' : '#4ade80';
 
   // Safe-pace today: linear spend rate toward income
   const safePaceToday =
-    daysInPeriod > 0 && income > 0
+    !isReporting && daysInPeriod > 0 && income > 0
       ? (daysElapsed / daysInPeriod) * income
       : null;
 
@@ -241,7 +248,8 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
   const paceDelta = safePaceToday !== null ? spentSoFar - safePaceToday : null;
   const isOverPace = paceDelta !== null && paceDelta > 0;
 
-  const vsIncome = income > 0 ? projectedTotal - income : null;
+  const vsIncome = !isReporting && income > 0 ? projectedTotal - income : null;
+  const net = income - spentSoFar;
 
   return (
     <div className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-6 relative overflow-hidden flex flex-col">
@@ -285,6 +293,7 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
           expensesToDate={spentSoFar}
           projectedTotal={projectedTotal}
           income={income}
+          reporting={isReporting}
           todayLabel={t('today')}
           incomeLabel={t('incomeLimit')}
         />
@@ -302,21 +311,23 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
           <div className="w-4 h-[2.5px] rounded-full bg-[#f87171]" />
           <span>{t('actualSpend')}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-white/40">
-          <svg width="16" height="3" className="flex-shrink-0">
-            <line x1="0" y1="1.5" x2="16" y2="1.5"
-              stroke="#f87171" strokeWidth="2"
-              strokeDasharray="4 3" opacity="0.55" />
-          </svg>
-          <span>{t('projectedSpend')}</span>
-        </div>
+        {!isReporting && (
+          <div className="flex items-center gap-1.5 text-xs text-white/40">
+            <svg width="16" height="3" className="flex-shrink-0">
+              <line x1="0" y1="1.5" x2="16" y2="1.5"
+                stroke="#f87171" strokeWidth="2"
+                strokeDasharray="4 3" opacity="0.55" />
+            </svg>
+            <span>{t('projectedSpend')}</span>
+          </div>
+        )}
         {income > 0 && (
           <div className="flex items-center gap-1.5 text-xs text-white/40">
             <div className="w-4 h-[1.5px] rounded-full bg-[#4ade80] opacity-60" />
             <span>{t('incomeLimit')}</span>
           </div>
         )}
-        {income > 0 && (
+        {!isReporting && income > 0 && (
           <div className="flex items-center gap-1.5 text-xs text-white/40">
             <svg width="16" height="3" className="flex-shrink-0">
               <line x1="0" y1="1.5" x2="16" y2="1.5"
@@ -331,7 +342,26 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
       {/* ── Divider ────────────────────────────────────── */}
       <div className="h-px bg-white/[0.06] mb-4" />
 
-      {/* ── Pace-focused bottom stats ───────────────────── */}
+      {/* ── Bottom stats: actuals in reporting mode, pace verdicts when a projection exists ── */}
+      {isReporting ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3" data-testid="trajectory-reporting-stats">
+          <StatCell
+            label={t('spentSoFar')}
+            value={formatCurrency(spentSoFar)}
+            color="#f87171"
+          />
+          <StatCell
+            label={t('income')}
+            value={income > 0 ? formatCurrency(income) : '—'}
+            color="#4ade80"
+          />
+          <StatCell
+            label={t('net')}
+            value={formatCurrency(net)}
+            color={net >= 0 ? '#4ade80' : '#f87171'}
+          />
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
         <StatCell
           label={t('spentSoFar')}
@@ -354,6 +384,7 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
           color={isOver ? '#f87171' : '#4ade80'}
         />
       </div>
+      )}
 
     </div>
   );

@@ -38,6 +38,7 @@ export default function AnalyticsShell({ children }) {
   const { currentWallet, loading: walletsLoading } = useWallets();
   const {
     periodType,
+    allowedTypes,
     selectedMonth,
     startDate,
     endDate,
@@ -116,19 +117,23 @@ export default function AnalyticsShell({ children }) {
           </p>
         </div>
 
-        {/* Right — period selector: pill above, segmented tabs below */}
-        <PeriodSelector
-          periodType={periodType}
-          selectedMonth={selectedMonth}
-          startDate={startDate}
-          endDate={endDate}
-          displayStart={displayStart}
-          displayEnd={displayEnd}
-          onPeriodTypeChange={setPeriodType}
-          onMonthChange={setMonth}
-          onCustomDateChange={setCustomDates}
-          align="end"
-        />
+        {/* Right — period selector: pill above, segmented tabs below.
+            Hidden on a page that supports a single period type (Comparison is PAY_CYCLE only). */}
+        {allowedTypes.length > 1 && (
+          <PeriodSelector
+            periodType={periodType}
+            selectedMonth={selectedMonth}
+            startDate={startDate}
+            endDate={endDate}
+            displayStart={displayStart}
+            displayEnd={displayEnd}
+            allowedTypes={allowedTypes}
+            onPeriodTypeChange={setPeriodType}
+            onMonthChange={setMonth}
+            onCustomDateChange={setCustomDates}
+            align="end"
+          />
+        )}
       </div>
 
       {/* ── Sub-navigation tabs ────────────────────────────────────────────── */}

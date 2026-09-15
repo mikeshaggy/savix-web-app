@@ -8,9 +8,11 @@ import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.transaction.repository.CategoryBreakdownProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
@@ -383,10 +385,83 @@ class CategoryBudgetServiceTest {
             var response = categoryBudgetService.getUsage(1, USER_ID, PeriodType.PAY_CYCLE, null, null);
 
             assertThat(response.walletId()).isEqualTo(1);
-            // PAY_CYCLE: periodEnd = billingEndDate(Jun 1) - 1 day = May 31
+            // the response describes the whole cycle; spend is summed only through today (May 20)
             assertThat(response.periodStart()).isEqualTo(LocalDate.of(2026, 5, 1));
             assertThat(response.periodEnd()).isEqualTo(LocalDate.of(2026, 5, 31));
             assertThat(response.budgets()).isEmpty();
+            verify(transactionRepository).findCategorySpendByWalletUserAndDateRange(
+                    1, USER_ID, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 20), CategoryType.EXPENSE);
+        }
+
+        @Test
+        void openCycleUsageWindowRunsFromCycleStartToToday_andDaysRemainingCountToCycleEnd() {
+            // Stage 2.6: window = [cycle.start, cycle.end] ∩ [.., today]; no billingEndDate arithmetic
+            PeriodDto period = new PeriodDto(
+                    LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 8), LocalDate.of(2026, 10, 9),
+                    PeriodType.PAY_CYCLE, CycleState.OPEN, LocalDate.of(2026, 10, 9), true);
+            CategoryBudget b = budget(1, expenseCategory, new BigDecimal("1000.00"), 80);
+
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
+            when(periodService.resolve(PeriodType.PAY_CYCLE, 1, USER_ID, null, null)).thenReturn(period);
+            when(categoryBudgetRepository.findActiveByWalletIdAndUserId(1, USER_ID)).thenReturn(List.of(b));
+            when(transactionRepository.findCategorySpendByWalletUserAndDateRange(
+                    1, USER_ID, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 14), CategoryType.EXPENSE))
+                    .thenReturn(List.of(spend(10, "250.00")));
+            when(clock.instant()).thenReturn(Instant.parse("2026-09-14T12:00:00Z"));
+            when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+
+            var response = categoryBudgetService.getUsage(1, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+            assertThat(response.periodStart()).isEqualTo(LocalDate.of(2026, 9, 9));
+            assertThat(response.periodEnd()).isEqualTo(LocalDate.of(2026, 10, 8));
+            assertThat(response.budgets()).hasSize(1);
+            assertThat(response.budgets().get(0).spentAmount()).isEqualByComparingTo("250.00");
+            assertThat(response.budgets().get(0).daysRemaining()).isEqualTo(24);
+        }
+
+        @Test
+        void closedCycleUsageWindowIsTheWholeCycle() {
+            PeriodDto period = new PeriodDto(
+                    LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8), LocalDate.of(2026, 9, 9),
+                    PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED, null, true);
+
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
+            when(periodService.resolve(PeriodType.LAST_PAY_CYCLE, 1, USER_ID, null, null)).thenReturn(period);
+            when(categoryBudgetRepository.findActiveByWalletIdAndUserId(1, USER_ID)).thenReturn(List.of());
+            when(transactionRepository.findCategorySpendByWalletUserAndDateRange(any(), any(), any(), any(), any()))
+                    .thenReturn(List.of());
+            when(clock.instant()).thenReturn(Instant.parse("2026-09-14T12:00:00Z"));
+            when(clock.getZone()).thenReturn(ZoneOffset.UTC);
+
+            var response = categoryBudgetService.getUsage(1, USER_ID, PeriodType.LAST_PAY_CYCLE, null, null);
+
+            assertThat(response.periodEnd()).isEqualTo(LocalDate.of(2026, 9, 8));
+            verify(transactionRepository).findCategorySpendByWalletUserAndDateRange(
+                    1, USER_ID, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8), CategoryType.EXPENSE);
+        }
+
+        @Test
+        void monthlyAndCustomAreRejected_budgetsArePerPayCycle() {
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
+
+            assertThatThrownBy(() -> categoryBudgetService.getUsage(1, USER_ID, PeriodType.MONTHLY, null, null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("per pay cycle");
+            assertThatThrownBy(() -> categoryBudgetService.getUsage(1, USER_ID, PeriodType.CUSTOM,
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("per pay cycle");
+            verifyNoInteractions(periodService, transactionRepository);
+        }
+
+        private CategoryBreakdownProjection spend(Integer categoryId, String amount) {
+            return new CategoryBreakdownProjection() {
+                @Override public Integer getCategoryId() { return categoryId; }
+                @Override public String getName() { return "Groceries"; }
+                @Override public String getEmoji() { return "🛒"; }
+                @Override public BigDecimal getAmount() { return new BigDecimal(amount); }
+                @Override public Long getTransactionCount() { return 1L; }
+            };
         }
     }
 }

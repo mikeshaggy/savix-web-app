@@ -6,7 +6,8 @@ import { useCallback, useMemo } from 'react';
  * @typedef {'PAY_CYCLE' | 'LAST_PAY_CYCLE' | 'MONTHLY' | 'CUSTOM'} PeriodType
  *
  * @typedef {Object} AnalyticsPeriod
- * @property {PeriodType}    periodType
+ * @property {PeriodType}    periodType     - coerced to the page's allowed types
+ * @property {PeriodType[]}  allowedTypes   - period types the current analytics page supports
  * @property {string}        selectedMonth  - current yyyy-MM value
  * @property {string|null}   startDate      - yyyy-MM-dd, only set for CUSTOM
  * @property {string|null}   endDate        - yyyy-MM-dd, only set for CUSTOM
@@ -17,8 +18,17 @@ import { useCallback, useMemo } from 'react';
  * @property {function(string, string): void} setCustomDates
  */
 
-const VALID = new Set(['PAY_CYCLE', 'LAST_PAY_CYCLE', 'MONTHLY', 'CUSTOM']);
+const ALL_TYPES = ['PAY_CYCLE', 'LAST_PAY_CYCLE', 'MONTHLY', 'CUSTOM'];
+const VALID = new Set(ALL_TYPES);
 const DEFAULT_TYPE = 'PAY_CYCLE';
+
+// Planning pages are pay-cycle only (Stage 2.5/2.8): Comparison compares salary-to-salary cycles and never
+// takes a period at all; Forecast projects the open cycle or reports the last one. Reporting pages keep
+// every type. A URL periodType outside the page's list is read as the page's first allowed type.
+const ALLOWED_BY_PATH = {
+  '/analytics/comparison': ['PAY_CYCLE'],
+  '/analytics/forecast':   ['PAY_CYCLE', 'LAST_PAY_CYCLE'],
+};
 
 function currentYearMonth() {
   const now = new Date();
@@ -37,8 +47,10 @@ export function useAnalyticsPeriod() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const allowedTypes = ALLOWED_BY_PATH[pathname] ?? ALL_TYPES;
   const rawType = searchParams.get('periodType');
-  const periodType = /** @type {PeriodType} */ (rawType && VALID.has(rawType) ? rawType : DEFAULT_TYPE);
+  const urlType = rawType && VALID.has(rawType) ? rawType : DEFAULT_TYPE;
+  const periodType = /** @type {PeriodType} */ (allowedTypes.includes(urlType) ? urlType : allowedTypes[0]);
   const startDate     = searchParams.get('startDate') || null;
   const endDate       = searchParams.get('endDate')   || null;
   const selectedMonth = searchParams.get('month')     || currentYearMonth();
@@ -90,6 +102,7 @@ export function useAnalyticsPeriod() {
 
   return {
     periodType,
+    allowedTypes,
     selectedMonth,
     startDate,
     endDate,

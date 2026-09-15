@@ -32,6 +32,9 @@ export default function ForecastBreakdown({ projData, loading }) {
 
   if (!projData) return null;
 
+  // The breakdown explains a projection; a reporting period has none (Stage 2.8) — the hero shows the actuals.
+  if (!projData.projectionAvailable) return null;
+
   const spentSoFar = projData.expensesToDate ?? 0;
   const remainingFixed = projData.remainingFixedPayments ?? 0;
   const projectedTotal = projData.projectedPeriodExpenses ?? 0;

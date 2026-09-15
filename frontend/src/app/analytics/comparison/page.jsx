@@ -13,7 +13,6 @@ import {
   YAxis,
 } from 'recharts';
 import { useWallets } from '@/contexts/WalletContext';
-import { useAnalyticsPeriod } from '@/hooks/useAnalyticsPeriod';
 import { analyticsApi } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/utils/helpers';
 import ErrorState from '@/components/common/ErrorState';
@@ -69,13 +68,6 @@ const STATUS_SORT_ORDER = {
   BELOW_BASELINE: 4,
   NO_BASELINE: 5,
 };
-
-function endOfMonth(month) {
-  if (!month) return null;
-  const [year, monthIndex] = month.split('-').map(Number);
-  if (!year || !monthIndex) return null;
-  return new Date(Date.UTC(year, monthIndex, 0)).toISOString().slice(0, 10);
-}
 
 function toNumber(value) {
   const number = Number(value);
@@ -450,69 +442,22 @@ export default function AnalyticsComparisonPage() {
   const t = useTranslations('analytics');
   const locale = useLocale();
   const { currentWallet } = useWallets();
-  const {
-    periodType,
-    selectedMonth,
-    resolvedEnd,
-    endDate,
-  } = useAnalyticsPeriod();
 
   const [baselineCycles, setBaselineCycles] = useState(1);
   const [categoryMode, setCategoryMode] = useState('ALL');
   const [categorySort, setCategorySort] = useState('increase');
-  const [resolvedAsOfDate, setResolvedAsOfDate] = useState({ periodType: null, date: null });
-  const [resolvingAsOfDate, setResolvingAsOfDate] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function resolveAsOfDate() {
-      if (!currentWallet?.id) return;
-      if (periodType === 'PAY_CYCLE') {
-        setResolvingAsOfDate(false);
-        setResolvedAsOfDate({ periodType, date: null });
-        return;
-      }
-      if (periodType === 'MONTHLY') {
-        setResolvingAsOfDate(false);
-        setResolvedAsOfDate({ periodType, date: endOfMonth(selectedMonth) });
-        return;
-      }
-      if (periodType === 'CUSTOM') {
-        setResolvingAsOfDate(false);
-        setResolvedAsOfDate({ periodType, date: endDate || resolvedEnd || null });
-        return;
-      }
-      if (periodType === 'LAST_PAY_CYCLE') {
-        setResolvedAsOfDate({ periodType, date: null });
-        setResolvingAsOfDate(true);
-        try {
-          const period = await analyticsApi.resolvePeriod(currentWallet.id, periodType, null, null);
-          if (!cancelled) setResolvedAsOfDate({ periodType, date: period?.endDate ?? null });
-        } catch {
-          if (!cancelled) setResolvedAsOfDate({ periodType, date: null });
-        } finally {
-          if (!cancelled) setResolvingAsOfDate(false);
-        }
-      }
-    }
-
-    resolveAsOfDate();
-    return () => { cancelled = true; };
-  }, [currentWallet?.id, periodType, selectedMonth, endDate, resolvedEnd]);
-
+  // Comparison is pay-cycle only (Stage 2.5): the open cycle through today against the closed cycles.
+  // No period selector, no asOfDate — the backend rejects anything in the future.
   const fetchComparison = useCallback(async () => {
-    if (!currentWallet?.id || resolvingAsOfDate) return;
-    if (periodType === 'LAST_PAY_CYCLE' && resolvedAsOfDate.periodType !== periodType) return;
-    if (periodType === 'LAST_PAY_CYCLE' && !resolvedAsOfDate.date) return;
+    if (!currentWallet?.id) return;
     setLoading(true);
     setError(null);
     try {
       const result = await analyticsApi.getCycleComparison(currentWallet.id, {
-        asOfDate: resolvedAsOfDate.periodType === periodType ? resolvedAsOfDate.date : null,
         baselineCycles,
         categoryMode,
       });
@@ -523,7 +468,7 @@ export default function AnalyticsComparisonPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentWallet?.id, resolvingAsOfDate, resolvedAsOfDate, periodType, baselineCycles, categoryMode, t]);
+  }, [currentWallet?.id, baselineCycles, categoryMode, t]);
 
   useEffect(() => {
     fetchComparison();
@@ -575,6 +520,18 @@ export default function AnalyticsComparisonPage() {
   }, [baselineCycles, data, locale, t]);
 
   const noBaseline = data && (!data.baseline?.available || (data.baseline?.cyclesUsed ?? 0) === 0);
+  // Only offer averages the history can back: "12-cycle avg" disappears when fewer than 12 closed
+  // cycles exist. "Last cycle" is always offered. Until the first response arrives, show all options.
+  const availableCycles = data?.baseline?.availableCycles ?? null;
+  const compareOptions = availableCycles === null
+    ? COMPARE_OPTIONS
+    : COMPARE_OPTIONS.filter((option) => option.cycles === 1 || option.cycles <= availableCycles);
+
+  // Keep the selection inside the rendered options (an option picked before the first response may vanish).
+  useEffect(() => {
+    if (compareOptions.some((option) => option.cycles === baselineCycles)) return;
+    setBaselineCycles(compareOptions[compareOptions.length - 1].cycles);
+  }, [compareOptions, baselineCycles]);
   const noTransactions = data
     && toNumber(data.summary?.currentExpenses) === 0
     && (data.categories?.length ?? 0) === 0;
@@ -591,7 +548,7 @@ export default function AnalyticsComparisonPage() {
               {t('cycleComparisonCompareAgainst')}
             </span>
             <div className="flex items-center bg-[#0e0e1c] border border-white/[0.055] rounded-xl p-1 gap-0.5 overflow-x-auto max-w-full">
-              {COMPARE_OPTIONS.map((option) => (
+              {compareOptions.map((option) => (
                 <button
                   key={option.cycles}
                   onClick={() => setBaselineCycles(option.cycles)}
@@ -634,7 +591,7 @@ export default function AnalyticsComparisonPage() {
         </div>
       </div>
 
-      {(loading || resolvingAsOfDate) && (
+      {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl h-32 animate-pulse" />

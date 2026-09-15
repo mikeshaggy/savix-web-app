@@ -15,6 +15,66 @@ function fmtShort(str) {
   }
 }
 
+/**
+ * Reporting header: period label plus income / spent / net actuals — no verdict, no projected number,
+ * no overspend copy. Mirrors the dashboard's reporting header for non-planning periods.
+ */
+function ReportingHeader({ projData, period, t, formatCurrency }) {
+  const start = period?.startDate ?? projData.startDate;
+  const end = period?.endDate ?? projData.endDate;
+  const income = projData.incomeForPeriod ?? null;
+  const spent = projData.expensesToDate ?? null;
+  const net = income != null && spent != null ? Number(income) - Number(spent) : null;
+  const reason = projData.projectionReason === 'AWAITING_SALARY'
+    ? t('reportingAwaitingSalary')
+    : t('reportingOnly');
+
+  return (
+    <div
+      className="rounded-2xl border border-white/[0.06] bg-[#0e0e1c] mb-6 overflow-hidden"
+      style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
+      data-testid="forecast-reporting-header"
+    >
+      <div className="flex items-center justify-between gap-3 px-6 py-3 border-b border-white/[0.04]">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-white/45">
+            {t('reportingPeriod')}
+          </span>
+          <span className="text-[11px] text-white/30 truncate">{reason}</span>
+        </div>
+        {start && end && (
+          <div className="flex items-center gap-1.5 text-[11px] text-white/35 flex-shrink-0">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="font-mono">{fmtShort(start)} – {fmtShort(end)}</span>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-white/[0.035]">
+        {[
+          { key: 'income', label: t('income'), value: income, cls: 'text-white' },
+          { key: 'spent', label: t('spentSoFar'), value: spent, cls: 'text-white' },
+          {
+            key: 'net',
+            label: t('net'),
+            value: net,
+            cls: net != null && net < 0 ? 'text-rose-400' : 'text-emerald-400',
+          },
+        ].map(({ key, label, value, cls }) => (
+          <div key={key} className="bg-[#0e0e1c] px-4 md:px-5 py-5 md:py-6 min-w-0">
+            <div className="text-[9px] tracking-[0.12em] uppercase text-white/35 mb-2.5">{label}</div>
+            <div
+              className={`font-mono text-[clamp(18px,3.4vw,26px)] font-bold tracking-[-0.5px] leading-none tabular-nums ${cls}`}
+              style={{ overflowWrap: 'break-word' }}
+            >
+              {value != null ? formatCurrency(value) : '—'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CycleForecastHero({ projData, loading, period }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
@@ -28,6 +88,19 @@ export default function CycleForecastHero({ projData, loading, period }) {
   }
 
   if (!projData) return null;
+
+  // Reporting mode (Stage 2.8): MONTHLY / CUSTOM / LAST_PAY_CYCLE, a closed cycle, an AWAITING_SALARY
+  // cycle or a non-salary wallet carry no projection — show the period and its actuals, nothing else.
+  if (!projData.projectionAvailable) {
+    return (
+      <ReportingHeader
+        projData={projData}
+        period={period}
+        t={t}
+        formatCurrency={formatCurrency}
+      />
+    );
+  }
 
   const endBalance = projData.projectedEndBalance ?? 0;
   const isPositive = endBalance >= 0;
@@ -73,11 +146,6 @@ export default function CycleForecastHero({ projData, loading, period }) {
             </span>
             {isActive && (
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
-            )}
-            {!isActive && (
-              <span className="text-xs text-white/30 font-medium">
-                {t('historicalPeriod')}
-              </span>
             )}
           </div>
 

@@ -70,7 +70,11 @@ public class CycleComparisonService {
         walletService.getWalletEntityByIdForUser(walletId, userId);
 
         int baselineCycles = normalizeBaselineCycles(requestedBaselineCycles);
-        LocalDate asOfDate = requestedAsOfDate == null ? LocalDate.now(clock) : requestedAsOfDate;
+        LocalDate today = LocalDate.now(clock);
+        LocalDate asOfDate = requestedAsOfDate == null ? today : requestedAsOfDate;
+        if (asOfDate.isAfter(today)) {
+            throw new IllegalArgumentException("asOfDate must not be in the future");
+        }
         CategoryAggregationMode mode = categoryMode == null ? CategoryAggregationMode.ALL : categoryMode;
 
         CyclePlan cyclePlan = resolveCycles(walletId, userId, asOfDate, baselineCycles);
@@ -78,7 +82,10 @@ public class CycleComparisonService {
             throw new IllegalArgumentException("asOfDate must not be before the current cycle start date");
         }
 
-        CycleWindow current = cyclePlan.current().withCutoff(asOfDate);
+        // asOfDate is never in the future, so the current window runs to asOfDate itself: an open cycle is read up
+        // to today, a closed cycle up to the requested day. Only the legacy resolver (whose "current" cycle is a
+        // nominal start + 1 month) still caps the cutoff at its computed end.
+        CycleWindow current = cyclePlan.current();
         int dayIndex = InclusiveDateRange.daysBetween(current.startDate(), current.cutoffDate());
 
         List<CycleWindow> baselineWindows = cyclePlan.baseline().stream()
@@ -145,6 +152,7 @@ public class CycleComparisonService {
                         baselineCycles,
                         baselineAggregations.size(),
                         !baselineAggregations.isEmpty(),
+                        cyclePlan.availableCycles(),
                         baselineCycleDtos,
                         cyclePlan.kind()),
                 summary,
@@ -176,7 +184,7 @@ public class CycleComparisonService {
 
         List<Transaction> anchorTransactions = transactionRepository
                 .findByWalletUserCategoryAndDateLessThanEqualOrderByTransactionDateDesc(
-                        walletId, userId, anchor.get().getId(), asOfDate, PageRequest.of(0, baselineCycles + 1));
+                        walletId, userId, anchor.get().getId(), asOfDate, PageRequest.of(0, MAX_BASELINE_CYCLES + 1));
 
         if (anchorTransactions.isEmpty()) {
             return monthlyCycles(asOfDate, baselineCycles, CycleComparisonBaselineKind.MONTHLY_FALLBACK);
@@ -188,7 +196,8 @@ public class CycleComparisonService {
                 .toList();
 
         LocalDate currentStart = anchorDates.getFirst();
-        CycleWindow current = new CycleWindow(currentStart, currentStart.plusMonths(1).minusDays(1), asOfDate);
+        LocalDate nominalEnd = currentStart.plusMonths(1).minusDays(1);
+        CycleWindow current = new CycleWindow(currentStart, nominalEnd, asOfDate.isAfter(nominalEnd) ? nominalEnd : asOfDate);
 
         List<CycleWindow> baseline = new ArrayList<>();
         for (int i = 1; i < anchorDates.size() && baseline.size() < baselineCycles; i++) {
@@ -197,7 +206,8 @@ public class CycleComparisonService {
             baseline.add(new CycleWindow(start, end, end));
         }
 
-        return new CyclePlan(current, baseline, CycleComparisonBaselineKind.PAY_CYCLE);
+        int availableCycles = Math.min(MAX_BASELINE_CYCLES, anchorDates.size() - 1);
+        return new CyclePlan(current, baseline, availableCycles, CycleComparisonBaselineKind.PAY_CYCLE);
     }
 
     /**
@@ -220,26 +230,35 @@ public class CycleComparisonService {
 
         PayCycle cycle = current.get();
         if (!asOfDate.isBefore(cycle.start())) {
-            return payCyclePlan(cycle, asOfDate, payCycleService.history(userId, baselineCycles));
+            // Up to the cap so the response can say how many baseline cycles exist (the UI caps its options).
+            return payCyclePlan(cycle, asOfDate, payCycleService.history(userId, MAX_BASELINE_CYCLES), baselineCycles);
         }
 
-        // Historical asOfDate: salaries are monthly, so the closed set is small — load it once and slice.
+        // Historical asOfDate: salaries are monthly, so the closed set is small — load it once and slice; the
+        // closed cycle containing asOfDate is "current", the cycles before it the baseline.
         List<PayCycle> closed = payCycleService.history(userId, Integer.MAX_VALUE);
         for (int i = 0; i < closed.size(); i++) {
             if (closed.get(i).contains(asOfDate)) {
-                return payCyclePlan(closed.get(i), asOfDate,
-                        closed.subList(i + 1, Math.min(closed.size(), i + 1 + baselineCycles)));
+                return payCyclePlan(closed.get(i), asOfDate, closed.subList(i + 1, closed.size()), baselineCycles);
             }
         }
         return monthlyCycles(asOfDate, baselineCycles, CycleComparisonBaselineKind.MONTHLY_FALLBACK);
     }
 
-    private CyclePlan payCyclePlan(PayCycle current, LocalDate asOfDate, List<PayCycle> history) {
-        CycleWindow currentWindow = new CycleWindow(current.start(), current.end(), asOfDate);
+    /**
+     * The current window ends at {@code asOfDate} when the cycle is still awaiting its salary (asOfDate is
+     * never in the future, so this only happens after the expected payday) — the cycle is as long as it has
+     * been so far, matching the dashboard's AWAITING_SALARY days.
+     */
+    private CyclePlan payCyclePlan(PayCycle current, LocalDate asOfDate, List<PayCycle> history, int baselineCycles) {
+        LocalDate end = asOfDate.isAfter(current.end()) ? asOfDate : current.end();
+        CycleWindow currentWindow = new CycleWindow(current.start(), end, asOfDate);
         List<CycleWindow> baseline = history.stream()
+                .limit(baselineCycles)
                 .map(closed -> new CycleWindow(closed.start(), closed.end(), closed.end()))
                 .toList();
-        return new CyclePlan(currentWindow, baseline, CycleComparisonBaselineKind.PAY_CYCLE);
+        int availableCycles = Math.min(MAX_BASELINE_CYCLES, history.size());
+        return new CyclePlan(currentWindow, baseline, availableCycles, CycleComparisonBaselineKind.PAY_CYCLE);
     }
 
     private CyclePlan monthlyCycles(LocalDate asOfDate, int baselineCycles, CycleComparisonBaselineKind kind) {
@@ -251,7 +270,7 @@ public class CycleComparisonService {
             YearMonth month = currentMonth.minusMonths(i);
             baseline.add(new CycleWindow(month.atDay(1), month.atEndOfMonth(), month.atEndOfMonth()));
         }
-        return new CyclePlan(current, baseline, kind);
+        return new CyclePlan(current, baseline, MAX_BASELINE_CYCLES, kind);
     }
 
     private CycleAggregation aggregateCycle(List<DailyCategorySpendProjection> rows, CycleWindow cycle) {
@@ -449,7 +468,8 @@ public class CycleComparisonService {
         return value == null ? 0L : value;
     }
 
-    private record CyclePlan(CycleWindow current, List<CycleWindow> baseline, CycleComparisonBaselineKind kind) {
+    private record CyclePlan(CycleWindow current, List<CycleWindow> baseline, int availableCycles,
+                             CycleComparisonBaselineKind kind) {
     }
 
     private record CycleWindow(LocalDate startDate, LocalDate endDate, LocalDate cutoffDate) {

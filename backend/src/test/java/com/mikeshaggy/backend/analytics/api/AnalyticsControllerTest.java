@@ -123,7 +123,27 @@ class AnalyticsControllerTest {
                     .andExpect(jsonPath("$.walletId").value(1))
                     .andExpect(jsonPath("$.currentCycle.dayIndex").value(17))
                     .andExpect(jsonPath("$.baseline.available").value(true))
+                    .andExpect(jsonPath("$.baseline.availableCycles").value(6))
                     .andExpect(jsonPath("$.summary.status").value("ABOVE_BASELINE"));
+        }
+
+        @Test
+        void futureAsOfDateReturns400() throws Exception {
+            // Stage 2.5: the service rejects an asOfDate in the future; the controller must surface it as 400.
+            when(cycleComparisonService.getCycleComparison(
+                    eq(1),
+                    eq(TEST_USER_ID),
+                    eq(LocalDate.of(2099, 1, 1)),
+                    isNull(),
+                    isNull(),
+                    eq(CategoryAggregationMode.ALL),
+                    isNull()))
+                    .thenThrow(new IllegalArgumentException("asOfDate must not be in the future"));
+
+            mockMvc.perform(get("/api/wallets/1/analytics/cycle-comparison")
+                            .queryParam("asOfDate", "2099-01-01"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("asOfDate must not be in the future"));
         }
 
         @Test
@@ -660,7 +680,7 @@ class AnalyticsControllerTest {
                         17,
                         17,
                         31),
-                new CycleComparisonBaselineDto(3, 3, true, List.of(),
+                new CycleComparisonBaselineDto(3, 3, true, 6, List.of(),
                         com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonBaselineKind.PAY_CYCLE),
                 new CycleComparisonSummaryDto(
                         new BigDecimal("1234.56"),

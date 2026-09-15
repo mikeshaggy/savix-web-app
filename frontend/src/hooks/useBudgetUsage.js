@@ -27,8 +27,11 @@ function normalizeBudgetUsage(response) {
  * Fetches /api/category-budgets/usage for a given wallet + period.
  * Re-fetches whenever walletId or period params change.
  * Always returns usage as an array regardless of API envelope shape.
+ *
+ * Budgets are per pay cycle: the backend accepts PAY_CYCLE (default) and LAST_PAY_CYCLE only and
+ * answers 400 for MONTHLY / CUSTOM, so callers on a reporting period should not fetch at all.
  */
-export const useBudgetUsage = (walletId, { periodType, startDate, endDate } = {}) => {
+export const useBudgetUsage = (walletId, { periodType = 'PAY_CYCLE', startDate, endDate } = {}) => {
   const [usage, setUsage]     = useState([]);
   const [meta,  setMeta]      = useState(null);
   const [loading, setLoading] = useState(false);

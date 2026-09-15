@@ -107,7 +107,7 @@ class CycleComparisonServiceTest {
                 .thenReturn(Wallet.builder().id(walletId).build());
         when(payCycleService.current(userId)).thenReturn(Optional.of(
                 PayCycle.open(userId, walletId, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
-        when(payCycleService.history(userId, 6)).thenReturn(List.of(
+        when(payCycleService.history(userId, 12)).thenReturn(List.of(
                 PayCycle.closed(userId, walletId, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8)),
                 PayCycle.closed(userId, walletId, LocalDate.of(2026, 7, 10), LocalDate.of(2026, 8, 9)),
                 PayCycle.closed(userId, walletId, LocalDate.of(2026, 6, 10), LocalDate.of(2026, 7, 9)),
@@ -129,6 +129,7 @@ class CycleComparisonServiceTest {
         assertThat(result.currentCycle().totalDays()).isEqualTo(30);
         assertThat(result.baseline().kind()).isEqualTo(CycleComparisonBaselineKind.PAY_CYCLE);
         assertThat(result.baseline().cyclesUsed()).isEqualTo(6);
+        assertThat(result.baseline().availableCycles()).isEqualTo(6);
         assertThat(result.baseline().cycles())
                 .extracting(CycleComparisonBaselineCycleDto::startDate, CycleComparisonBaselineCycleDto::endDate)
                 .containsExactly(
@@ -143,7 +144,7 @@ class CycleComparisonServiceTest {
             assertThat(cycle.cutoffDate()).isEqualTo(cycle.startDate().plusDays(5));
         });
         verify(payCycleService).current(userId);
-        verify(payCycleService).history(userId, 6);
+        verify(payCycleService).history(userId, 12);
         verifyNoInteractions(categoryRepository);
     }
 
@@ -357,9 +358,23 @@ class CycleComparisonServiceTest {
     }
 
     @Test
-    void asOfDateAfterCurrentCycleEndKeepsRequestedDateButUsesCycleEndAsCutoff() {
-        LocalDate requestedAsOfDate = LocalDate.of(2026, 6, 10);
-        givenAnchorDatesForAsOf(requestedAsOfDate,
+    void asOfDateInTheFutureIsRejectedBeforeAnyCycleIsResolved() {
+        // Stage 2.5: the Comparison page must never request a future asOfDate (§11 Stage 2→3 stop condition)
+        assertThatThrownBy(() -> service.getCycleComparison(
+                WALLET_ID, USER_ID, AS_OF.plusDays(1), 1, null, CategoryAggregationMode.ALL, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("asOfDate must not be in the future");
+        verifyNoInteractions(transactionRepository, categoryRepository, payCycleService);
+    }
+
+    @Test
+    void legacyPathCapsCutoffAtTheNominalCycleEndWhenTodayIsPastIt() {
+        // legacy resolver: current cycle = anchor + 1 month; today (Jun 10) is past its nominal end (May 31)
+        LocalDate today = LocalDate.of(2026, 6, 10);
+        CycleComparisonService lateService = new CycleComparisonService(transactionRepository, walletService,
+                categoryRepository, Clock.fixed(today.atStartOfDay(ZoneId.systemDefault()).toInstant(),
+                        ZoneId.systemDefault()), FLAG_OFF, payCycleService);
+        givenAnchorDatesForAsOf(today,
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 4, 1));
         givenRows(List.of(
@@ -367,27 +382,48 @@ class CycleComparisonServiceTest {
                 row(LocalDate.of(2026, 6, 1), 1, "Groceries", "G", "999.00", 1L),
                 row(LocalDate.of(2026, 4, 30), 1, "Groceries", "G", "25.00", 1L)));
 
-        CycleComparisonResponseDto result = service.getCycleComparison(
-                WALLET_ID, USER_ID, requestedAsOfDate, 1, null, CategoryAggregationMode.ALL, null);
+        CycleComparisonResponseDto result = lateService.getCycleComparison(
+                WALLET_ID, USER_ID, today, 1, null, CategoryAggregationMode.ALL, null);
 
-        assertThat(result.asOfDate()).isEqualTo(requestedAsOfDate);
+        assertThat(result.asOfDate()).isEqualTo(today);
         assertThat(result.currentCycle().endDate()).isEqualTo(LocalDate.of(2026, 5, 31));
         assertThat(result.currentCycle().cutoffDate()).isEqualTo(LocalDate.of(2026, 5, 31));
         assertThat(result.currentCycle().dayIndex()).isEqualTo(31);
-        assertThat(result.currentCycle().elapsedDays()).isEqualTo(31);
         assertThat(result.summary().currentExpenses()).isEqualByComparingTo("50.00");
+        assertThat(result.baseline().availableCycles()).isEqualTo(1);
+    }
 
-        verify(transactionRepository).findDailyCategorySpendByWalletUserDateRangeAndType(
-                eq(WALLET_ID),
-                eq(USER_ID),
-                eq(LocalDate.of(2026, 4, 1)),
-                eq(LocalDate.of(2026, 5, 31)),
-                eq(CategoryType.EXPENSE),
-                anyList(),
-                anyBoolean(),
-                anyBoolean(),
-                anyList(),
-                anyBoolean());
+    @Test
+    void v2_awaitingSalaryCycleIsComparedThroughToday() {
+        // expected payday Oct 9 has passed without a salary; today is Oct 11 — the cycle runs to today (2.7)
+        UUID userId = September2026Fixture.USER_ID;
+        Integer walletId = September2026Fixture.SALARY_WALLET_ID;
+        LocalDate today = LocalDate.of(2026, 10, 11);
+        when(walletService.getWalletEntityByIdForUser(walletId, userId))
+                .thenReturn(Wallet.builder().id(walletId).build());
+        when(payCycleService.current(userId)).thenReturn(Optional.of(
+                PayCycle.awaitingSalary(userId, walletId, LocalDate.of(2026, 9, 9), LocalDate.of(2026, 10, 9))));
+        when(payCycleService.history(userId, 12)).thenReturn(List.of(
+                PayCycle.closed(userId, walletId, LocalDate.of(2026, 8, 10), LocalDate.of(2026, 9, 8))));
+        when(transactionRepository.findDailyCategorySpendByWalletUserDateRangeAndType(
+                eq(walletId), eq(userId), eq(LocalDate.of(2026, 8, 10)), eq(today),
+                eq(CategoryType.EXPENSE), anyList(), anyBoolean(), anyBoolean(), anyList(), anyBoolean()))
+                .thenReturn(List.of(row(LocalDate.of(2026, 10, 10), 1, "Groceries", "G", "50.00", 1L)));
+
+        CycleComparisonResponseDto result = v2Service(Clock.fixed(
+                today.atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()))
+                .getCycleComparison(walletId, userId, null, 1, null, CategoryAggregationMode.ALL, null);
+
+        assertThat(result.currentCycle().startDate()).isEqualTo(LocalDate.of(2026, 9, 9));
+        assertThat(result.currentCycle().endDate()).isEqualTo(today);
+        assertThat(result.currentCycle().cutoffDate()).isEqualTo(today);
+        assertThat(result.currentCycle().dayIndex()).isEqualTo(33);
+        assertThat(result.currentCycle().totalDays()).isEqualTo(33);
+        assertThat(result.summary().currentExpenses()).isEqualByComparingTo("50.00");
+        assertThat(result.baseline().cyclesUsed()).isEqualTo(1);
+        assertThat(result.baseline().availableCycles()).isEqualTo(1);
+        // the shorter closed baseline cycle is still cut at its own end
+        assertThat(result.baseline().cycles().getFirst().cutoffDate()).isEqualTo(LocalDate.of(2026, 9, 8));
     }
 
     @Test

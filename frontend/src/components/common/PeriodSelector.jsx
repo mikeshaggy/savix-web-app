@@ -19,6 +19,8 @@ import { useTranslations } from 'next-intl';
  * @param {string|null} [props.displayEnd]         - Same for end date.
  * @param {string|null} [props.pillNote]           - Muted note rendered after the dates
  *                                                   ("next salary expected Oct 9", "reporting").
+ * @param {string[]}    [props.allowedTypes]       - Period types offered as tabs (default: all four).
+ *                                                   Without CUSTOM the pill is read-only.
  * @param {function}    props.onPeriodTypeChange   - Called with the new period type string
  * @param {function}    props.onMonthChange        - Called with new 'YYYY-MM' string
  * @param {function}    props.onCustomDateChange   - Called with (startDate, endDate) strings
@@ -32,6 +34,7 @@ export default function PeriodSelector({
   displayStart,
   displayEnd,
   pillNote = null,
+  allowedTypes = null,
   onPeriodTypeChange,
   onMonthChange,
   onCustomDateChange,
@@ -50,7 +53,8 @@ export default function PeriodSelector({
     { value: 'LAST_PAY_CYCLE', label: t('lastCycle') },
     { value: 'MONTHLY',        label: t('month') },
     { value: 'CUSTOM',         label: t('custom') },
-  ];
+  ].filter((btn) => !allowedTypes || allowedTypes.includes(btn.value));
+  const customAllowed = periodButtons.some((btn) => btn.value === 'CUSTOM');
 
   // ── Pill display values ───────────────────────────────────────────────────
   // displayStart/End props let Dashboard pass resolved API dates for non-CUSTOM modes.
@@ -60,6 +64,7 @@ export default function PeriodSelector({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleStartEditing = () => {
+    if (!customAllowed) return;
     setIsEditing(true);
     // Pre-fill from resolved/URL dates whichever is available
     setTempStart(startDate || displayStart || '');
@@ -111,10 +116,14 @@ export default function PeriodSelector({
 
       ) : !isEditing ? (
         <div
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.055] bg-[#0e0e1c] text-xs cursor-pointer transition-all hover:border-purple-500/30 hover:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]"
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.055] bg-[#0e0e1c] text-xs transition-all ${
+            customAllowed
+              ? 'cursor-pointer hover:border-purple-500/30 hover:shadow-[0_0_0_3px_rgba(124,58,237,0.1)]'
+              : ''
+          }`}
           onClick={handleStartEditing}
-          role="button"
-          tabIndex={0}
+          role={customAllowed ? 'button' : undefined}
+          tabIndex={customAllowed ? 0 : undefined}
           onKeyDown={(e) => e.key === 'Enter' && handleStartEditing()}
         >
           <span className="text-white/50">{t('period')}</span>

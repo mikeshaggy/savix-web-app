@@ -445,7 +445,8 @@ export default function BudgetsPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [archivedOpen, setArchivedOpen]       = useState(false);
 
-  const { usage, loading, refetch } = useBudgetUsage(currentWallet?.id);
+  // Budgets are per pay cycle (Stage 2.6): the backend rejects MONTHLY / CUSTOM usage requests.
+  const { usage, loading, refetch } = useBudgetUsage(currentWallet?.id, { periodType: 'PAY_CYCLE' });
 
   const [archived, setArchived]               = useState([]);
   const [archivedLoading, setArchivedLoading] = useState(false);

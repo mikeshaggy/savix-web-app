@@ -44,6 +44,63 @@ export default function SpendingPacePanel({ projData, loading }) {
   if (!projData) return null;
 
   const isActive = projData.projectionAvailable;
+
+  // Reporting mode (Stage 2.8): actuals only — no burn rate, no safe-to-spend, no required reduction.
+  if (!isActive) {
+    const actualRows = [
+      {
+        icon: Flame,
+        label: t('spentSoFar'),
+        subtext: t('reportingOnly'),
+        value: formatCurrency(projData.expensesToDate ?? 0),
+        color: '#f87171',
+      },
+      ...(projData.linkedFixedExpensesToDate != null
+        ? [
+            {
+              icon: Lock,
+              label: t('fixedSpendToDate'),
+              subtext: t('fixedThisCycle'),
+              value: formatCurrency(projData.linkedFixedExpensesToDate),
+              color: '#a78bfa',
+            },
+            {
+              icon: Zap,
+              label: t('variableSpendToDate'),
+              subtext: t('variableOnly'),
+              value: formatCurrency(projData.variableExpensesToDate ?? 0),
+              color: '#fb923c',
+            },
+          ]
+        : []),
+      {
+        icon: CalendarClock,
+        label: t('daysElapsedLabel'),
+        subtext: t('daysRemainingSubtext', {
+          days: projData.daysElapsed ?? 0,
+          total: projData.daysInPeriod ?? 0,
+        }),
+        value: projData.daysElapsed ?? 0,
+        color: '#60a5fa',
+      },
+    ];
+    return (
+      <div
+        className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-6 relative overflow-hidden"
+        data-testid="pace-panel-reporting"
+      >
+        <div className="text-xs font-bold tracking-[0.12em] uppercase text-white/35 mb-1">
+          {t('spendingActuals')}
+        </div>
+        <div className="mt-1">
+          {actualRows.map((row, i) => (
+            <PaceRow key={i} {...row} />
+          ))}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-20 bg-white/40" />
+      </div>
+    );
+  }
   const daysRemaining = projData.daysRemaining ?? 0;
   const remainingFixed = projData.remainingFixedPayments ?? 0;
   const burnRate = projData.dailyBurnRate ?? 0;

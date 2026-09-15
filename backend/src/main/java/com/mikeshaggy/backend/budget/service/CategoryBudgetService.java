@@ -60,16 +60,22 @@ public class CategoryBudgetService {
         walletService.getWalletEntityByIdForUser(walletId, userId);
 
         PeriodType resolved = periodType != null ? periodType : PeriodType.PAY_CYCLE;
+        if (resolved == PeriodType.MONTHLY || resolved == PeriodType.CUSTOM) {
+            throw new IllegalArgumentException("Budgets are per pay cycle; periodType must be PAY_CYCLE or LAST_PAY_CYCLE.");
+        }
         PeriodDto period = periodService.resolve(resolved, walletId, userId, startDate, endDate);
+        LocalDate today = LocalDate.now(clock);
         LocalDate periodStart = period.startDate();
-        LocalDate periodEnd   = effectivePeriodEnd(period);
+        LocalDate periodEnd   = period.endDate();
+        // Usage window: [cycle.start, cycle.end] ∩ [.., today] — an open cycle is summed to today, a closed one whole.
+        LocalDate usageEnd    = periodEnd.isAfter(today) ? today : periodEnd;
 
         List<CategoryBudget> budgets =
                 categoryBudgetRepository.findActiveByWalletIdAndUserId(walletId, userId);
 
         Map<Integer, BigDecimal> spendByCategory = transactionRepository
                 .findCategorySpendByWalletUserAndDateRange(
-                        walletId, userId, periodStart, periodEnd, CategoryType.EXPENSE)
+                        walletId, userId, periodStart, usageEnd, CategoryType.EXPENSE)
                 .stream()
                 .collect(Collectors.toMap(p -> p.getCategoryId(), p -> p.getAmount()));
 
@@ -85,7 +91,7 @@ public class CategoryBudgetService {
 
         List<BudgetUsageCalculator.BudgetItemResult> results =
                 BudgetUsageCalculator.calculateItems(
-                        inputs, spendByCategory, periodStart, periodEnd, LocalDate.now(clock));
+                        inputs, spendByCategory, periodStart, periodEnd, today);
 
         List<BudgetUsageItemDto> items = results.stream()
                 .map(r -> new BudgetUsageItemDto(
@@ -189,11 +195,5 @@ public class CategoryBudgetService {
     private CategoryBudget getBudgetOrThrowForUser(Integer budgetId, UUID userId) {
         return categoryBudgetRepository.findByIdAndWalletUserId(budgetId, userId)
                 .orElseThrow(() -> new EntityNotFoundException("Budget not found with id: " + budgetId));
-    }
-
-    private LocalDate effectivePeriodEnd(PeriodDto period) {
-        return period.periodType() == PeriodType.PAY_CYCLE
-                ? period.billingEndDate().minusDays(1)
-                : period.endDate();
     }
 }
