@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.repository.CategoryRepository;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
@@ -128,6 +129,35 @@ class PayCycleServiceTest {
                 assertThat(cycle.lengthDays()).isEqualTo(30);
                 assertThat(cycle.dayIndex(TODAY)).isEqualTo(6);
             });
+        }
+
+        @Test
+        void expectedNextCycleIsOct9ToNov9_displayHorizonOnly() {
+            givenFixtureUser();
+            givenNoConfiguredRule();
+
+            Optional<InclusiveDateRange> next = serviceAt(TODAY).expectedNextCycle(USER_ID);
+
+            // the learned rule (10th, previous business day) applied once more from the expected Oct 9 payday:
+            // Nov 10, 2026 is a Tuesday, so the following cycle is expected to run Oct 9 → Nov 9
+            assertThat(next).hasValue(new InclusiveDateRange(EXPECTED_PAYDAY, d(2026, 11, 9)));
+        }
+
+        @Test
+        void expectedNextCycle_thinHistoryReappliesTheSameRule_neverLearnsFromItsOwnPrediction() {
+            // two anchors → MEDIAN_LENGTH (33 days): expected Sep 14; the horizon must reuse that rule
+            // (14th, no shift → Oct 14, end Oct 13), not switch to a day-of-month rule learned from the prediction
+            givenAnchorCategory();
+            givenConfiguredSalaryWallet(SALARY_WALLET_ID);
+            givenSalaryWalletAnchors(List.of(d(2026, 7, 10), d(2026, 8, 12)));
+            givenNoConfiguredRule();
+
+            PayCycleService service = serviceAt(d(2026, 9, 1));
+            Optional<PayCycle> current = service.current(USER_ID);
+            Optional<InclusiveDateRange> next = service.expectedNextCycle(USER_ID);
+
+            assertThat(current).hasValueSatisfying(c -> assertThat(c.expectedNextAnchor()).isEqualTo(d(2026, 9, 14)));
+            assertThat(next).hasValue(new InclusiveDateRange(d(2026, 9, 14), d(2026, 10, 13)));
         }
 
         @Test

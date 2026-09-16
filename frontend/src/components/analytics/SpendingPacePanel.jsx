@@ -60,7 +60,7 @@ export default function SpendingPacePanel({ projData, loading }) {
             {
               icon: Lock,
               label: t('fixedSpendToDate'),
-              subtext: t('fixedThisCycle'),
+              subtext: t('fixedSpendToDateSubtext'),
               value: formatCurrency(projData.linkedFixedExpensesToDate),
               color: '#a78bfa',
             },
@@ -204,7 +204,10 @@ export default function SpendingPacePanel({ projData, loading }) {
               </div>
             </div>
             <div className="bg-[#0e0e1c] px-3 py-2.5">
-              <div className="text-[9px] tracking-[0.06em] uppercase text-white/30 mb-1">
+              <div
+                className="text-[9px] tracking-[0.06em] uppercase text-white/30 mb-1"
+                title={t('fixedSpendToDateSubtext')}
+              >
                 {t('fixedSpendToDate')}
               </div>
               <div className="font-mono text-[13px] font-bold text-violet-300">

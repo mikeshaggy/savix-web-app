@@ -33,9 +33,14 @@ const SOON_DAYS = 7;
 const classify = (occ) => {
   if (occ.status === 'PAID')    return occ.paidOnTime === false ? 'PAID_LATE' : 'PAID';
   if (occ.status === 'SKIPPED') return 'SKIPPED';
+  // Stage 3.4: the server's cycle bucket decides; daysDelta only splits "due today" out of
+  // DUE_SOON. The daysDelta fallback below serves rows from a backend without the field.
+  if (occ.bucket === 'OVERDUE')  return 'OVERDUE';
+  if (occ.bucket === 'DUE_SOON') return Number(occ.daysDelta) === 0 ? 'DUE_TODAY' : 'DUE_SOON';
+  if (occ.bucket === 'LATER_THIS_CYCLE' || occ.bucket === 'AFTER_PAYDAY') return 'UPCOMING';
   if (occ.status === 'OVERDUE' || Number(occ.daysDelta) < 0) return 'OVERDUE';
-  if (Number(occ.daysDelta) === 0)            return 'DUE_TODAY';
-  if (Number(occ.daysDelta) <= SOON_DAYS)     return 'DUE_SOON';
+  if (Number(occ.daysDelta) === 0)             return 'DUE_TODAY';
+  if (Number(occ.daysDelta) <= SOON_DAYS)      return 'DUE_SOON';
   return 'UPCOMING';
 };
 

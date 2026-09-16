@@ -10,6 +10,13 @@ import java.math.BigDecimal;
  * amount); {@code plannedPaidAmount} is what those same occurrences were
  * expected to cost. {@code plannedAmount} / {@code remainingAmount} /
  * {@code overdueAmount} remain expected-amount sums.
+ *
+ * <p><b>Obligation view, not cash flow (Stage 3.5 decision B).</b> {@code paidAmount} sums the PAID
+ * occurrences whose <em>due date</em> falls in the cycle, whatever date the linked transaction carries. The
+ * forecast's {@code SpendingProjectionDto.linkedFixedExpensesToDate} is a different metric: linked transactions
+ * <em>dated</em> in {@code [cycle start, today]}. They coincide when every obligation is paid inside its own
+ * cycle and diverge when one is paid early (before the cycle starts) or late (after the next cycle begins);
+ * neither is corrected to match the other.
  */
 public record FixedSummaryDto(
         BigDecimal plannedAmount,

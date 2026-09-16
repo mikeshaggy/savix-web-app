@@ -16,6 +16,11 @@ import java.time.temporal.ChronoUnit;
  * {@code paidOnTime} = {@code lateDays <= 0}. All three are {@code null} for
  * unpaid rows. {@code paidAmount} is the actual transaction amount;
  * {@code expectedAmount} stays the planned figure.
+ *
+ * <p>{@code bucket} (Stage 3.4) is the cycle-relative heading the row belongs
+ * under, see {@link FixedOccurrenceBucket}. It is only defined relative to a
+ * committed window, so rows built without one (the link / unlink responses)
+ * carry {@code null}; the page re-fetches the tile after those calls.
  */
 public record FixedOccurrenceRowDto(
         Long occurrenceId,
@@ -34,9 +39,16 @@ public record FixedOccurrenceRowDto(
         Long transactionId,
         LocalDate paidDate,
         Integer lateDays,
-        Boolean paidOnTime
+        Boolean paidOnTime,
+        FixedOccurrenceBucket bucket
 ) {
+    /** A row without cycle context: {@code bucket} is {@code null}. */
     public static FixedOccurrenceRowDto from(FixedPaymentOccurrence o, LocalDate today) {
+        return from(o, today, null);
+    }
+
+    /** A row selected for the committed window ending {@code cycleEnd} (inclusive), viewed on {@code today}. */
+    public static FixedOccurrenceRowDto from(FixedPaymentOccurrence o, LocalDate today, LocalDate cycleEnd) {
         var fp = o.getFixedPayment();
         LocalDate paidDate = paidDateOf(o);
         Integer lateDays = paidDate == null
@@ -60,7 +72,8 @@ public record FixedOccurrenceRowDto(
                 o.getTransaction() != null ? o.getTransaction().getId() : null,
                 paidDate,
                 lateDays,
-                paidOnTime
+                paidOnTime,
+                cycleEnd == null ? null : FixedOccurrenceBucket.of(o.getStatus(), o.getDueDate(), today, cycleEnd)
         );
     }
 

@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
@@ -8,6 +9,7 @@ import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceBucket;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
@@ -383,6 +385,98 @@ class FixedPaymentTileAssemblerTest {
 
             // then
             assertThat(result.summary().fixedRatio()).isEqualByComparingTo("0");
+        }
+    }
+
+    @Nested
+    class Buckets {
+
+        // open cycle Mar 1 → Mar 31, next salary expected Apr 1, viewed Mar 11
+        private final PeriodDto openCycle = new PeriodDto(
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), LocalDate.of(2026, 4, 1),
+                PeriodType.PAY_CYCLE, CycleState.OPEN, LocalDate.of(2026, 4, 1), true);
+
+        @Test
+        void everyRowIsBucketedAgainstTheCommittedWindowEnd() {
+            FixedPayment fp = fixedPayment(1, "Rent", "100.00");
+            FixedPaymentOccurrence overdue = occurrence(1L, fp, OccurrenceStatus.OVERDUE, "100.00", LocalDate.of(2026, 3, 5));
+            FixedPaymentOccurrence dueToday = occurrence(2L, fp, OccurrenceStatus.PENDING, "100.00", TODAY);
+            FixedPaymentOccurrence dueIn7 = occurrence(3L, fp, OccurrenceStatus.PENDING, "100.00", TODAY.plusDays(7));
+            FixedPaymentOccurrence dueIn8 = occurrence(4L, fp, OccurrenceStatus.PENDING, "100.00", TODAY.plusDays(8));
+            FixedPaymentOccurrence lastDay = occurrence(5L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 3, 31));
+            FixedPaymentOccurrence paid = occurrence(6L, fp, OccurrenceStatus.PAID, "100.00", LocalDate.of(2026, 3, 2));
+
+            FixedTransactionsTileDto result = assembler.assemble(
+                    openCycle, List.of(dueToday, dueIn7, dueIn8, lastDay, paid), List.of(overdue),
+                    new BigDecimal("4000.00"), new BigDecimal("1000.00"), 1);
+
+            assertThat(result.overdue()).extracting(FixedOccurrenceRowDto::bucket)
+                    .containsExactly(FixedOccurrenceBucket.OVERDUE);
+            assertThat(result.upcoming()).extracting(FixedOccurrenceRowDto::occurrenceId, FixedOccurrenceRowDto::bucket)
+                    .containsExactly(
+                            tuple(2L, FixedOccurrenceBucket.DUE_SOON),
+                            tuple(3L, FixedOccurrenceBucket.DUE_SOON),
+                            tuple(4L, FixedOccurrenceBucket.LATER_THIS_CYCLE),
+                            tuple(5L, FixedOccurrenceBucket.LATER_THIS_CYCLE));
+            assertThat(result.paid()).extracting(FixedOccurrenceRowDto::bucket)
+                    .containsExactly(FixedOccurrenceBucket.PAID_THIS_CYCLE);
+        }
+
+        @Test
+        void paydayOccurrenceIsNeverInTheTile_soAfterPaydayIsNotProducedHere() {
+            FixedPayment fp = fixedPayment(1, "Rent", "100.00");
+            FixedPaymentOccurrence payday = occurrence(1L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 4, 1));
+
+            FixedTransactionsTileDto result = assembler.assemble(
+                    openCycle, List.of(payday), List.of(), new BigDecimal("4000.00"), new BigDecimal("1000.00"), 1);
+
+            assertThat(result.upcoming()).isEmpty();
+        }
+
+        @Test
+        void afterPaydayRowsAreDisplayOnly_bucketedAfterPayday_andNeverCounted() {
+            FixedPayment fp = fixedPayment(1, "Rent", "100.00");
+            FixedPaymentOccurrence committed = occurrence(1L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 3, 20));
+            FixedPaymentOccurrence onPayday = occurrence(2L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 4, 1));
+            FixedPaymentOccurrence nextCycle = occurrence(3L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 4, 15));
+            FixedPaymentOccurrence leaked = occurrence(4L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 3, 25)); // inside the window: never displayed twice
+
+            FixedTransactionsTileDto result = assembler.assemble(
+                    openCycle, List.of(committed), List.of(), new BigDecimal("4000.00"), new BigDecimal("1000.00"), 1,
+                    TODAY, List.of(nextCycle, leaked, onPayday), LocalDate.of(2026, 4, 30));
+
+            assertThat(result.afterPaydayEnd()).isEqualTo(LocalDate.of(2026, 4, 30));
+            assertThat(result.afterPayday()).extracting(FixedOccurrenceRowDto::occurrenceId, FixedOccurrenceRowDto::bucket)
+                    .containsExactly(
+                            tuple(2L, FixedOccurrenceBucket.AFTER_PAYDAY),
+                            tuple(3L, FixedOccurrenceBucket.AFTER_PAYDAY));
+            // committed figures see only the committed row
+            assertThat(result.summary().plannedCount()).isEqualTo(1);
+            assertThat(result.summary().plannedAmount()).isEqualByComparingTo("100.00");
+            assertThat(result.summary().remainingAmount()).isEqualByComparingTo("100.00");
+            assertThat(result.progress().totalCount()).isEqualTo(1);
+            assertThat(result.balanceAfterFixed()).isEqualByComparingTo("900.00");
+            assertThat(result.riskIndicator().isAtRisk()).isFalse();
+            assertThat(result.upcoming()).extracting(FixedOccurrenceRowDto::occurrenceId).containsExactly(1L);
+        }
+
+        @Test
+        void emptyTileCanStillCarryAfterPaydayRows() {
+            FixedPayment fp = fixedPayment(1, "Rent", "100.00");
+            FixedPaymentOccurrence nextCycle = occurrence(3L, fp, OccurrenceStatus.PENDING, "100.00", LocalDate.of(2026, 4, 15));
+
+            FixedTransactionsTileDto result = assembler.assembleEmpty(
+                    openCycle, BigDecimal.TEN, List.of(nextCycle), LocalDate.of(2026, 4, 30), TODAY);
+
+            assertThat(result.summary().plannedCount()).isZero();
+            assertThat(result.balanceAfterFixed()).isEqualByComparingTo(BigDecimal.TEN);
+            assertThat(result.afterPayday()).extracting(FixedOccurrenceRowDto::bucket)
+                    .containsExactly(FixedOccurrenceBucket.AFTER_PAYDAY);
+        }
+
+        @Test
+        void emptyTileHasNoRowsToBucket() {
+            assertThat(assembler.assembleEmpty(openCycle, BigDecimal.TEN).upcoming()).isEmpty();
         }
     }
 

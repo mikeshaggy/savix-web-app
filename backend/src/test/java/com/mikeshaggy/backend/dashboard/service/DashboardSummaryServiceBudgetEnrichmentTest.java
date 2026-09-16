@@ -117,7 +117,7 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
                 summary, null,
                 new BigDecimal("2000.00"), new BigDecimal("2000.00"),
                 new RiskIndicatorDto(false, null),
-                List.of(), List.of(), List.of());
+                List.of(), List.of(), List.of(), null, List.of());
         when(fixedPaymentDashboardService.getFixedPaymentsTileData(
                 any(PeriodDto.class), any(Wallet.class), any(UUID.class), any(LocalDate.class)))
                 .thenReturn(tile);

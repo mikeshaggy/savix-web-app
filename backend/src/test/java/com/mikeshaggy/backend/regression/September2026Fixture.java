@@ -88,7 +88,8 @@ public final class September2026Fixture {
     public static final BigDecimal INCOME_FOR_PERIOD = new BigDecimal("9444.81"); // identical for PAY_CYCLE and MONTHLY
     public static final BigDecimal EXPENSES_TO_DATE = new BigDecimal("3547.92");
     public static final BigDecimal VARIABLE_EXPENSES_TO_DATE = new BigDecimal("1552.02");
-    public static final BigDecimal LINKED_FIXED_EXPENSES_TO_DATE = new BigDecimal("1995.90");
+    public static final BigDecimal LINKED_FIXED_EXPENSES_TO_DATE = new BigDecimal("1995.90"); // linked transactions dated Sep 9-14
+    public static final BigDecimal FIXED_PAID_ACTUAL_PAY_CYCLE = new BigDecimal("1995.90"); // PAID occurrences due Sep 9-Oct 8, actual amounts
     public static final BigDecimal REMAINING_FIXED_PAY_CYCLE = new BigDecimal("794.27");
     public static final BigDecimal REMAINING_FIXED_MONTHLY = new BigDecimal("181.98");
     public static final List<BigDecimal> DAILY_VARIABLE_SEP_9_TO_14 = List.of(

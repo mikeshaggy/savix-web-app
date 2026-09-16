@@ -3,6 +3,7 @@ package com.mikeshaggy.backend.fixedpayment.service;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.paycycle.PayCycle;
 import com.mikeshaggy.backend.common.paycycle.PayCycleService;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
@@ -60,6 +61,16 @@ public class FixedPaymentDashboardService {
 
     public FixedTransactionsTileDto getFixedPaymentsTileData(PeriodDto period, Wallet wallet, UUID userId,
                                                              LocalDate asOfDate) {
+        return getFixedPaymentsTileData(period, wallet, userId, asOfDate, null);
+    }
+
+    /**
+     * @param afterPaydayHorizon optional display-only horizon (Stage 3.4): unpaid occurrences due inside it and
+     *                           after the committed window are returned as {@code afterPayday} rows without
+     *                           touching any committed figure; {@code null} → none
+     */
+    private FixedTransactionsTileDto getFixedPaymentsTileData(PeriodDto period, Wallet wallet, UUID userId,
+                                                              LocalDate asOfDate, InclusiveDateRange afterPaydayHorizon) {
         LocalDate today = LocalDate.now(clock);
         LocalDate effectiveAsOfDate = asOfDate == null ? today : asOfDate;
         PeriodDto window = committedWindow(period, today);
@@ -73,8 +84,11 @@ public class FixedPaymentDashboardService {
 
         BigDecimal currentBalance = wallet.getBalance();
 
+        List<FixedPaymentOccurrence> afterPayday = afterPaydayOccurrences(wallet, userId, window, afterPaydayHorizon);
+        LocalDate afterPaydayEnd = afterPaydayHorizon == null ? null : afterPaydayHorizon.endDate();
+
         if (fixedPaymentIds.isEmpty()) {
-            return tileAssembler.assembleEmpty(window, currentBalance);
+            return tileAssembler.assembleEmpty(window, currentBalance, afterPayday, afterPaydayEnd, effectiveAsOfDate);
         }
 
         List<FixedPaymentOccurrence> allInPeriod = occurrenceRepository
@@ -96,8 +110,38 @@ public class FixedPaymentDashboardService {
 
         return tileAssembler.assemble(
                 window, allInPeriod, overdueAll,
-                totalIncome, currentBalance, fixedPaymentIds.size(), effectiveAsOfDate
+                totalIncome, currentBalance, fixedPaymentIds.size(), effectiveAsOfDate,
+                afterPayday, afterPaydayEnd
         );
+    }
+
+    /**
+     * Unpaid occurrences due strictly after the committed window and no later than the horizon end: the next
+     * cycle's obligations, shown under "After payday" but never counted here. Selected by due date exactly like
+     * the committed set, so a row is either committed or after payday, never both — an AWAITING window that
+     * already reaches into the next cycle simply shortens the display horizon.
+     */
+    private List<FixedPaymentOccurrence> afterPaydayOccurrences(Wallet wallet, UUID userId, PeriodDto window,
+                                                                InclusiveDateRange horizon) {
+        if (horizon == null) {
+            return List.of();
+        }
+        LocalDate from = window.endDate().plusDays(1).isAfter(horizon.startDate())
+                ? window.endDate().plusDays(1) : horizon.startDate();
+        LocalDate to = horizon.endDate();
+        if (from.isAfter(to)) {
+            return List.of();
+        }
+        List<Integer> ids = fixedPaymentRepository
+                .findAllActiveInPeriodByWalletIdAndUserId(wallet.getId(), userId, from, to)
+                .stream().map(FixedPayment::getId).toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return occurrenceRepository.findAllByFixedPaymentIdsAndDueDateBetween(ids, from, to).stream()
+                .filter(o -> o.getStatus() == OccurrenceStatus.PENDING)
+                .filter(this::isWithinFixedPaymentActiveDates)
+                .toList();
     }
 
     /**
@@ -114,7 +158,9 @@ public class FixedPaymentDashboardService {
         PayCycle cycle = current.get();
         PeriodDto period = new PeriodDto(cycle.start(), cycle.end(), cycle.expectedNextAnchor(), PeriodType.PAY_CYCLE,
                 cycle.state(), cycle.expectedNextAnchor(), true);
-        return getFixedPaymentsTileData(period, wallet, userId, LocalDate.now(clock));
+        // the page also lists the next cycle's obligations under "After payday" (display only, Stage 3.4)
+        InclusiveDateRange afterPaydayHorizon = payCycleService.expectedNextCycle(userId).orElse(null);
+        return getFixedPaymentsTileData(period, wallet, userId, LocalDate.now(clock), afterPaydayHorizon);
     }
 
     /**

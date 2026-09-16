@@ -23,6 +23,7 @@ import com.mikeshaggy.backend.dashboard.dto.DashboardCategoryDirection;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceBucket;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedProgressDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedSummaryDto;
@@ -748,6 +749,8 @@ class DashboardSummaryServiceTest {
                         occurrence(2L, "Phone", "50.00", LocalDate.of(2026, 5, 28)),
                         occurrence(3L, "Internet", "40.00", LocalDate.of(2026, 5, 29)),
                         occurrence(4L, "Gym", "10.00", LocalDate.of(2026, 5, 30))),
+                List.of(),
+                null,
                 List.of());
     }
 
@@ -766,6 +769,8 @@ class DashboardSummaryServiceTest {
                 new RiskIndicatorDto(false, null),
                 List.of(),
                 List.of(),
+                List.of(),
+                null,
                 List.of());
     }
 
@@ -787,7 +792,8 @@ class DashboardSummaryServiceTest {
                 null,
                 null,
                 null,
-                null);
+                null,
+                FixedOccurrenceBucket.LATER_THIS_CYCLE);
     }
 
     private CategoryAggregation category(Integer id, String name, String amount) {

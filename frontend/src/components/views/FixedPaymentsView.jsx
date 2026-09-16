@@ -22,14 +22,23 @@ import FixedPaymentEventsStrip from './FixedPaymentEventsStrip';
 
 const TABS = ['schedule', 'attention', 'paid', 'history'];
 
-const SOON_DAYS = 7;
 const ATTENTION_DAYS = 3;
 
-const parseDateOnly = (value) => {
-  if (!value) return null;
-  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
+// Stage 3.4: the heading an occurrence sits under is decided on the server (FixedOccurrenceBucket) from the
+// due date, today and the committed-window end — never from calendar months. Order = display order.
+const BUCKETS = ['OVERDUE', 'DUE_SOON', 'LATER_THIS_CYCLE', 'AFTER_PAYDAY', 'PAID_THIS_CYCLE'];
+const BUCKET_GROUP = {
+  OVERDUE: { key: 'overdue', tone: 'red' },
+  DUE_SOON: { key: 'dueSoon', tone: 'amber' },
+  LATER_THIS_CYCLE: { key: 'laterThisCycle', tone: 'purple' },
+  AFTER_PAYDAY: { key: 'afterPayday', tone: 'slate' },
+  PAID_THIS_CYCLE: { key: 'paidThisCycle', tone: 'green' },
+};
+// Only for rows from a backend that predates the bucket field.
+const fallbackBucket = (occ) => {
+  if (occ.status === 'PAID') return 'PAID_THIS_CYCLE';
+  if (occ.status === 'OVERDUE') return 'OVERDUE';
+  return 'LATER_THIS_CYCLE';
 };
 
 export default function FixedPaymentsView() {
@@ -210,7 +219,9 @@ export default function FixedPaymentsView() {
     const overdue = (tileData.overdue || []).map(o => ({ ...o, _section: 'overdue' }));
     const upcoming = (tileData.upcoming || []).map(o => ({ ...o, _section: 'upcoming' }));
     const paid = (tileData.paid || []).map(o => ({ ...o, _section: 'paid' }));
-    return [...overdue, ...upcoming, ...paid];
+    // Display-only next-cycle rows (bucket AFTER_PAYDAY); the summary cards above never include them.
+    const afterPayday = (tileData.afterPayday || []).map(o => ({ ...o, _section: 'afterPayday' }));
+    return [...overdue, ...upcoming, ...paid, ...afterPayday];
   }, [tileData]);
 
   const enrichedOccurrences = useMemo(() => {
@@ -218,20 +229,17 @@ export default function FixedPaymentsView() {
       .map((occ) => {
         const isPaid = occ.status === 'PAID';
         const isSkipped = occ.status === 'SKIPPED';
-        const dueDate = parseDateOnly(occ.dueDate);
         // Paid verdict comes from the backend (transaction date vs due date) so the
         // list, strip, timeline and dashboard all agree — never re-derived from paidAt.
         const lateDays = isPaid && Number.isFinite(occ.lateDays) ? occ.lateDays : null;
         const paidOnTime = isPaid ? occ.paidOnTime !== false : null;
         const daysDelta = Number.isFinite(occ.daysDelta) ? occ.daysDelta : 999;
-        const isOverdue = !isPaid && occ.status === 'OVERDUE';
-        const isDueToday = !isPaid && occ.status === 'PENDING' && daysDelta === 0;
-        const isDueSoon = !isPaid && occ.status === 'PENDING' && daysDelta > 0 && daysDelta <= SOON_DAYS;
+        const bucket = BUCKETS.includes(occ.bucket) ? occ.bucket : fallbackBucket(occ);
+        const isOverdue = bucket === 'OVERDUE';
+        const isDueToday = bucket === 'DUE_SOON' && daysDelta === 0;
+        const isDueSoon = bucket === 'DUE_SOON';
         const needsAttention = isOverdue || isDueToday || isSkipped
-          || (!isPaid && occ.status === 'PENDING' && daysDelta > 0 && daysDelta <= ATTENTION_DAYS);
-        const dueMonthKey = dueDate ? `${dueDate.getFullYear()}-${dueDate.getMonth()}` : '';
-        const periodStart = parseDateOnly(tileData?.periodStart);
-        const currentMonthKey = periodStart ? `${periodStart.getFullYear()}-${periodStart.getMonth()}` : '';
+          || (isDueSoon && daysDelta > 0 && daysDelta <= ATTENTION_DAYS);
 
         let badgeKey = 'upcoming';
         let tone = 'purple';
@@ -247,19 +255,23 @@ export default function FixedPaymentsView() {
           badgeKey = 'skipped';
           tone = 'slate';
           timingLabel = t('fixedPayments.skipped');
-        } else if (isOverdue) {
+        } else if (bucket === 'OVERDUE') {
           badgeKey = 'overdue';
           tone = 'red';
-        } else if (isDueToday || isDueSoon) {
+        } else if (bucket === 'DUE_SOON') {
           badgeKey = 'dueSoon';
           tone = isDueToday ? 'amber' : 'yellow';
-        } else if (occ.status === 'PENDING') {
-          badgeKey = dueMonthKey && currentMonthKey && dueMonthKey !== currentMonthKey ? 'upcoming' : 'pending';
+        } else if (bucket === 'AFTER_PAYDAY') {
+          badgeKey = 'afterPayday';
+          tone = 'slate';
+        } else {
+          badgeKey = 'upcoming';
           tone = 'purple';
         }
 
         return {
           ...occ,
+          bucket,
           isPaid,
           isSkipped,
           isOverdue,
@@ -273,8 +285,6 @@ export default function FixedPaymentsView() {
           badgeKey,
           tone,
           timingLabel,
-          dueMonthKey,
-          currentMonthKey,
         };
       })
       .sort((a, b) => {
@@ -282,7 +292,7 @@ export default function FixedPaymentsView() {
         if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
         return String(a.dueDate).localeCompare(String(b.dueDate));
       });
-  }, [allOccurrences, tileData?.periodStart, t]);
+  }, [allOccurrences, t]);
 
   const filteredOccurrences = useMemo(() => {
     let list = enrichedOccurrences;
@@ -300,43 +310,16 @@ export default function FixedPaymentsView() {
   }, [activeTab, filteredOccurrences]);
 
   const scheduleGroups = useMemo(() => {
-    const groups = [
-      {
-        key: 'needsAttention',
-        title: t('fixedPayments.group_needsAttention'),
-        subtitle: t('fixedPayments.group_needsAttentionDesc'),
-        tone: 'red',
-        items: tabOccurrences.filter(o => o.needsAttention && !o.isPaid),
-      },
-      {
-        key: 'dueSoon',
-        title: t('fixedPayments.group_dueSoon'),
-        subtitle: t('fixedPayments.group_dueSoonDesc'),
-        tone: 'amber',
-        items: tabOccurrences.filter(o => !o.needsAttention && !o.isPaid && o.status === 'PENDING' && o.daysDelta <= SOON_DAYS),
-      },
-      {
-        key: 'paidThisCycle',
-        title: t('fixedPayments.group_paidThisCycle'),
-        subtitle: t('fixedPayments.group_paidThisCycleDesc'),
-        tone: 'green',
-        items: tabOccurrences.filter(o => o.isPaid),
-      },
-      {
-        key: 'laterThisMonth',
-        title: t('fixedPayments.group_laterThisMonth'),
-        subtitle: t('fixedPayments.group_laterThisMonthDesc'),
-        tone: 'purple',
-        items: tabOccurrences.filter(o => !o.isPaid && o.status === 'PENDING' && o.daysDelta > SOON_DAYS && o.dueMonthKey === o.currentMonthKey),
-      },
-      {
-        key: 'nextMonth',
-        title: t('fixedPayments.group_nextMonth'),
-        subtitle: t('fixedPayments.group_nextMonthDesc'),
-        tone: 'slate',
-        items: tabOccurrences.filter(o => !o.isPaid && o.status === 'PENDING' && o.daysDelta > SOON_DAYS && o.dueMonthKey !== o.currentMonthKey),
-      },
-    ];
+    // One section per server-side bucket, in cycle order; a section without rows is not rendered.
+    const groups = BUCKETS.map((bucket) => ({
+      key: BUCKET_GROUP[bucket].key,
+      title: t(`fixedPayments.group_${BUCKET_GROUP[bucket].key}`),
+      subtitle: t(`fixedPayments.group_${BUCKET_GROUP[bucket].key}Desc`),
+      tone: BUCKET_GROUP[bucket].tone,
+      items: tabOccurrences
+        .filter(o => o.bucket === bucket)
+        .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))),
+    }));
 
     if (activeTab === 'schedule') return groups.filter(group => group.items.length > 0);
 
@@ -592,7 +575,9 @@ export default function FixedPaymentsView() {
                 </div>
                 <div className="grid gap-2">
                   {group.items.map((occ, idx) => {
-                    const canMarkPaid = occ.status === 'PENDING' || occ.isOverdue;
+                    // Next-cycle rows are display-only: paying them here would drop them from every current
+                    // section (they are neither committed nor pending after the refetch).
+                    const canMarkPaid = (occ.status === 'PENDING' || occ.isOverdue) && occ.bucket !== 'AFTER_PAYDAY';
 
                     return (
                       <div
@@ -655,6 +640,11 @@ export default function FixedPaymentsView() {
                                 <span className="hidden sm:inline">{t('fixedPayments.linkExisting')}</span>
                               </button>
                             </div>
+                          ) : occ.bucket === 'AFTER_PAYDAY' ? (
+                            <span className="inline-flex items-center gap-1.5 text-[11px] text-white/25">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {t('fixedPayments.nextCycleDisplayOnly')}
+                            </span>
                           ) : occ.transactionId != null ? (
                             <button
                               onClick={() => handleUnlink(occ)}

@@ -41,6 +41,26 @@ class FixedPaymentTileAssembler {
             int activeFixedCount,
             LocalDate asOfDate
     ) {
+        return assemble(period, allInPeriod, overdueAll, totalIncome, currentBalance, activeFixedCount, asOfDate,
+                List.of(), null);
+    }
+
+    /**
+     * @param afterPayday    display-only occurrences due after {@code period.endDate()} (Stage 3.4); never part of
+     *                       the summary, progress or risk figures
+     * @param afterPaydayEnd last day of that display horizon, {@code null} when none was resolved
+     */
+    FixedTransactionsTileDto assemble(
+            PeriodDto period,
+            List<FixedPaymentOccurrence> allInPeriod,
+            List<FixedPaymentOccurrence> overdueAll,
+            BigDecimal totalIncome,
+            BigDecimal currentBalance,
+            int activeFixedCount,
+            LocalDate asOfDate,
+            List<FixedPaymentOccurrence> afterPayday,
+            LocalDate afterPaydayEnd
+    ) {
         List<FixedPaymentOccurrence> paidInPeriod = allInPeriod.stream()
                 .filter(o -> o.getStatus() == OccurrenceStatus.PAID)
                 .toList();
@@ -64,12 +84,18 @@ class FixedPaymentTileAssembler {
         BigDecimal unpaidTotal = summary.remainingAmount().add(summary.overdueAmount());
         BigDecimal balanceAfterFixed = currentBalance.subtract(unpaidTotal);
 
+        // Stage 3.4: every row is bucketed against the same committed window it was selected for.
+        LocalDate cycleEnd = period.endDate();
         List<FixedOccurrenceRowDto> overdueRows = overdueAll.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate, cycleEnd)).toList();
         List<FixedOccurrenceRowDto> upcomingRows = upcomingInPeriod.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate, cycleEnd)).toList();
         List<FixedOccurrenceRowDto> paidRows = paidInPeriod.stream()
-                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate)).toList();
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate, cycleEnd)).toList();
+        List<FixedOccurrenceRowDto> afterPaydayRows = afterPayday.stream()
+                .filter(o -> o.getDueDate().isAfter(cycleEnd))
+                .sorted(Comparator.comparing(FixedPaymentOccurrence::getDueDate))
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate, cycleEnd)).toList();
 
         return new FixedTransactionsTileDto(
                 period.startDate(),
@@ -84,11 +110,24 @@ class FixedPaymentTileAssembler {
                 riskIndicator,
                 overdueRows,
                 upcomingRows,
-                paidRows
+                paidRows,
+                afterPaydayEnd,
+                afterPaydayRows
         );
     }
 
     FixedTransactionsTileDto assembleEmpty(PeriodDto period, BigDecimal currentBalance) {
+        return assembleEmpty(period, currentBalance, List.of(), null, LocalDate.now(clock));
+    }
+
+    /** No committed occurrences, but the display-only "after payday" rows may still exist. */
+    FixedTransactionsTileDto assembleEmpty(PeriodDto period, BigDecimal currentBalance,
+                                           List<FixedPaymentOccurrence> afterPayday, LocalDate afterPaydayEnd,
+                                           LocalDate asOfDate) {
+        List<FixedOccurrenceRowDto> afterPaydayRows = afterPayday.stream()
+                .filter(o -> o.getDueDate().isAfter(period.endDate()))
+                .sorted(Comparator.comparing(FixedPaymentOccurrence::getDueDate))
+                .map(o -> FixedOccurrenceRowDto.from(o, asOfDate, period.endDate())).toList();
         FixedSummaryDto summary = new FixedSummaryDto(
                 BigDecimal.ZERO, 0,
                 BigDecimal.ZERO, 0,
@@ -120,7 +159,9 @@ class FixedPaymentTileAssembler {
                 riskIndicator,
                 List.of(),
                 List.of(),
-                List.of()
+                List.of(),
+                afterPaydayEnd,
+                afterPaydayRows
         );
     }
 

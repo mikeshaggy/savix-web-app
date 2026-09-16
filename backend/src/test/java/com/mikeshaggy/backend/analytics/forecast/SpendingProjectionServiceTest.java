@@ -559,6 +559,8 @@ class SpendingProjectionServiceTest {
                 new RiskIndicatorDto(false, null),
                 List.of(),
                 List.of(),
+                List.of(),
+                null,
                 List.of());
     }
 }

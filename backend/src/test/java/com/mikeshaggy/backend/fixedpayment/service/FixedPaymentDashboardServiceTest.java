@@ -144,7 +144,7 @@ class FixedPaymentDashboardServiceTest {
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
 
             FixedTransactionsTileDto emptyTile = mock(FixedTransactionsTileDto.class);
-            when(tileAssembler.assembleEmpty(period, wallet.getBalance())).thenReturn(emptyTile);
+            when(tileAssembler.assembleEmpty(period, wallet.getBalance(), List.of(), null, TODAY)).thenReturn(emptyTile);
 
             // when
             FixedTransactionsTileDto result =
@@ -152,8 +152,8 @@ class FixedPaymentDashboardServiceTest {
 
             // then
             assertThat(result).isSameAs(emptyTile);
-            verify(tileAssembler).assembleEmpty(period, wallet.getBalance());
-            verify(tileAssembler, never()).assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any());
+            verify(tileAssembler).assembleEmpty(period, wallet.getBalance(), List.of(), null, TODAY);
+            verify(tileAssembler, never()).assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any(), anyList(), any());
         }
 
         @Test
@@ -190,7 +190,9 @@ class FixedPaymentDashboardServiceTest {
                             eq(new BigDecimal("4000.00")),
                             eq(new BigDecimal("5000.00")),
                             eq(2),
-                            eq(TODAY)))
+                            eq(TODAY),
+                            eq(List.of()),
+                            isNull()))
                     .thenReturn(expectedTile);
 
             // when
@@ -235,7 +237,9 @@ class FixedPaymentDashboardServiceTest {
                             eq(new BigDecimal("4000.00")),
                             eq(new BigDecimal("5000.00")),
                             eq(1),
-                            eq(asOfDate)))
+                            eq(asOfDate),
+                            eq(List.of()),
+                            isNull()))
                     .thenReturn(expectedTile);
 
             // when
@@ -252,7 +256,9 @@ class FixedPaymentDashboardServiceTest {
                     eq(new BigDecimal("4000.00")),
                     eq(new BigDecimal("5000.00")),
                     eq(1),
-                    eq(asOfDate));
+                    eq(asOfDate),
+                    eq(List.of()),
+                    isNull());
             assertThat(occurrencesCaptor.getValue()).containsExactly(valid);
         }
 
@@ -275,7 +281,7 @@ class FixedPaymentDashboardServiceTest {
             when(transactionService.sumIncomeByWalletIdAndDateRange(1, USER_ID, start, TODAY))
                     .thenReturn(BigDecimal.ZERO);
             FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);
-            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any()))
+            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any(), anyList(), any()))
                     .thenReturn(expectedTile);
 
             // when
@@ -286,7 +292,7 @@ class FixedPaymentDashboardServiceTest {
             assertThat(result).isSameAs(expectedTile);
             ArgumentCaptor<PeriodDto> window = ArgumentCaptor.forClass(PeriodDto.class);
             verify(tileAssembler).assemble(window.capture(), eq(List.of(lateDay)), eq(List.of()),
-                    eq(BigDecimal.ZERO), eq(new BigDecimal("5000.00")), eq(1), eq(TODAY));
+                    eq(BigDecimal.ZERO), eq(new BigDecimal("5000.00")), eq(1), eq(TODAY), eq(List.of()), isNull());
             assertThat(window.getValue().startDate()).isEqualTo(start);
             assertThat(window.getValue().endDate()).isEqualTo(TODAY);
             assertThat(window.getValue().cycleState()).isEqualTo(CycleState.AWAITING_SALARY);
@@ -317,7 +323,7 @@ class FixedPaymentDashboardServiceTest {
             when(transactionService.sumIncomeByWalletIdAndDateRange(1, USER_ID, start, end))
                     .thenReturn(BigDecimal.ZERO);
             FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);
-            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any()))
+            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any(), anyList(), any()))
                     .thenReturn(expectedTile);
 
             // when
@@ -328,7 +334,7 @@ class FixedPaymentDashboardServiceTest {
             assertThat(result).isSameAs(expectedTile);
             ArgumentCaptor<PeriodDto> window = ArgumentCaptor.forClass(PeriodDto.class);
             verify(tileAssembler).assemble(window.capture(), eq(List.of(inCycle)), eq(List.of()),
-                    eq(BigDecimal.ZERO), eq(new BigDecimal("5000.00")), eq(1), eq(TODAY));
+                    eq(BigDecimal.ZERO), eq(new BigDecimal("5000.00")), eq(1), eq(TODAY), eq(List.of()), isNull());
             assertThat(window.getValue().startDate()).isEqualTo(start);
             assertThat(window.getValue().endDate()).isEqualTo(end);
             assertThat(window.getValue().cycleState()).isEqualTo(CycleState.CLOSED);
@@ -379,7 +385,7 @@ class FixedPaymentDashboardServiceTest {
                             1, USER_ID, start, expectedPayday.minusDays(1)))
                     .thenReturn(BigDecimal.ZERO);
             FixedTransactionsTileDto expectedTile = mock(FixedTransactionsTileDto.class);
-            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any()))
+            when(tileAssembler.assemble(any(), anyList(), anyList(), any(), any(), anyInt(), any(), anyList(), any()))
                     .thenReturn(expectedTile);
 
             // when
@@ -389,7 +395,7 @@ class FixedPaymentDashboardServiceTest {
             // then
             assertThat(result).isSameAs(expectedTile);
             ArgumentCaptor<PeriodDto> window = ArgumentCaptor.forClass(PeriodDto.class);
-            verify(tileAssembler).assemble(window.capture(), anyList(), anyList(), any(), any(), eq(1), eq(TODAY));
+            verify(tileAssembler).assemble(window.capture(), anyList(), anyList(), any(), any(), eq(1), eq(TODAY), anyList(), any());
             assertThat(window.getValue().startDate()).isEqualTo(start);
             assertThat(window.getValue().endDate()).isEqualTo(expectedPayday.minusDays(1));
             assertThat(window.getValue().periodType()).isEqualTo(PeriodType.PAY_CYCLE);
@@ -457,14 +463,15 @@ class FixedPaymentDashboardServiceTest {
             when(fixedPaymentRepository.findAllActiveInPeriodByWalletIdAndUserId(1, USER_ID, start, TODAY))
                     .thenReturn(List.of());
             FixedTransactionsTileDto emptyTile = mock(FixedTransactionsTileDto.class);
-            when(tileAssembler.assembleEmpty(any(), eq(wallet.getBalance()))).thenReturn(emptyTile);
+            when(tileAssembler.assembleEmpty(any(), eq(wallet.getBalance()), eq(List.of()), isNull(), eq(TODAY)))
+                    .thenReturn(emptyTile);
 
             // when
             fixedPaymentDashboardService.getFixedPaymentsTileDataForCurrentPeriod(1, USER_ID);
 
             // then
             ArgumentCaptor<PeriodDto> window = ArgumentCaptor.forClass(PeriodDto.class);
-            verify(tileAssembler).assembleEmpty(window.capture(), eq(wallet.getBalance()));
+            verify(tileAssembler).assembleEmpty(window.capture(), eq(wallet.getBalance()), eq(List.of()), isNull(), eq(TODAY));
             assertThat(window.getValue().endDate()).isEqualTo(TODAY);
             assertThat(window.getValue().cycleState()).isEqualTo(CycleState.AWAITING_SALARY);
             assertThat(window.getValue().expectedNextAnchorDate()).isEqualTo(lateExpected);

@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.fixedpayment.service;
 
 import static com.mikeshaggy.backend.regression.September2026Fixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,6 +19,7 @@ import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.paycycle.PayCycle;
 import com.mikeshaggy.backend.common.paycycle.PayCycleService;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
@@ -25,6 +27,7 @@ import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceBucket;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
@@ -62,6 +65,12 @@ class PaydayOccurrenceRegressionTest {
     private static final LocalDate LAST_CYCLE_DAY = EXPECTED_NEXT_PAYDAY.minusDays(1); // Oct 8
     private static final BigDecimal PAYDAY_AMOUNT = new BigDecimal("59.00");
     private static final long PAYDAY_OCCURRENCE_ID = 900L;
+    // Stage 3.4: a next-cycle occurrence, generated ahead (monthly horizon = today + 2 months), due after payday
+    private static final LocalDate NEXT_CYCLE_DUE = LocalDate.of(2026, 10, 20);
+    private static final BigDecimal NEXT_CYCLE_AMOUNT = new BigDecimal("77.00");
+    private static final long NEXT_CYCLE_OCCURRENCE_ID = 901L;
+    /** The cycle expected after the current one: Oct 9 → Nov 9 (rule: 10th, previous business day; Nov 10 is a Tuesday). */
+    private static final InclusiveDateRange EXPECTED_NEXT_CYCLE = new InclusiveDateRange(PAYDAY_DUE, LocalDate.of(2026, 11, 9));
 
     @Mock private FixedPaymentRepository fixedPaymentRepository;
     @Mock private FixedPaymentOccurrenceRepository occurrenceRepository;
@@ -97,6 +106,7 @@ class PaydayOccurrenceRegressionTest {
         }
         // the §7.6 occurrence: due exactly on the expected payday
         all.add(occurrence(PAYDAY_OCCURRENCE_ID, fixedPayment, OccurrenceStatus.PENDING, PAYDAY_AMOUNT, PAYDAY_DUE));
+        all.add(occurrence(NEXT_CYCLE_OCCURRENCE_ID, fixedPayment, OccurrenceStatus.PENDING, NEXT_CYCLE_AMOUNT, NEXT_CYCLE_DUE));
         occurrences = List.copyOf(all);
 
         lenient().when(walletService.getWalletEntityByIdForUser(SALARY_WALLET_ID, USER_ID)).thenReturn(salaryWallet);
@@ -189,6 +199,17 @@ class PaydayOccurrenceRegressionTest {
         assertThat(ids(endpoint.overdue())).isEqualTo(ids(dashboard.overdue()));
         assertThat(endpoint.periodEnd()).isEqualTo(dashboard.periodEnd()).isEqualTo(PAYDAY_DUE);
         assertThat(endpoint.cycleState()).isEqualTo(dashboard.cycleState()).isEqualTo(CycleState.AWAITING_SALARY);
+
+        // Stage 3.4: the bucket is computed against the SAME extended window (cycleEnd = today, not the stale
+        // period.endDate()) on both live paths, so the payday-due row reads DUE_SOON, never AFTER_PAYDAY, while
+        // the cycle is still open awaiting its salary.
+        for (FixedTransactionsTileDto tile : List.of(dashboard, endpoint)) {
+            FixedOccurrenceRowDto paydayRow = tile.upcoming().stream()
+                    .filter(r -> r.occurrenceId() == PAYDAY_OCCURRENCE_ID).findFirst().orElseThrow();
+            assertThat(paydayRow.bucket()).isEqualTo(FixedOccurrenceBucket.DUE_SOON);
+            assertThat(tile.upcoming()).extracting(FixedOccurrenceRowDto::bucket)
+                    .doesNotContain(FixedOccurrenceBucket.AFTER_PAYDAY);
+        }
     }
 
     @Test
@@ -222,6 +243,8 @@ class PaydayOccurrenceRegressionTest {
                 walletService, transactionService, periodService, payCycleService, oct9);
         when(payCycleService.current(USER_ID)).thenReturn(Optional.of(
                 PayCycle.open(USER_ID, SALARY_WALLET_ID, PAYDAY_DUE, newExpected)));
+        when(payCycleService.expectedNextCycle(USER_ID)).thenReturn(Optional.of(
+                new InclusiveDateRange(newExpected, LocalDate.of(2026, 12, 9))));
         PeriodDto newCycle = new PeriodDto(PAYDAY_DUE, newExpected.minusDays(1), newExpected, PeriodType.PAY_CYCLE,
                 CycleState.OPEN, newExpected, true);
 
@@ -230,13 +253,140 @@ class PaydayOccurrenceRegressionTest {
 
         for (FixedTransactionsTileDto tile : List.of(endpoint, dashboard)) {
             assertThat(tile.periodStart()).isEqualTo(PAYDAY_DUE);
-            assertThat(ids(tile.upcoming())).containsExactly(PAYDAY_OCCURRENCE_ID);
+            assertThat(ids(tile.upcoming())).containsExactly(PAYDAY_OCCURRENCE_ID, NEXT_CYCLE_OCCURRENCE_ID);
             assertThat(tile.upcoming().getFirst().daysDelta()).isZero();
             assertThat(tile.progress().nextDueDate()).isEqualTo(PAYDAY_DUE);
-            assertThat(tile.summary().remainingAmount()).isEqualByComparingTo(PAYDAY_AMOUNT);
+            assertThat(tile.summary().remainingAmount()).isEqualByComparingTo(PAYDAY_AMOUNT.add(NEXT_CYCLE_AMOUNT));
+            // yesterday's "after payday" rows are today's committed rows; the new horizon (Nov 9 → Dec 9) holds nothing
+            assertThat(tile.afterPayday()).isEmpty();
             // nothing from the previous cycle leaks into the new one
             assertThat(tile.paid()).isEmpty();
         }
+    }
+
+    @Test
+    void fixtureBuckets_areCycleRelative_andNothingIsAfterPayday() {
+        when(payCycleService.current(USER_ID)).thenReturn(Optional.of(
+                PayCycle.open(USER_ID, SALARY_WALLET_ID, CURRENT_CYCLE_START, EXPECTED_NEXT_PAYDAY)));
+
+        FixedTransactionsTileDto dashboard = fixedPaymentDashboardService
+                .getFixedPaymentsTileData(PAY_CYCLE_PERIOD_V2, salaryWallet, USER_ID, TODAY);
+        FixedTransactionsTileDto endpoint = fixedPaymentDashboardService
+                .getFixedPaymentsTileDataForCurrentPeriod(SALARY_WALLET_ID, USER_ID);
+
+        for (FixedTransactionsTileDto tile : List.of(dashboard, endpoint)) {
+            // viewed Sep 14: FX_UTILITY_A (Sep 20) is due soon; Sep 25, Oct 1, Oct 6 and the Oct 8 instalment are
+            // later this cycle — the Oct 8 row is NOT "next month", and no committed row is after payday
+            assertThat(tile.upcoming()).extracting(FixedOccurrenceRowDto::dueDate, FixedOccurrenceRowDto::bucket)
+                    .containsExactly(
+                            tuple(LocalDate.of(2026, 9, 20), FixedOccurrenceBucket.DUE_SOON),
+                            tuple(LocalDate.of(2026, 9, 25), FixedOccurrenceBucket.LATER_THIS_CYCLE),
+                            tuple(LocalDate.of(2026, 10, 1), FixedOccurrenceBucket.LATER_THIS_CYCLE),
+                            tuple(LocalDate.of(2026, 10, 6), FixedOccurrenceBucket.LATER_THIS_CYCLE),
+                            tuple(LAST_CYCLE_DAY, FixedOccurrenceBucket.LATER_THIS_CYCLE));
+            assertThat(tile.paid()).extracting(FixedOccurrenceRowDto::bucket)
+                    .containsOnly(FixedOccurrenceBucket.PAID_THIS_CYCLE);
+            assertThat(tile.overdue()).isEmpty();
+            assertThat(tile.upcoming()).extracting(FixedOccurrenceRowDto::bucket)
+                    .doesNotContain(FixedOccurrenceBucket.AFTER_PAYDAY);
+            assertThat(ids(tile.upcoming())).doesNotContain(PAYDAY_OCCURRENCE_ID);
+        }
+        // both live paths hand out the same verdict for the same occurrence
+        assertThat(buckets(endpoint.upcoming())).isEqualTo(buckets(dashboard.upcoming()));
+        assertThat(buckets(endpoint.paid())).isEqualTo(buckets(dashboard.paid()));
+    }
+
+    /**
+     * Stage 3.4 closing gap: the page's data source ({@code /api/fixed-payments/tile}) lists the next cycle's
+     * obligations under "After payday" — display only. All at once: Oct 8 is committed and LATER_THIS_CYCLE; the
+     * Oct 9 payday row and the Oct 20 row are AFTER_PAYDAY, visible, and absent from every committed figure.
+     * Fails if AFTER_PAYDAY becomes unreachable from the page again.
+     */
+    @Test
+    void pagePath_listsNextCycleRowsAsAfterPayday_withoutTouchingCommittedTotals() {
+        when(payCycleService.current(USER_ID)).thenReturn(Optional.of(
+                PayCycle.open(USER_ID, SALARY_WALLET_ID, CURRENT_CYCLE_START, EXPECTED_NEXT_PAYDAY)));
+        when(payCycleService.expectedNextCycle(USER_ID)).thenReturn(Optional.of(EXPECTED_NEXT_CYCLE));
+        when(periodService.resolve(PeriodType.PAY_CYCLE, SALARY_WALLET_ID, USER_ID, null, null))
+                .thenReturn(PAY_CYCLE_PERIOD_V2);
+        lenient().when(transactionQueryService.sum(eq(SALARY_WALLET_ID), eq(USER_ID), any(), any(), eq(CategoryType.INCOME)))
+                .thenReturn(INCOME_FOR_PERIOD);
+        lenient().when(transactionQueryService.sum(eq(SALARY_WALLET_ID), eq(USER_ID), any(), any(), eq(CategoryType.EXPENSE)))
+                .thenReturn(EXPENSES_TO_DATE);
+        lenient().when(transactionQueryService.sumUnlinked(eq(SALARY_WALLET_ID), eq(USER_ID), any(), any(), eq(CategoryType.EXPENSE)))
+                .thenReturn(VARIABLE_EXPENSES_TO_DATE);
+        SpendingProjectionService projectionService = new SpendingProjectionService(
+                transactionQueryService, walletService, periodService, fixedPaymentDashboardService,
+                new SpendingProjectionCalculator(), CLOCK);
+
+        FixedTransactionsTileDto page = fixedPaymentDashboardService
+                .getFixedPaymentsTileDataForCurrentPeriod(SALARY_WALLET_ID, USER_ID);
+        FixedTransactionsTileDto dashboard = fixedPaymentDashboardService
+                .getFixedPaymentsTileData(PAY_CYCLE_PERIOD_V2, salaryWallet, USER_ID, TODAY);
+        SpendingProjectionDto forecast = projectionService
+                .getSpendingProjection(SALARY_WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
+
+        // expected payday Oct 9; Oct 8 committed and later-this-cycle
+        assertThat(page.expectedPaydayDate()).isEqualTo(EXPECTED_NEXT_PAYDAY);
+        assertThat(page.upcoming()).extracting(FixedOccurrenceRowDto::dueDate, FixedOccurrenceRowDto::bucket)
+                .contains(tuple(LAST_CYCLE_DAY, FixedOccurrenceBucket.LATER_THIS_CYCLE));
+        assertThat(page.summary().remainingAmount()).isEqualByComparingTo(REMAINING_FIXED_PAY_CYCLE); // includes the 408.30 due Oct 8
+
+        // Oct 9 (payday) and Oct 20 are not this cycle's obligations …
+        for (List<FixedOccurrenceRowDto> committed : List.of(page.overdue(), page.upcoming(), page.paid())) {
+            assertThat(ids(committed)).doesNotContain(PAYDAY_OCCURRENCE_ID, NEXT_CYCLE_OCCURRENCE_ID);
+        }
+        // … but the page can show them, classified AFTER_PAYDAY, through the display horizon
+        assertThat(page.afterPaydayEnd()).isEqualTo(EXPECTED_NEXT_CYCLE.endDate());
+        assertThat(page.afterPayday()).extracting(FixedOccurrenceRowDto::occurrenceId, FixedOccurrenceRowDto::dueDate,
+                        FixedOccurrenceRowDto::bucket)
+                .containsExactly(
+                        tuple(PAYDAY_OCCURRENCE_ID, PAYDAY_DUE, FixedOccurrenceBucket.AFTER_PAYDAY),
+                        tuple(NEXT_CYCLE_OCCURRENCE_ID, NEXT_CYCLE_DUE, FixedOccurrenceBucket.AFTER_PAYDAY));
+
+        // and no committed figure moved: page == dashboard (which carries no horizon) == forecast
+        assertThat(page.summary()).isEqualTo(dashboard.summary());
+        assertThat(page.summary().plannedCount()).isEqualTo(PAID_OCCURRENCES.size() + PENDING_OCCURRENCES.size());
+        assertThat(page.summary().plannedAmount()).isEqualByComparingTo("2810.26");
+        assertThat(page.summary().paidAmount()).isEqualByComparingTo(FIXED_PAID_ACTUAL_PAY_CYCLE);
+        assertThat(page.summary().plannedPaidAmount()).isEqualByComparingTo("2015.99");
+        assertThat(page.summary().remainingAmount()).isEqualByComparingTo(REMAINING_FIXED_PAY_CYCLE);
+        assertThat(page.balanceAfterFixed()).isEqualByComparingTo(dashboard.balanceAfterFixed())
+                .isEqualByComparingTo(SALARY_WALLET_BALANCE.subtract(REMAINING_FIXED_PAY_CYCLE));
+        assertThat(page.progress().totalCount()).isEqualTo(dashboard.progress().totalCount());
+        assertThat(page.riskIndicator()).isEqualTo(dashboard.riskIndicator());
+        assertThat(dashboard.afterPayday()).isEmpty();
+        assertThat(forecast.remainingFixedPayments()).isEqualByComparingTo(REMAINING_FIXED_PAY_CYCLE);
+    }
+
+    @Test
+    void awaitingSalary_afterPaydayHorizonStartsAfterTheExtendedWindow() {
+        // Oct 9, expected payday, no salary yet: the committed window runs through today (T5), so "after payday"
+        // starts Oct 10 — the Oct 9 payday row is committed (as in the AWAITING test above), the Oct 20 row is
+        // still display-only and never counted
+        LocalDate today = PAYDAY_DUE;
+        Clock paydayNoSalary = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+        FixedPaymentDashboardService service = new FixedPaymentDashboardService(
+                fixedPaymentRepository, occurrenceRepository, new FixedPaymentTileAssembler(paydayNoSalary),
+                walletService, transactionService, periodService, payCycleService, paydayNoSalary);
+        when(payCycleService.current(USER_ID)).thenReturn(Optional.of(
+                PayCycle.awaitingSalary(USER_ID, SALARY_WALLET_ID, CURRENT_CYCLE_START, EXPECTED_NEXT_PAYDAY)));
+        when(payCycleService.expectedNextCycle(USER_ID)).thenReturn(Optional.of(EXPECTED_NEXT_CYCLE));
+
+        FixedTransactionsTileDto page = service.getFixedPaymentsTileDataForCurrentPeriod(SALARY_WALLET_ID, USER_ID);
+
+        assertThat(page.periodEnd()).isEqualTo(today);
+        assertThat(ids(page.upcoming())).contains(PAYDAY_OCCURRENCE_ID).doesNotContain(NEXT_CYCLE_OCCURRENCE_ID);
+        assertThat(page.afterPayday()).extracting(FixedOccurrenceRowDto::occurrenceId, FixedOccurrenceRowDto::bucket)
+                .containsExactly(tuple(NEXT_CYCLE_OCCURRENCE_ID, FixedOccurrenceBucket.AFTER_PAYDAY));
+        // committed = the fixture rows + the payday row; the Oct 20 row is not counted anywhere
+        assertThat(page.summary().plannedCount()).isEqualTo(PAID_OCCURRENCES.size() + PENDING_OCCURRENCES.size() + 1);
+        assertThat(page.summary().plannedAmount()).isEqualByComparingTo(new BigDecimal("2810.26").add(PAYDAY_AMOUNT));
+        assertThat(page.summary().remainingAmount()).isEqualByComparingTo(PAYDAY_AMOUNT); // only the row due today is still "remaining" as of Oct 9
+    }
+
+    private static List<FixedOccurrenceBucket> buckets(List<FixedOccurrenceRowDto> rows) {
+        return rows.stream().map(FixedOccurrenceRowDto::bucket).toList();
     }
 
     private static void assertCommittedWindowOfCurrentCycle(FixedTransactionsTileDto tile) {
@@ -252,8 +402,10 @@ class PaydayOccurrenceRegressionTest {
         assertThat(tile.summary().remainingCount()).isEqualTo(PENDING_OCCURRENCES.size());
         assertThat(tile.summary().remainingAmount()).isEqualByComparingTo(REMAINING_FIXED_PAY_CYCLE);
         assertThat(tile.summary().paidCount()).isEqualTo(PAID_OCCURRENCES.size());
-        // Stage 3.3: "Paid" is the actual money out (1,879.91 + 89 + 26.99), the plan stays separately available
-        assertThat(tile.summary().paidAmount()).isEqualByComparingTo(LINKED_FIXED_EXPENSES_TO_DATE);
+        // Stage 3.3: "Paid" is the actual money out (1,879.91 + 89 + 26.99), the plan stays separately available.
+        // Stage 3.5: it equals the forecast's LINKED_FIXED_EXPENSES_TO_DATE only because every fixture obligation is
+        // paid inside its own cycle — the two are different metrics (CrossCycleFixedPaidRegressionTest).
+        assertThat(tile.summary().paidAmount()).isEqualByComparingTo(FIXED_PAID_ACTUAL_PAY_CYCLE);
         assertThat(tile.summary().plannedPaidAmount()).isEqualByComparingTo("2015.99");
     }
 

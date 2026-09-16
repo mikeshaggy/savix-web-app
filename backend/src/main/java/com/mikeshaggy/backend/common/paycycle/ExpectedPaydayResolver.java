@@ -120,6 +120,16 @@ public class ExpectedPaydayResolver {
         return false;
     }
 
+    /**
+     * Applies an already-resolved rule once more: the payday it predicts after {@code anchor}. Lets a caller
+     * project the cycle after the next one from the same rule, without feeding the prediction back as history.
+     */
+    public LocalDate nextOccurrenceAfter(PaydayRule rule, LocalDate anchor) {
+        Objects.requireNonNull(rule, "rule");
+        Objects.requireNonNull(anchor, "anchor");
+        return nextOccurrence(rule, anchor);
+    }
+
     /** First occurrence of the rule's payday strictly after {@code lastAnchor + MIN_CYCLE_DAYS}. */
     private static LocalDate nextOccurrence(PaydayRule rule, LocalDate lastAnchor) {
         LocalDate earliest = lastAnchor.plusDays(MIN_CYCLE_DAYS);

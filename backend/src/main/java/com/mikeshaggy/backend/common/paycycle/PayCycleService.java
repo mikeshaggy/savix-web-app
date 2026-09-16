@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.common.paycycle;
 
 import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.repository.CategoryRepository;
+import com.mikeshaggy.backend.common.period.InclusiveDateRange;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import com.mikeshaggy.backend.user.domain.User;
 import com.mikeshaggy.backend.user.domain.UserPaydayRule;
@@ -63,6 +64,25 @@ public class PayCycleService {
                     ? PayCycle.open(userId, context.salaryWalletId(), lastAnchor, expectedNextAnchor)
                     : PayCycle.awaitingSalary(userId, context.salaryWalletId(), lastAnchor, expectedNextAnchor);
             return Optional.of(cycle);
+        });
+    }
+
+    /**
+     * The cycle expected to follow {@link #current}: from the expected payday through the day before the payday the
+     * same rule predicts after it. A <em>display horizon</em> only ("after payday" on the Fixed Payments page) — the
+     * cycle has not started, nothing is committed against it, and it is empty whenever {@link #current} is.
+     */
+    public Optional<InclusiveDateRange> expectedNextCycle(UUID userId) {
+        LocalDate today = LocalDate.now(clock);
+        return salaryContext(userId).flatMap(context -> {
+            List<LocalDate> anchors = mergedAnchorDates(context, userId, today);
+            if (anchors.isEmpty()) {
+                return Optional.empty();
+            }
+            ExpectedPayday expected = expectedPaydayResolver.resolve(userId, anchors.getFirst(), anchors, configuredRule(userId));
+            // the same rule applied once more — the prediction is never fed back into the anchor history
+            LocalDate expectedAfterNext = expectedPaydayResolver.nextOccurrenceAfter(expected.ruleUsed(), expected.date());
+            return Optional.of(new InclusiveDateRange(expected.date(), expectedAfterNext.minusDays(1)));
         });
     }
 
