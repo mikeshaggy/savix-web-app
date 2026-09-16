@@ -68,6 +68,19 @@ public class AnalyticsTransactionQueryService {
         return List.copyOf(totals);
     }
 
+    /**
+     * Unlinked EXPENSE transactions in {@code [from, to]} for the one-off explanation layer (Stage 4.6),
+     * ascending by date then id. Unlike {@link #dailyVariableTotals} the exclusion flags do not filter here:
+     * every row is returned and {@link VariableExpense#excluded()} says whether the pace already leaves it out
+     * (transaction or category flag, {@code Transaction#isPaceExcluded()}).
+     */
+    public List<VariableExpense> unlinkedExpenses(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        return transactionRepository.findUnlinkedExpensesByWalletUserDateRange(walletId, userId, from, to).stream()
+                .map(t -> new VariableExpense(t.getId(), t.getTransactionDate(), t.getTitle(),
+                        t.getCategory().getName(), money(t.getAmount()), t.isPaceExcluded()))
+                .toList();
+    }
+
     public BigDecimal expenseByImportance(Integer walletId, UUID userId,
                                           LocalDate from, LocalDate to,
                                           Importance importance) {
@@ -111,6 +124,16 @@ public class AnalyticsTransactionQueryService {
     }
 
     public record DailyTotal(LocalDate day, BigDecimal amount) {
+    }
+
+    /** One unlinked expense as seen by the one-off layer; {@code excluded} = already out of the spending pace. */
+    public record VariableExpense(
+            Long transactionId,
+            LocalDate date,
+            String title,
+            String categoryName,
+            BigDecimal amount,
+            boolean excluded) {
     }
 
     public record DailyExpenseStats(

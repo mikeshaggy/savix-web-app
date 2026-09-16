@@ -192,6 +192,32 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
+    /**
+     * Every unlinked EXPENSE transaction in the window, <em>including</em> rows flagged {@code excludedFromPace}
+     * on the transaction or the category — the one-off explanation layer (Stage 4.6) must still see them and
+     * report them as excluded. The category is fetched so {@code Transaction#isPaceExcluded()} needs no extra
+     * query; the (always absent) occurrence is fetch-joined like in the other entity finders so the inverse
+     * one-to-one does not trigger one select per row. Forecast arithmetic never reads this; it uses the pace-eligible queries above.
+     */
+    @Query("""
+        SELECT t FROM Transaction t
+        JOIN FETCH t.category c
+        LEFT JOIN FETCH t.fixedPaymentOccurrence
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = com.mikeshaggy.backend.category.domain.CategoryType.EXPENSE
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+        ORDER BY t.transactionDate ASC, t.id ASC
+    """)
+    List<Transaction> findUnlinkedExpensesByWalletUserDateRange(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         JOIN t.category c

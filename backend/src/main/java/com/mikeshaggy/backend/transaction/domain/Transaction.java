@@ -67,6 +67,16 @@ public class Transaction {
     @CreationTimestamp
     private Instant createdAt;
 
+    /**
+     * Stage 4.1 pace exclusion as one predicate: the row is out of the spending pace when it or its category
+     * is flagged. Java twin of the {@code excludedFromPace = false} conjunction in the pace-eligible repository
+     * queries ({@code sumUnlinkedPaceEligibleByWalletUserDateRange}, {@code findDailyPaceEligibleVariableTotals});
+     * the two must agree, which {@code OneOffCandidateExclusionTest} pins.
+     */
+    public boolean isPaceExcluded() {
+        return excludedFromPace || (category != null && category.isExcludedFromPace());
+    }
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;

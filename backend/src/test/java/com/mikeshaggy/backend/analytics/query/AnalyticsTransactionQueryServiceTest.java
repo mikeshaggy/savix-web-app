@@ -1,6 +1,8 @@
 package com.mikeshaggy.backend.analytics.query;
 
+import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
+import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.transaction.repository.DailyTotalProjection;
 import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
@@ -107,6 +109,31 @@ class AnalyticsTransactionQueryServiceTest {
 
         assertThat(service.dailyVariableTotals(WALLET_ID, USER_ID, day, day))
                 .containsExactly(new AnalyticsTransactionQueryService.DailyTotal(day, new BigDecimal("0.00")));
+    }
+
+    @Test
+    void unlinkedExpensesMapsRowsAndFoldsBothExclusionFlagsIntoOne() {
+        AnalyticsTransactionQueryService service = new AnalyticsTransactionQueryService(transactionRepository);
+        LocalDate from = LocalDate.of(2026, 9, 9);
+        LocalDate to = LocalDate.of(2026, 9, 14);
+        Category groceries = Category.builder().name("Groceries").type(CategoryType.EXPENSE).build();
+        Category moneyLent = Category.builder().name("Money lent").type(CategoryType.EXPENSE).excludedFromPace(true).build();
+        when(transactionRepository.findUnlinkedExpensesByWalletUserDateRange(WALLET_ID, USER_ID, from, to))
+                .thenReturn(List.of(
+                        Transaction.builder().id(1L).title("Bread").category(groceries).amount(new BigDecimal("5.5"))
+                                .transactionDate(from).build(),
+                        Transaction.builder().id(2L).title("Lent").category(moneyLent).amount(new BigDecimal("150"))
+                                .transactionDate(from.plusDays(1)).build(),
+                        Transaction.builder().id(3L).title("Repayment").category(groceries).amount(new BigDecimal("300"))
+                                .transactionDate(from.plusDays(2)).excludedFromPace(true).build()));
+
+        List<AnalyticsTransactionQueryService.VariableExpense> rows = service.unlinkedExpenses(WALLET_ID, USER_ID, from, to);
+
+        assertThat(rows).containsExactly(
+                new AnalyticsTransactionQueryService.VariableExpense(1L, from, "Bread", "Groceries", new BigDecimal("5.50"), false),
+                new AnalyticsTransactionQueryService.VariableExpense(2L, from.plusDays(1), "Lent", "Money lent", new BigDecimal("150.00"), true),
+                new AnalyticsTransactionQueryService.VariableExpense(3L, from.plusDays(2), "Repayment", "Groceries", new BigDecimal("300.00"), true));
+        verifyNoMoreInteractions(transactionRepository);
     }
 
     @Test
