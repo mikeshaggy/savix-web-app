@@ -1,0 +1,141 @@
+name: Deploy Savix
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: savix-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Enable only after the separately approved operational adoption is complete.
+    # No PR trigger, arbitrary ref input, or manual deployment/retry automation.
+    if: >-
+      github.repository == 'mikeshaggy/savix-web-app' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.SAVIX_PRODUCTION_ENABLED == 'true'
+    runs-on: [self-hosted, linux, arm64, savix-production]
+    environment: production
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      SAVIX_DOCKER_CONTEXT: ${{ vars.SAVIX_DOCKER_CONTEXT }}
+      SAVIX_RUNTIME_ENV: ${{ vars.SAVIX_RUNTIME_ENV }}
+      SAVIX_BACKUP_DIR: ${{ vars.SAVIX_BACKUP_DIR }}
+      SAVIX_STATE_DIR: ${{ vars.SAVIX_STATE_DIR }}
+      SAVIX_LOCK_FILE: ${{ vars.SAVIX_LOCK_FILE }}
+      BACKEND_IMAGE: savix-backend:git-${{ github.sha }}
+      FRONTEND_IMAGE: savix-frontend:git-${{ github.sha }}
+    steps:
+      - name: Check runner workspace before checkout
+        timeout-minutes: 2
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path('/var/lib/savix-runner/work').resolve()
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          runner_workspace = Path(os.environ['RUNNER_WORKSPACE']).resolve()
+          if (os.environ['RUNNER_OS'] != 'Linux' or os.environ['RUNNER_ARCH'] != 'ARM64'
+                  or root != Path('/var/lib/savix-runner/work')
+                  or root not in runner_workspace.parents
+                  or runner_workspace not in workspace.parents):
+              raise SystemExit('Runner must use its dedicated Linux ARM64 work directory')
+          for key in ('SAVIX_RUNTIME_ENV', 'SAVIX_BACKUP_DIR', 'SAVIX_STATE_DIR', 'SAVIX_LOCK_FILE'):
+              value = os.environ[key]
+              path = Path(value).resolve()
+              if not value.startswith('/') or path == root or root in path.parents:
+                  raise SystemExit('Configure absolute protected host paths outside the runner work directory')
+          if not os.environ['SAVIX_DOCKER_CONTEXT']:
+              raise SystemExit('Configure the explicit local Docker context')
+          PY
+
+      - name: Checkout workflow commit
+        timeout-minutes: 5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check Docker and free space
+        id: resources
+        timeout-minutes: 2
+        run: bash scripts/ci/production-build.sh check
+
+      - name: Backend verification including PostgreSQL integration tests
+        id: backend_validation
+        timeout-minutes: 35
+        run: bash scripts/ci/production-build.sh verify-backend
+
+      - name: Frontend install, lint and build
+        id: frontend_validation
+        timeout-minutes: 25
+        run: bash scripts/ci/production-build.sh verify-frontend
+
+      - name: Build and verify immutable backend image
+        id: backend_image
+        timeout-minutes: 25
+        run: bash scripts/ci/production-build.sh build-backend
+
+      - name: Build and verify immutable frontend image
+        id: frontend_image
+        timeout-minutes: 15
+        run: bash scripts/ci/production-build.sh build-frontend
+
+      - name: SHG-16 read-only preflight
+        id: preflight
+        timeout-minutes: 5
+        run: |
+          ./scripts/deploy.sh --preflight \
+            --backend-image "$BACKEND_IMAGE" --frontend-image "$FRONTEND_IMAGE" \
+            --env-file "$SAVIX_RUNTIME_ENV" --backup-dir "$SAVIX_BACKUP_DIR" \
+            --state-dir "$SAVIX_STATE_DIR" --lock-file "$SAVIX_LOCK_FILE" \
+            --docker-context "$SAVIX_DOCKER_CONTEXT"
+
+      - name: SHG-16 deployment
+        id: deployment
+        timeout-minutes: 35
+        run: |
+          ./scripts/deploy.sh \
+            --backend-image "$BACKEND_IMAGE" --frontend-image "$FRONTEND_IMAGE" \
+            --env-file "$SAVIX_RUNTIME_ENV" --backup-dir "$SAVIX_BACKUP_DIR" \
+            --state-dir "$SAVIX_STATE_DIR" --lock-file "$SAVIX_LOCK_FILE" \
+            --docker-context "$SAVIX_DOCKER_CONTEXT"
+
+      - name: Deployment summary
+        if: ${{ always() }}
+        timeout-minutes: 1
+        env:
+          BACKEND_VALIDATION: ${{ steps.backend_validation.outcome }}
+          FRONTEND_VALIDATION: ${{ steps.frontend_validation.outcome }}
+          BACKEND_BUILD: ${{ steps.backend_image.outcome }}
+          FRONTEND_BUILD: ${{ steps.frontend_image.outcome }}
+          PREFLIGHT_RESULT: ${{ steps.preflight.outcome }}
+          DEPLOYMENT_RESULT: ${{ steps.deployment.outcome }}
+        run: |
+          # Markdown code spans deliberately use literal backticks.
+          # shellcheck disable=SC2016
+          {
+            printf '### Savix deployment\n\n'
+            printf '| Item | Result |\n| --- | --- |\n'
+            printf '| Git SHA | `%s` |\n' "$GITHUB_SHA"
+            printf '| Backend image | `%s` |\n' "$BACKEND_IMAGE"
+            printf '| Frontend image | `%s` |\n' "$FRONTEND_IMAGE"
+            printf '| Backend verification | %s |\n' "$BACKEND_VALIDATION"
+            printf '| Frontend verification | %s |\n' "$FRONTEND_VALIDATION"
+            printf '| Backend image build | %s |\n' "$BACKEND_BUILD"
+            printf '| Frontend image build | %s |\n' "$FRONTEND_BUILD"
+            printf '| SHG-16 preflight | %s |\n' "$PREFLIGHT_RESULT"
+            printf '| SHG-16 deployment | %s |\n' "$DEPLOYMENT_RESULT"
+            printf '\nIf an attempt record was created, its location and stage/result appear in the SHG-16 deployment step. '
+            printf 'Records and diagnostics remain on the protected host; no artifacts are uploaded.\n'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -161,7 +161,12 @@ See [.env.example](.env.example) for all required variables.
 [Deployment, backup gates, health verification and manual application rollback](docs/deployment-orchestration.md)
 are available through `scripts/deploy.sh`. Images must already exist locally.
 [Isolated validation](docs/shg-16-validation.md) covers the success and failure gates.
-GitHub Actions and production runner setup remain SHG-17 work.
+
+### GitHub Actions and production runner (SHG-17)
+
+[ARM64 runner provisioning, workflow and operational adoption](docs/github-actions-runner.md)
+and [SHG-17 validation](docs/shg-17-validation.md). Deployment remains disabled until
+separately approved runner, baseline and first-deployment adoption.
 
 ### Production runtime secrets (SHG-13)
 
