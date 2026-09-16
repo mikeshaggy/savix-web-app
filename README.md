@@ -17,7 +17,7 @@ Savix is a full-stack monorepo project demonstrating backend architecture built 
 - **Caching/Sessions:** Redis for rate limiting and token revocation
 - **Email:** Spring Mail with Thymeleaf templates
 - **Validation:** Bean Validation with custom password policy
-- **Testing:** JUnit 5, H2 in-memory database
+- **Testing:** JUnit 5, H2 in-memory database, opt-in PostgreSQL 16.11 Testcontainers suite
 - **Build:** Maven with MapStruct, Lombok
 
 ### Frontend (Next.js / React)
@@ -114,6 +114,8 @@ docker compose up -d
 
 Flyway is the only schema initializer. See [Database migrations](docs/database-migrations.md)
 for the manual production baseline procedure and migration authoring rules.
+Run the automated real-PostgreSQL checks from `backend/` with
+`./mvnw verify -Ppostgres-it`; see [PostgreSQL migration tests](docs/postgresql-migration-tests.md).
 
 ```bash
 cd backend

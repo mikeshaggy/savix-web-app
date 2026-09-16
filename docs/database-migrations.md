@@ -222,7 +222,9 @@ references, **not executable history**; their embedded old usage comments are
 obsolete. Resource-root legacy SQL is excluded from the packaged JAR and only
 `db/migration` is scanned. No automatic execution or legacy file moves occur.
 
-SHG-15 owns the full Testcontainers migration suite. Release automation, CI,
+SHG-15 adds the focused PostgreSQL 16.11 Testcontainers suite; see
+[PostgreSQL migration integration tests](postgresql-migration-tests.md) for its
+scenarios, architecture and `./mvnw verify -Ppostgres-it` command. Release automation, CI,
 backup automation, broader schema/ORM reconciliation, index optimization,
 role/privilege changes, readiness gates and actual production adoption are later
 subtasks. SHG-14 performs only unit/regression tests and isolated PostgreSQL smoke
