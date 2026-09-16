@@ -78,7 +78,7 @@ savix-web-app/
 │       └── lib/                # API client, utilities
 │
 ├── docker-compose.yml          # PostgreSQL + Redis setup
-├── 01_init.sql                 # Database schema initialization
+├── 01_init.sql                 # Historical SQL reference (not executed)
 └── .env.example                # Environment variables template
 ```
 
@@ -110,10 +110,17 @@ cp .env.example .env
 docker compose up -d
 ```
 
-### 3. Run backend
+### 3. Initialize schema and run backend
+
+Flyway is the only schema initializer. See [Database migrations](docs/database-migrations.md)
+for the manual production baseline procedure and migration authoring rules.
 
 ```bash
 cd backend
+./mvnw clean verify
+export MIGRATION_ENV=local DB_URL=jdbc:postgresql://127.0.0.1:5432/savix
+export DB_USERNAME=admin DB_PASSWORD=admin DB_SCHEMA=public
+java -jar target/backend-0.0.1-SNAPSHOT.jar db migrate
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 

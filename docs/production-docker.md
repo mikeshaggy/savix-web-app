@@ -185,8 +185,11 @@ preparation before adoption. No production change has occurred.
 SHG-13 completes runtime secret configuration and documents key provisioning in
 [production-secrets.md](production-secrets.md). Provisioning/adoption has not run.
 
-Deferred: Flyway,
-baseline/schema reconciliation (SHG-14 / later), health/readiness improvements,
+SHG-14 adds the packaged migration-only command and explicit baseline runbook in
+[database-migrations.md](database-migrations.md). Normal web startup does not migrate;
+production baseline/adoption has not run.
+
+Deferred: production adoption, broader schema reconciliation, health/readiness improvements,
 immutable release automation, deployment scripts, GitHub Actions, runner setup,
 backups/restore rehearsal, rollout/rollback and first production adoption. No
 application or SQL behavior is changed here.

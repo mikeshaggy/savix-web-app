@@ -6,6 +6,16 @@
 # secret have no development fallback in this profile.
 # ──────────────────────────────────────────────────────────────────────────────
 spring:
+  flyway:
+    enabled: false
+    baseline-on-migrate: false
+    clean-disabled: true
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: none
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}

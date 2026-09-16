@@ -25,6 +25,15 @@
     </properties>
 
     <dependencies>
+        <!-- Version supplied by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -115,6 +124,8 @@
                 <directory>src/main/resources</directory>
                 <excludes>
                     <exclude>**/application-local*</exclude>
+                    <!-- Retained historical evidence, never executable migration resources. -->
+                    <exclude>db/*.sql</exclude>
                     <exclude>**/.env*</exclude>
                     <exclude>**/*.env*</exclude>
                     <exclude>**/secrets/**</exclude>
@@ -151,6 +162,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>com.mikeshaggy.backend.BackendApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

@@ -1,4 +1,14 @@
 spring:
+  flyway:
+    enabled: false
+    baseline-on-migrate: false
+    clean-disabled: true
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: none
   application:
     name: savix-backend
   datasource:
