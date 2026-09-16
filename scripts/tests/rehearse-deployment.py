@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Destructive ONLY to uniquely named local SHG-16 disposable resources.
-Requires Docker Desktop, the SHG-13 backend runtime and a current packaged JAR.
-Builds the current frontend with its normal Dockerfile (including lint/build).
+Requires Docker Desktop and the local PostgreSQL/Redis fixture images.
+Builds both current runtimes with their normal Dockerfile verification gates.
 Never uses a production env file/context, SSH, or production resource identities.
 """
 import fcntl
@@ -98,24 +98,28 @@ print('Isolated rehearsal resources: ' + PREFIX, flush=True)
 try:
     context = json.loads(docker('context', 'inspect', 'desktop-linux').stdout)[0]
     assert context['Endpoints']['docker']['Host'].startswith('unix://')
-    # Backend/infrastructure bases must exist locally; the frontend uses its build gate.
-    for image in ('savix-backend:shg13-validation', 'postgres:16.11-bookworm', 'redis:7-alpine'):
+    # Only infrastructure fixtures must already exist locally.
+    for image in ('postgres:16.11-bookworm', 'redis:7-alpine'):
         docker('image', 'inspect', image)
+    backend_base = PREFIX + ':backend-base'
+    IMAGES.append(backend_base)
+    build = docker('build', '--pull=false', '-t', backend_base, ROOT / 'backend', timeout=1200)
+    (OUT / 'backend-build.log').write_text(build.stdout + build.stderr)
+    passed('Current backend Dockerfile verification passes and supplies the migration/web runtime')
     frontend_base = PREFIX + ':frontend-base'
     build = docker('build', '--pull=false', '-t', frontend_base, ROOT / 'frontend', timeout=600)
     (OUT / 'frontend-build.log').write_text(build.stdout + build.stderr)
     IMAGES.append(frontend_base)
     passed('Current frontend Dockerfile lint/build passes and supplies the readiness proxy image')
-    jar = ROOT / 'backend' / 'target' / 'backend-0.0.1-SNAPSHOT.jar'
-    assert jar.is_file(), 'Build the current backend JAR before rehearsal'
-    import shutil
-    shutil.copyfile(jar, OUT / 'app.jar')
+    regression = docker('run', '--rm', '--network', 'none',
+                        '--mount', f'type=bind,src={ROOT / "scripts/tests/health-proxy-regression.cjs"},dst=/health-regression.cjs,readonly',
+                        '--entrypoint', 'node', frontend_base, '/health-regression.cjs', timeout=60)
+    (OUT / 'health-proxy-regression.log').write_text(regression.stdout + regression.stderr)
+    passed('Frontend health handles UP, DOWN, refusal, stalled headers/body and caller cancellation')
     for release in ('a', 'b', 'backend-bad', 'frontend-bad'):
         backend = release != 'frontend-bad'
-        base = 'savix-backend:shg13-validation' if backend else frontend_base
+        base = backend_base if backend else frontend_base
         text = f'FROM {base}\nLABEL shg16.rehearsal="{PREFIX}-{release}"\n'
-        if backend:
-            text += 'COPY --chown=10001:10001 app.jar /app/app.jar\n'
         if release == 'backend-bad':
             (OUT / 'bad-backend.sh').write_text('#!/bin/sh\nif [ "$1" = db ]; then exec java -jar /app/app.jar "$@"; fi\necho "synthetic health failure password='+SECRET+'"\nexec sleep 86400\n')
             text += 'COPY --chmod=755 bad-backend.sh /app/bad-backend.sh\nENTRYPOINT ["/app/bad-backend.sh"]\n'
@@ -131,7 +135,7 @@ try:
         tag = PREFIX + ':' + release
         docker('build', '--pull=false', '-t', tag, OUT)
         IMAGES.append(tag)
-    A, B, BAD_BACK, BAD_FRONT, FA, FB = IMAGES[1:]
+    A, B, BAD_BACK, BAD_FRONT, FA, FB = IMAGES[2:]
     run(['openssl', 'genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', OUT / 'private.pem'])
     run(['openssl', 'pkey', '-in', OUT / 'private.pem', '-pubout', '-out', OUT / 'public.pem'])
     # Disposable keys readable by the actual non-root backend UID, protected by OUT 0700.
@@ -242,7 +246,10 @@ try:
             direct = health('/actuator/health/readiness', 503)
             assert direct['components'][indicator]['status'] == 'DOWN', direct
             proxied = health('/api/health', 503, 'frontend')
-            assert proxied['components'][indicator]['status'] == 'DOWN', proxied
+            # DB health may exceed the proxy deadline; either an upstream DOWN
+            # body or the controlled timeout DOWN response is valid.
+            if 'components' in proxied:
+                assert proxied['components'][indicator]['status'] == 'DOWN', proxied
         finally:
             docker('start', PREFIX+'-'+dependency)
         wait_ready()

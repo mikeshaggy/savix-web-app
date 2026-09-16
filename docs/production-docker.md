@@ -38,7 +38,7 @@ no AMD64-only base or host `target`, `node_modules`, or `.next` is copied.
   UID/GID 1001, listening on `0.0.0.0:3000`.
 - `VCS_REF` records the source revision label (defaults to `unknown` for ad hoc
   builds). Image names/tags are selected by the caller. Compose requires explicit
-  `BACKEND_IMAGE` and `FRONTEND_IMAGE`, ready for later immutable references.
+  `BACKEND_IMAGE` and `FRONTEND_IMAGE`, pinned to inspected image IDs by SHG-16.
   SHG-12 does not implement a release/tagging workflow or a registry.
 - `NEXT_PUBLIC_API_BASE_URL` is the frontend's optional **public build argument**,
   default `/api/proxy`. Never use it for a secret. `PROXY_BASE` and `PROXY_SECRET`
@@ -60,7 +60,7 @@ See [Docker build contexts](https://docs.docker.com/build/concepts/context/).
 
 Use **only** `compose.production.yml`, with explicit project `savix`. Do not merge
 it with the development `docker-compose.yml`: that file exposes local credentials,
-uses a different network and includes a database initialization bind mount.
+uses a different network. Its schema is initialized explicitly with Flyway.
 Do not override the project to `savix-app` or create a parallel Compose project.
 
 | Service | Container | Published host → container | Networks |
@@ -191,10 +191,10 @@ SHG-14 adds the packaged migration-only command and explicit baseline runbook in
 [database-migrations.md](database-migrations.md). Normal web startup does not migrate;
 production baseline/adoption has not run.
 
-Deferred: production adoption, broader schema reconciliation, health/readiness improvements,
-immutable release automation, deployment scripts, GitHub Actions, runner setup,
-backups/restore rehearsal, rollout/rollback and first production adoption. No
-application or SQL behavior is changed here.
+SHG-16 implements readiness gates, deployment, backup and application rollback;
+SHG-17 implements immutable image builds and GitHub Actions. Production adoption,
+runner provisioning, broader schema reconciliation and full backup restoration
+rehearsal remain operational follow-ups.
 
 ## SHG-12 validation result (2026-09-15)
 
@@ -229,5 +229,5 @@ The [deployment runbook](deployment-orchestration.md) now provides preflight, a
 verified dump gate, candidate-image Flyway runs, application-only rollout, health
 verification and explicit manual image rollback. It adds `compose.deploy.yml`
 and points the production backend probe at dedicated readiness; the SHG-12
-topology is unchanged. No production adoption has run; GitHub Actions and the
-production runner remain SHG-17 work.
+topology is unchanged. SHG-17 adds [GitHub Actions and the runner runbook](github-actions-runner.md).
+Production adoption and runner provisioning have not run.

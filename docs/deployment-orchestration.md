@@ -57,7 +57,7 @@ Before invoking the script, an operator must provision:
 - Existing absolute backup and state directories, writable by the deploy user
   and not writable by group/others. Use mode 0700 for state and protected backup
   storage. A persistent absolute lock-file path with an existing private parent.
-  All manual, backup and future automated invocations **must use the same path**.
+  All manual, backup and automated invocations **must use the same path**.
 
 The existing nightly backup directory is
 `/home/mikeshaggy/homelab/savix/backups/postgres`; select it explicitly with
@@ -269,20 +269,24 @@ regenerate JWT keys, or execute Flyway repair/clean to force a deployment throug
 See [the SHG-16 validation report](shg-16-validation.md). The reproducible Docker
 rehearsal is `python3 scripts/tests/rehearse-deployment.py`. It is intentionally
 local-Docker-Desktop-only, uses disposable resources and dummy secrets, and builds
-fixture images outside the deploy scripts. It requires the locally available
-SHG-13 backend runtime, a packaged current backend JAR, PostgreSQL
-`16.11-bookworm` and Redis `7-alpine`. The frontend is rebuilt from the current
-Dockerfile, including its normal lint/build gates. The rehearsal leaves SMTP
-health enabled with an unavailable dummy mail endpoint, verifies aggregate mail
+fixture images outside the deploy scripts. It requires locally available PostgreSQL
+`16.11-bookworm` and Redis `7-alpine`. Both application runtimes are built from
+the current Dockerfiles, including backend verification and frontend lint/build.
+The frontend health regression uses a network-isolated dummy backend to check
+UP/DOWN, connection refusal, stalled headers/body and caller cancellation.
+Upstream health requests have a four-second deadline, below the deployment
+probe's five-second timeout, and timeouts return HTTP 503 with status DOWN.
+The rehearsal leaves SMTP health enabled with an unavailable dummy mail endpoint, verifies aggregate mail
 failure independently of readiness, and stops/restarts only its disposable DB
 and Redis to verify direct and frontend-proxied readiness failures/recovery.
 Component details are enabled only inside this isolated fixture for assertions;
 production details remain authorization-controlled. No production files or
 resources are read.
 
-SHG-17 will build/test and deliver immutable application images, configure GitHub
-Actions and the production runner, set workflow concurrency, and invoke these
-scripts with explicit inputs and the shared host lock path. Runner installation,
+SHG-17 builds/tests and delivers immutable application images through GitHub
+Actions, sets workflow concurrency, and invokes these scripts with explicit
+inputs and the shared host lock path. The [runner runbook](github-actions-runner.md)
+documents operational provisioning. Runner installation,
 secret provisioning, host setup, automatic pruning and actual deployment are
 not included. Adoption/baseline approval, full restore rehearsal and off-host
 backup policy remain separate operational work.

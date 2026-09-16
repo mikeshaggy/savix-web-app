@@ -18,7 +18,7 @@ Savix is a full-stack monorepo project demonstrating backend architecture built 
 - **Email:** Spring Mail with Thymeleaf templates
 - **Validation:** Bean Validation with custom password policy
 - **Testing:** JUnit 5, H2 in-memory database, opt-in PostgreSQL 16.11 Testcontainers suite
-- **Build:** Maven with MapStruct, Lombok
+- **Build:** Maven with Lombok
 
 ### Frontend (Next.js / React)
 - **Framework:** Next.js (App Router) with Server Components
@@ -139,7 +139,7 @@ npm run dev
 ### 5. Access the app
 
 - **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:8080/api
+- **Backend API:** http://localhost:8000/api
 
 ---
 

@@ -224,8 +224,9 @@ obsolete. Resource-root legacy SQL is excluded from the packaged JAR and only
 
 SHG-15 adds the focused PostgreSQL 16.11 Testcontainers suite; see
 [PostgreSQL migration integration tests](postgresql-migration-tests.md) for its
-scenarios, architecture and `./mvnw verify -Ppostgres-it` command. Release automation, CI,
-backup automation, broader schema/ORM reconciliation, index optimization,
-role/privilege changes, readiness gates and actual production adoption are later
-subtasks. SHG-14 performs only unit/regression tests and isolated PostgreSQL smoke
-validation, with no production connection or deployment.
+scenarios, architecture and `./mvnw verify -Ppostgres-it` command. SHG-16 implements
+backup/migration gates, readiness and application rollout; SHG-17 adds CI and
+immutable release builds. Broader schema/ORM reconciliation, index optimization,
+role/privilege changes and actual production adoption remain separate work.
+SHG-14 validation used only unit/regression tests and isolated PostgreSQL smoke
+checks, with no production connection or deployment.

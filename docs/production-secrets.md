@@ -171,9 +171,9 @@ docker run --rm --network none --entrypoint sh   --mount "type=bind,src=$SECRET_
 
 ### 5. Adopt only under the later approved rollout, then check identity
 
-The actual rollout/rollback command belongs to the later deployment task. Do not
-run Compose `up`/`down` as part of SHG-13. Immediately before that rollout, keep a
-browser logged in as an existing account; preserve its cookies without exporting
+The rollout/rollback command is documented in [SHG-16](deployment-orchestration.md).
+Do not run Compose `up`/`down` as part of secret provisioning. Immediately before
+that rollout, keep a browser logged in as an existing account; preserve its cookies without exporting
 or logging them. Record the expected public fingerprint from step 2.
 
 After the approved container replacement:
@@ -200,18 +200,18 @@ rollback plan using preserved images/configuration. Do not regenerate keys to
 repair authentication. Retire secret-bearing legacy images/JARs/caches only under
 the later approved retention/rollback policy after continuity is established.
 
-## Future CI/logging contract
+## CI/logging contract
 
-No GitHub Actions workflow is introduced in SHG-13. Future build/test jobs must
-have no production secret access, use only dummy secrets, and send only the
-service contexts to Docker. Never pass runtime secrets using build arguments,
+SHG-17 implements the [GitHub Actions workflow](github-actions-runner.md).
+Build/test inputs must contain only dummy secrets. Send only the service
+contexts to Docker. Never pass runtime secrets using build arguments,
 Dockerfile environment, public Next variables, or `next.config` environment.
 Deployment credentials/files must stay out of the build workspace and artifacts.
 Use `docker compose config --quiet`, no shell tracing, no environment dumps,
 request header/token logging or raw image inspection. Mask any runtime credential
-before a future deployment job could log it, but do not rely on masking to make
+before a deployment job could log it, but do not rely on masking to make
 secret-bearing builds safe. Only public fingerprints and pass/fail results belong
-in evidence. Workflow enforcement belongs to the later CI subtask.
+in evidence. SHG-17 documents the production runner trust boundary and workflow controls.
 
 ## Validation
 
@@ -255,9 +255,10 @@ production secrets were fetched, extracted, modified or used here.
 
 ### Scope boundaries
 
-SHG-14/Flyway/schema work, deployment/rollback automation, GitHub Actions and runner
-setup, dependency upgrades, host provisioning, production adoption, and retirement
-of secret-bearing legacy images/caches remain deferred. Existing production
+SHG-14 through SHG-17 implement Flyway, deployment/rollback orchestration, GitHub
+Actions and the runner runbook. Dependency upgrades, host/runner provisioning,
+production adoption and retirement of secret-bearing legacy images/caches
+remain separate work. Existing production
 artifacts still contain their original secrets until the later approved adoption
 and retention work; SHG-13 prevents this in newly built artifacts.
 
