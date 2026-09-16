@@ -448,7 +448,10 @@ class SpendingProjectionServiceTest {
         ArgumentCaptor<PeriodDto> captor = ArgumentCaptor.forClass(PeriodDto.class);
         verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
                 captor.capture(), any(Wallet.class), eq(USER_ID), eq(TODAY));
-        assertThat(captor.getValue().billingEndDate()).isEqualTo(LocalDate.of(2026, 5, 31));
+        // 3.1: the resolved cycle is passed through; the fixed-payment service bounds the window by endDate
+        assertThat(captor.getValue().endDate()).isEqualTo(LocalDate.of(2026, 5, 31));
+        assertThat(captor.getValue().cycleState()).isEqualTo(CycleState.OPEN);
+        assertThat(captor.getValue().expectedNextAnchorDate()).isEqualTo(LocalDate.of(2026, 6, 1));
     }
 
     @Test
@@ -547,7 +550,7 @@ class SpendingProjectionServiceTest {
                 0, 1, BigDecimal.ZERO,
                 null, null, null, null, 1);
         return new FixedTransactionsTileDto(
-                TODAY, TODAY, TODAY,
+                TODAY, TODAY, TODAY, null, null,
                 summary,
                 progress,
                 BigDecimal.ZERO,

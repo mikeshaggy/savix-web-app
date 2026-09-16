@@ -3,10 +3,12 @@ package com.mikeshaggy.backend.fixedpayment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.mikeshaggy.backend.category.domain.Category;
+import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
 import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
+import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
@@ -80,6 +82,8 @@ class FixedPaymentTileAssemblerTest {
             assertThat(result.periodStart()).isEqualTo(PERIOD.startDate());
             assertThat(result.periodEnd()).isEqualTo(PERIOD.endDate());
             assertThat(result.billingEndDate()).isEqualTo(PERIOD.billingEndDate());
+            assertThat(result.expectedPaydayDate()).isNull();
+            assertThat(result.cycleState()).isNull();
             assertThat(result.currentBalance()).isEqualByComparingTo("5000.00");
             assertThat(result.balanceAfterFixed()).isEqualByComparingTo("5000.00");
             assertThat(result.summary().plannedCount()).isZero();
@@ -90,6 +94,49 @@ class FixedPaymentTileAssemblerTest {
             assertThat(result.overdue()).isEmpty();
             assertThat(result.upcoming()).isEmpty();
             assertThat(result.paid()).isEmpty();
+        }
+    }
+
+    @Nested
+    class CommittedWindow {
+
+        /** Open cycle Mar 1 – Mar 31; the expected payday Apr 1 is also the {@code billingEndDate}. */
+        private final PeriodDto openCycle = new PeriodDto(
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), LocalDate.of(2026, 4, 1),
+                PeriodType.PAY_CYCLE, CycleState.OPEN, LocalDate.of(2026, 4, 1), true);
+
+        @Test
+        void upcomingStopsAtPeriodEndNotBillingEndDate() {
+            // given: a pending occurrence on the last cycle day and one on the payday (leaked in by a caller)
+            FixedPayment fp = fixedPayment(1, "Rent", "1500.00");
+            FixedPaymentOccurrence lastDay = occurrence(1L, fp, OccurrenceStatus.PENDING, "1500.00", LocalDate.of(2026, 3, 31));
+            FixedPaymentOccurrence payday = occurrence(2L, fp, OccurrenceStatus.PENDING, "1500.00", LocalDate.of(2026, 4, 1));
+
+            // when
+            FixedTransactionsTileDto result = assembler.assemble(
+                    openCycle, List.of(lastDay, payday), List.of(),
+                    new BigDecimal("4000.00"), new BigDecimal("5000.00"), 1, TODAY);
+
+            // then
+            assertThat(result.upcoming()).extracting(FixedOccurrenceRowDto::dueDate)
+                    .containsExactly(LocalDate.of(2026, 3, 31));
+            assertThat(result.progress().nextDueDate()).isEqualTo(LocalDate.of(2026, 3, 31));
+        }
+
+        @Test
+        void carriesCycleMetadataIntoTile() {
+            // when
+            FixedTransactionsTileDto assembled = assembler.assemble(
+                    openCycle, List.of(), List.of(), BigDecimal.ZERO, new BigDecimal("5000.00"), 0, TODAY);
+            FixedTransactionsTileDto empty = assembler.assembleEmpty(openCycle, new BigDecimal("5000.00"));
+
+            // then
+            for (FixedTransactionsTileDto result : List.of(assembled, empty)) {
+                assertThat(result.periodStart()).isEqualTo(LocalDate.of(2026, 3, 1));
+                assertThat(result.periodEnd()).isEqualTo(LocalDate.of(2026, 3, 31));
+                assertThat(result.expectedPaydayDate()).isEqualTo(LocalDate.of(2026, 4, 1));
+                assertThat(result.cycleState()).isEqualTo(CycleState.OPEN);
+            }
         }
     }
 

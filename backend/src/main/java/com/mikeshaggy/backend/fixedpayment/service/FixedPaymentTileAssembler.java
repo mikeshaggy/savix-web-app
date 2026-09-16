@@ -53,7 +53,7 @@ class FixedPaymentTileAssembler {
         List<FixedPaymentOccurrence> upcomingInPeriod = allInPeriod.stream()
                 .filter(o -> o.getStatus() == OccurrenceStatus.PENDING
                         && !o.getDueDate().isBefore(asOfDate)
-                        && !o.getDueDate().isAfter(period.billingEndDate()))
+                        && !o.getDueDate().isAfter(period.endDate()))
                 .sorted(Comparator.comparing(FixedPaymentOccurrence::getDueDate))
                 .toList();
 
@@ -75,6 +75,8 @@ class FixedPaymentTileAssembler {
                 period.startDate(),
                 period.endDate(),
                 period.billingEndDate(),
+                period.expectedNextAnchorDate(),
+                period.cycleState(),
                 summary,
                 progress,
                 currentBalance,
@@ -108,6 +110,8 @@ class FixedPaymentTileAssembler {
                 period.startDate(),
                 period.endDate(),
                 period.billingEndDate(),
+                period.expectedNextAnchorDate(),
+                period.cycleState(),
                 summary,
                 progress,
                 currentBalance,

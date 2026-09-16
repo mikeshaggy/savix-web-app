@@ -112,7 +112,7 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
         FixedSummaryDto summary = new FixedSummaryDto(
                 BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO);
         FixedTransactionsTileDto tile = new FixedTransactionsTileDto(
-                START, END, LocalDate.of(2026, 6, 1),
+                START, END, LocalDate.of(2026, 6, 1), null, null,
                 summary, null,
                 new BigDecimal("2000.00"), new BigDecimal("2000.00"),
                 new RiskIndicatorDto(false, null),

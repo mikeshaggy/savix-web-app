@@ -117,13 +117,10 @@ public class DashboardSummaryService {
         KpiSnapshot compareSnapshot = snapshot(compareTotals);
         DashboardKpisDto kpis = kpis(currentSnapshot, compareSnapshot, comparison.available());
 
-        // A cycle awaiting its salary reads its fixed payments through today: occurrences due between the expected
-        // and the actual payday stay in this cycle instead of being orphaned (Stage 3.1 formalises the window).
-        LocalDate fixedWindowEnd = cutoffDate.isAfter(periodEnd) ? cutoffDate : periodEnd;
+        // The committed window ([start, expectedNextAnchor − 1], through today while awaiting salary) is derived
+        // from the resolved period inside the fixed-payment service, shared with /api/fixed-payments/tile.
         FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentsShown
-                ? fixedPaymentDashboardService.getFixedPaymentsTileData(
-                        PeriodDto.of(primary.startDate(), fixedWindowEnd, fixedWindowEnd, primary.periodType()),
-                        wallet, userId, cutoffDate)
+                ? fixedPaymentDashboardService.getFixedPaymentsTileData(primary, wallet, userId, cutoffDate)
                 : null;
         SpendingProjectionDto projection = spendingProjectionService.getSpendingProjection(
                 wallet, userId, primary, cutoffDate,

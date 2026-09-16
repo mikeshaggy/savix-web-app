@@ -303,6 +303,8 @@ class LegacyForecastCharacterizationTest {
                     LocalDate.of(2026, 9, 9),
                     LocalDate.of(2026, 10, 8),
                     LocalDate.of(2026, 10, 8),
+                    null,
+                    null,
                     new FixedSummaryDto(
                             new BigDecimal("2810.26"), 8,
                             new BigDecimal("2015.99"), 3,

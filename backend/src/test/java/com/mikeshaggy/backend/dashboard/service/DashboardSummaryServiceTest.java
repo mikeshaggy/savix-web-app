@@ -50,6 +50,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -196,8 +197,7 @@ class DashboardSummaryServiceTest {
         assertThat(result.previousCyclePreview().expensesDeltaAmount()).isEqualByComparingTo("240.00");
 
         verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
-                eq(PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
-                        LocalDate.of(2026, 5, 31), PeriodType.PAY_CYCLE)),
+                same(current),
                 any(Wallet.class),
                 eq(USER_ID),
                 eq(LocalDate.of(2026, 5, 26)));
@@ -496,14 +496,10 @@ class DashboardSummaryServiceTest {
         assertThat(result.cycleHealth().projectedEndBalance()).isNull();
         assertThat(result.cycleHealth().spendingPaceDeltaPercent()).isNull();
         verify(transactionQueryService).totals(WALLET_ID, USER_ID, start, TODAY);
-        // 2.7: the fixed-payments window extends to today so occurrences due between the expected payday
-        // and the actual one stay in this cycle
-        ArgumentCaptor<PeriodDto> tileWindow = ArgumentCaptor.forClass(PeriodDto.class);
+        // 3.1: the resolved AWAITING_SALARY period is passed through unchanged; the fixed-payment service derives
+        // the committed window (through today) from its cycle state, the same way /api/fixed-payments/tile does
         verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
-                tileWindow.capture(), any(Wallet.class), eq(USER_ID), eq(TODAY));
-        assertThat(tileWindow.getValue().startDate()).isEqualTo(start);
-        assertThat(tileWindow.getValue().endDate()).isEqualTo(TODAY);
-        assertThat(tileWindow.getValue().billingEndDate()).isEqualTo(TODAY);
+                same(current), any(Wallet.class), eq(USER_ID), eq(TODAY));
     }
 
     @Test
@@ -732,6 +728,8 @@ class DashboardSummaryServiceTest {
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 31),
                 LocalDate.of(2026, 5, 31),
+                null,
+                null,
                 new FixedSummaryDto(
                         new BigDecimal("1800.00"), 4,
                         new BigDecimal("1200.00"), 1,
@@ -757,6 +755,8 @@ class DashboardSummaryServiceTest {
                 LocalDate.of(2026, 5, 1),
                 LocalDate.of(2026, 5, 31),
                 LocalDate.of(2026, 5, 31),
+                null,
+                null,
                 new FixedSummaryDto(BigDecimal.ZERO, 0, BigDecimal.ZERO, 0,
                         BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO),
                 new FixedProgressDto(0, 0, BigDecimal.ZERO, null, null, null, null, 0),

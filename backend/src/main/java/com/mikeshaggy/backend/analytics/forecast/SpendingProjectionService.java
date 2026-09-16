@@ -87,7 +87,7 @@ public class SpendingProjectionService {
 
         BigDecimal remainingFixed = precomputedRemainingFixed != null
                 ? money(precomputedRemainingFixed)
-                : remainingFixedPayments(resolvedPeriod, period, wallet, userId, today);
+                : remainingFixedPayments(resolvedPeriod, wallet, userId, today);
         ProjectionResult projection = projectionCalculator.calculate(new ProjectionInput(
                 period,
                 today,
@@ -165,27 +165,10 @@ public class SpendingProjectionService {
         return new PeriodWindow(period.startDate(), period.endDate());
     }
 
-    private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
-                                             Integer walletId, UUID userId, LocalDate asOfDate) {
-        PeriodDto fixedPaymentPeriod = PeriodDto.of(
-                period.startDate(),
-                period.endDate(),
-                period.endDate(),
-                resolved.periodType());
+    /** The committed window is the resolved period itself; the fixed-payment service derives the window from it. */
+    private BigDecimal remainingFixedPayments(PeriodDto resolved, Wallet wallet, UUID userId, LocalDate asOfDate) {
         FixedTransactionsTileDto tile = fixedPaymentDashboardService
-                .getFixedPaymentsTileData(fixedPaymentPeriod, walletId, userId, asOfDate);
-        return money(tile.summary().remainingAmount());
-    }
-
-    private BigDecimal remainingFixedPayments(PeriodDto resolved, PeriodWindow period,
-                                             Wallet wallet, UUID userId, LocalDate asOfDate) {
-        PeriodDto fixedPaymentPeriod = PeriodDto.of(
-                period.startDate(),
-                period.endDate(),
-                period.endDate(),
-                resolved.periodType());
-        FixedTransactionsTileDto tile = fixedPaymentDashboardService
-                .getFixedPaymentsTileData(fixedPaymentPeriod, wallet, userId, asOfDate);
+                .getFixedPaymentsTileData(resolved, wallet, userId, asOfDate);
         return money(tile.summary().remainingAmount());
     }
 

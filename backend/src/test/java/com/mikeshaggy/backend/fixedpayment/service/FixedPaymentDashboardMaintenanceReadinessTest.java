@@ -10,6 +10,7 @@ import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.category.service.CategoryService;
 import com.mikeshaggy.backend.common.period.PeriodDto;
+import com.mikeshaggy.backend.common.paycycle.PayCycleService;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
@@ -114,6 +115,7 @@ class FixedPaymentDashboardMaintenanceReadinessTest {
                 walletService,
                 transactionService,
                 periodService,
+                mock(PayCycleService.class),
                 CLOCK);
 
         when(walletService.getWalletEntityByIdForUser(wallet.getId(), user.getId())).thenReturn(wallet);
