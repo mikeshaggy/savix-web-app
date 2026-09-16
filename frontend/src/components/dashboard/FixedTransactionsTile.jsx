@@ -91,6 +91,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
     balanceAfterRemainingFixedPayments,
     atRisk,
     shortfallAmount,
+    plannedPaidAmount,
   } = fixedPayments;
 
   const paidPct = totalCount > 0 ? (paidCount / totalCount) * 100 : 0;
@@ -160,6 +161,9 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
             </div>
             <div className="text-[9px] text-white/30 mt-1.5">
               {t('fixedPayments.countItems', { count: paidCount ?? 0 })}
+              {plannedPaidAmount != null && Number(plannedPaidAmount) !== Number(paidAmount) && (
+                <> · {t('fixedPayments.plannedShort')}: {formatCurrency(plannedPaidAmount, lang)}</>
+              )}
             </div>
           </div>
           <div className="bg-[#0e0e1c] p-4 relative">

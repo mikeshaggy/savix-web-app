@@ -977,6 +977,7 @@
       "paidOf": "{paid} z {total} opłacone",
       "noPayments": "Brak płatności zaplanowanych w tym cyklu",
       "legend_paid": "Opłacone",
+      "legend_paidLate": "Zapłacone po terminie",
       "legend_dueToday": "Termin dziś",
       "legend_dueSoon": "Wkrótce",
       "legend_upcoming": "Nadchodzące",

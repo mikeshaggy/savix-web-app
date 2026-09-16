@@ -28,8 +28,10 @@ const shortDate = (value, lang) => {
 
 const SOON_DAYS = 7;
 
+// PAID vs PAID_LATE is the backend's verdict (transaction date vs due date);
+// the list and timeline read the same `paidOnTime` flag, so all three agree.
 const classify = (occ) => {
-  if (occ.status === 'PAID')    return 'PAID';
+  if (occ.status === 'PAID')    return occ.paidOnTime === false ? 'PAID_LATE' : 'PAID';
   if (occ.status === 'SKIPPED') return 'SKIPPED';
   if (occ.status === 'OVERDUE' || Number(occ.daysDelta) < 0) return 'OVERDUE';
   if (Number(occ.daysDelta) === 0)            return 'DUE_TODAY';
@@ -39,6 +41,7 @@ const classify = (occ) => {
 
 const STATUS_STYLE = {
   PAID:      { color: '#4ade80', bg: 'rgba(74,222,128,0.10)',   border: 'rgba(74,222,128,0.38)',  chipBg: 'rgba(74,222,128,0.06)'  },
+  PAID_LATE: { color: '#fbbf24', bg: 'rgba(251,191,36,0.10)',   border: 'rgba(251,191,36,0.38)',  chipBg: 'rgba(251,191,36,0.06)'  },
   OVERDUE:   { color: '#f87171', bg: 'rgba(248,113,113,0.10)',  border: 'rgba(248,113,113,0.40)', chipBg: 'rgba(248,113,113,0.07)' },
   DUE_TODAY: { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',   border: 'rgba(245,158,11,0.42)',  chipBg: 'rgba(245,158,11,0.06)'  },
   DUE_SOON:  { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)',   border: 'rgba(251,191,36,0.32)',  chipBg: 'rgba(251,191,36,0.05)'  },
@@ -48,6 +51,7 @@ const STATUS_STYLE = {
 
 const BADGE_KEY = {
   PAID:      'badge_paidOnTime',
+  PAID_LATE: 'badge_paidLate',
   OVERDUE:   'badge_overdue',
   DUE_TODAY: 'badge_dueSoon',
   DUE_SOON:  'badge_dueSoon',
@@ -104,8 +108,12 @@ function EventChip({ occ, status, template, cycleLabel, lang, t, onEdit, isActiv
 
   const sc       = STATUS_STYLE[status] ?? STATUS_STYLE.UPCOMING;
   const amt      = occ.paidAmount ?? occ.expectedAmount;
-  const dateStr  = shortDate(occ.dueDate, lang);
-  const badge    = t(BADGE_KEY[status] ?? 'badge_upcoming');
+  const isPaid   = status === 'PAID' || status === 'PAID_LATE';
+  // paid chips show the day the money actually left (transaction date), not the due date
+  const dateStr  = shortDate(isPaid && occ.paidDate ? occ.paidDate : occ.dueDate, lang);
+  const badge    = status === 'PAID_LATE' && occ.lateDays > 0
+    ? t('paidDaysLate', { days: occ.lateDays })
+    : t(BADGE_KEY[status] ?? 'badge_upcoming');
   const canEdit  = !!template;
   const lit      = isActive || hovered;
 
@@ -324,6 +332,7 @@ export default function FixedPaymentEventsStrip({
 
   const LEGEND = [
     { status: 'PAID',      badgeKey: 'badge_paidOnTime' },
+    { status: 'PAID_LATE', badgeKey: 'badge_paidLate'   },
     { status: 'DUE_TODAY', badgeKey: 'badge_dueSoon'    },
     { status: 'UPCOMING',  badgeKey: 'badge_upcoming'   },
     { status: 'OVERDUE',   badgeKey: 'badge_overdue'    },

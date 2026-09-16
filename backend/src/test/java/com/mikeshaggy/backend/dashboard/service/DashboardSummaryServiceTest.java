@@ -735,7 +735,8 @@ class DashboardSummaryServiceTest {
                         new BigDecimal("1200.00"), 1,
                         new BigDecimal("600.00"), 3,
                         BigDecimal.ZERO, 0,
-                        new BigDecimal("36.00")),
+                        new BigDecimal("36.00"),
+                        new BigDecimal("1200.00")),
                 new FixedProgressDto(1, 4, new BigDecimal("25.00"),
                         LocalDate.of(2026, 5, 27), "Rent", null, null, 4),
                 new BigDecimal("2500.00"),
@@ -758,7 +759,7 @@ class DashboardSummaryServiceTest {
                 null,
                 null,
                 new FixedSummaryDto(BigDecimal.ZERO, 0, BigDecimal.ZERO, 0,
-                        BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO),
+                        BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, BigDecimal.ZERO),
                 new FixedProgressDto(0, 0, BigDecimal.ZERO, null, null, null, null, 0),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
@@ -782,6 +783,9 @@ class DashboardSummaryServiceTest {
                 dueDate,
                 OccurrenceStatus.PENDING,
                 1,
+                null,
+                null,
+                null,
                 null,
                 null);
     }

@@ -192,7 +192,8 @@ class TransactionOrchestratorTest {
 
         // then
         verify(transactionService).updateTransaction(100L, request, USER_ID);
-        verify(fixedPaymentOccurrenceService).syncPaidAmount(occurrence, new BigDecimal("1600.00"));
+        verify(fixedPaymentOccurrenceService).syncWithTransaction(
+                occurrence, new BigDecimal("1600.00"), request.transactionDate());
     }
 
     @Test
@@ -224,7 +225,7 @@ class TransactionOrchestratorTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("income");
         verify(transactionService, never()).updateTransaction(any(), any(), any());
-        verify(fixedPaymentOccurrenceService, never()).syncPaidAmount(any(), any());
+        verify(fixedPaymentOccurrenceService, never()).syncWithTransaction(any(), any(), any());
     }
 
     @Test
@@ -240,6 +241,6 @@ class TransactionOrchestratorTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("wallet");
         verify(transactionService, never()).updateTransaction(any(), any(), any());
-        verify(fixedPaymentOccurrenceService, never()).syncPaidAmount(any(), any());
+        verify(fixedPaymentOccurrenceService, never()).syncWithTransaction(any(), any(), any());
     }
 }

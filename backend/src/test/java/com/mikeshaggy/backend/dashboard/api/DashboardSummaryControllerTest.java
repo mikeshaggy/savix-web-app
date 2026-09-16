@@ -218,7 +218,8 @@ class DashboardSummaryControllerTest {
                         List.of(),
                         new BigDecimal("1900.00"),
                         false,
-                        null),
+                        null,
+                        new BigDecimal("1200.00")),
                 List.of(),
                 List.of(),
                 new DashboardPreviousCyclePreviewDto(

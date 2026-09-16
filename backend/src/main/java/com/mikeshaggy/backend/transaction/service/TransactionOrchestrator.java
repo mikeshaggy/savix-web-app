@@ -53,8 +53,10 @@ public class TransactionOrchestrator {
         TransactionResponse response = transactionService.updateTransaction(id, request, userId);
 
         if (occurrence != null) {
-            // Amount may have changed; keep the occurrence's recorded paid amount in step.
-            fixedPaymentOccurrenceService.syncPaidAmount(occurrence, request.amount());
+            // Amount or date may have changed; keep the occurrence's recorded
+            // paid amount and paid date in step.
+            fixedPaymentOccurrenceService.syncWithTransaction(
+                    occurrence, request.amount(), request.transactionDate());
         }
 
         return response;

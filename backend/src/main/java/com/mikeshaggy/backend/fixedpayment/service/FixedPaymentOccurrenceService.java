@@ -114,11 +114,15 @@ public class FixedPaymentOccurrenceService {
      * Shared "mark as paid" mutation used by both the create-with-occurrenceId
      * flow and the link-existing-transaction flow. Keeps both sides of the 1:1
      * in sync so the in-memory graph reflects the link immediately.
+     *
+     * <p>{@code paidAt} is the transaction's date, not the link time: an
+     * occurrence due Sep 10 paid by a transaction dated Sep 10 is on time even
+     * when the user links it the next morning.
      */
     private void applyPaid(FixedPaymentOccurrence occurrence, Transaction transaction) {
         occurrence.setStatus(OccurrenceStatus.PAID);
         occurrence.setPaidAmount(transaction.getAmount());
-        occurrence.setPaidAt(LocalDateTime.now(clock));
+        occurrence.setPaidAt(paidAtFor(transaction));
         occurrence.setTransaction(transaction);
         transaction.setFixedPaymentOccurrence(occurrence);
     }
@@ -151,12 +155,17 @@ public class FixedPaymentOccurrenceService {
     }
 
     /**
-     * Keeps a linked occurrence's {@code paidAmount} in step with its backing
-     * transaction's amount after the transaction is edited.
+     * Keeps a linked occurrence's {@code paidAmount} and {@code paidAt} in step
+     * with its backing transaction after the transaction is edited.
      */
     @Transactional
-    public void syncPaidAmount(FixedPaymentOccurrence occurrence, BigDecimal newAmount) {
+    public void syncWithTransaction(FixedPaymentOccurrence occurrence, BigDecimal newAmount, LocalDate newTransactionDate) {
         occurrence.setPaidAmount(newAmount);
+        occurrence.setPaidAt(newTransactionDate.atStartOfDay());
         occurrenceRepository.save(occurrence);
+    }
+
+    private static LocalDateTime paidAtFor(Transaction transaction) {
+        return transaction.getTransactionDate().atStartOfDay();
     }
 }

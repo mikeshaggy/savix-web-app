@@ -12,6 +12,7 @@ import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.domain.Cycle;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
+import com.mikeshaggy.backend.transaction.domain.Transaction;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -142,6 +143,111 @@ class FixedPaymentTileAssemblerTest {
 
     @Nested
     class SummaryCalculation {
+
+        /** Stage 3.3 — the September 2026 fixture: paid = actual transaction amounts, planned-paid kept separately. */
+        @Test
+        void paidAmountIsActual_plannedPaidAmountIsSeparate() {
+            // given
+            FixedPayment rent = fixedPayment(1, "FX_RENT", "1900.00");
+            FixedPayment subC = fixedPayment(2, "FX_SUB_C", "89.00");
+            FixedPayment subD = fixedPayment(3, "FX_SUB_D", "26.99");
+            FixedPaymentOccurrence rentPaid =
+                    occurrence(1L, rent, OccurrenceStatus.PAID, "1900.00", LocalDate.of(2026, 3, 10));
+            rentPaid.setPaidAmount(new BigDecimal("1879.91"));
+            FixedPaymentOccurrence subCPaid =
+                    occurrence(2L, subC, OccurrenceStatus.PAID, "89.00", LocalDate.of(2026, 3, 12));
+            FixedPaymentOccurrence subDPaid =
+                    occurrence(3L, subD, OccurrenceStatus.PAID, "26.99", LocalDate.of(2026, 3, 12));
+            FixedPaymentOccurrence pending =
+                    occurrence(4L, rent, OccurrenceStatus.PENDING, "76.98", LocalDate.of(2026, 3, 20));
+
+            // when
+            FixedTransactionsTileDto result =
+                    assembler.assemble(
+                            PERIOD,
+                            List.of(rentPaid, subCPaid, subDPaid, pending),
+                            List.of(),
+                            new BigDecimal("9444.81"),
+                            new BigDecimal("5896.89"),
+                            4);
+
+            // then
+            assertThat(result.summary().paidAmount()).isEqualByComparingTo("1995.90");
+            assertThat(result.summary().plannedPaidAmount()).isEqualByComparingTo("2015.99");
+            assertThat(result.summary().paidCount()).isEqualTo(3);
+            // planned / remaining stay expected-amount sums
+            assertThat(result.summary().plannedAmount()).isEqualByComparingTo("2092.97");
+            assertThat(result.summary().remainingAmount()).isEqualByComparingTo("76.98");
+        }
+
+        @Test
+        void paidOccurrenceWithoutRecordedAmount_countsItsExpectedAmountAsActual() {
+            // given
+            FixedPayment fp = fixedPayment(1, "Rent", "1500.00");
+            FixedPaymentOccurrence paid =
+                    occurrence(1L, fp, OccurrenceStatus.PAID, "1500.00", LocalDate.of(2026, 3, 1));
+            paid.setPaidAmount(null);
+
+            // when
+            FixedTransactionsTileDto result =
+                    assembler.assemble(PERIOD, List.of(paid), List.of(),
+                            new BigDecimal("4000.00"), new BigDecimal("5000.00"), 1);
+
+            // then
+            assertThat(result.summary().paidAmount()).isEqualByComparingTo("1500.00");
+            assertThat(result.summary().plannedPaidAmount()).isEqualByComparingTo("1500.00");
+        }
+
+        @Test
+        void assembleEmpty_zeroesPlannedPaidAmount() {
+            assertThat(assembler.assembleEmpty(PERIOD, BigDecimal.ZERO).summary().plannedPaidAmount())
+                    .isEqualByComparingTo("0");
+        }
+
+        /** Stage 3.2 — paid rows carry the transaction-date verdict; the same DTO feeds dashboard, strip, timeline and list. */
+        @Test
+        void paidRowsCarryPaidDateLateDaysAndVerdictFromTheTransactionDate() {
+            // given
+            FixedPayment fp = fixedPayment(1, "FX_RENT", "1900.00");
+            FixedPaymentOccurrence late =
+                    occurrence(1L, fp, OccurrenceStatus.PAID, "1900.00", LocalDate.of(2026, 3, 10));
+            late.setTransaction(Transaction.builder().id(700L).amount(new BigDecimal("1879.91"))
+                    .transactionDate(LocalDate.of(2026, 3, 11)).build());
+            late.setPaidAmount(new BigDecimal("1879.91"));
+            late.setPaidAt(LocalDateTime.of(2026, 3, 12, 0, 30)); // stale link timestamp must not matter
+            FixedPaymentOccurrence onTime =
+                    occurrence(2L, fp, OccurrenceStatus.PAID, "89.00", LocalDate.of(2026, 3, 12));
+            onTime.setTransaction(Transaction.builder().id(701L).amount(new BigDecimal("89.00"))
+                    .transactionDate(LocalDate.of(2026, 3, 12)).build());
+            FixedPaymentOccurrence pending =
+                    occurrence(3L, fp, OccurrenceStatus.PENDING, "76.98", LocalDate.of(2026, 3, 20));
+
+            // when
+            FixedTransactionsTileDto result =
+                    assembler.assemble(PERIOD, List.of(late, onTime, pending), List.of(),
+                            new BigDecimal("4000.00"), new BigDecimal("5000.00"), 1);
+
+            // then
+            FixedOccurrenceRowDto lateRow = result.paid().stream()
+                    .filter(r -> r.occurrenceId() == 1L).findFirst().orElseThrow();
+            assertThat(lateRow.paidDate()).isEqualTo(LocalDate.of(2026, 3, 11));
+            assertThat(lateRow.lateDays()).isEqualTo(1);
+            assertThat(lateRow.paidOnTime()).isFalse();
+            assertThat(lateRow.paidAmount()).isEqualByComparingTo("1879.91");
+            assertThat(lateRow.expectedAmount()).isEqualByComparingTo("1900.00");
+
+            FixedOccurrenceRowDto onTimeRow = result.paid().stream()
+                    .filter(r -> r.occurrenceId() == 2L).findFirst().orElseThrow();
+            assertThat(onTimeRow.paidDate()).isEqualTo(LocalDate.of(2026, 3, 12));
+            assertThat(onTimeRow.lateDays()).isZero();
+            assertThat(onTimeRow.paidOnTime()).isTrue();
+
+            assertThat(result.upcoming()).singleElement().satisfies(row -> {
+                assertThat(row.paidDate()).isNull();
+                assertThat(row.lateDays()).isNull();
+                assertThat(row.paidOnTime()).isNull();
+            });
+        }
 
         @Test
         void computesPlannedPaidPendingAmountsAndCounts() {

@@ -40,6 +40,14 @@ public class FixedPaymentOccurrence {
     @Column(nullable = false, length = 20)
     private OccurrenceStatus status;
 
+    /**
+     * Date of the linked transaction (stored at start of day), <em>not</em> the
+     * moment the link was made. Lateness is judged against this date. Rows paid
+     * before this semantic change may still hold the link timestamp; readers
+     * therefore prefer {@code transaction.transactionDate} whenever a
+     * transaction is linked and fall back to this column only for legacy rows
+     * without one.
+     */
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 

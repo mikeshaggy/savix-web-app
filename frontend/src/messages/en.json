@@ -976,6 +976,7 @@
       "paidOf": "{paid} of {total} paid",
       "noPayments": "No payments scheduled this cycle",
       "legend_paid": "Paid",
+      "legend_paidLate": "Paid late",
       "legend_dueToday": "Due today",
       "legend_dueSoon": "Due soon",
       "legend_upcoming": "Upcoming",

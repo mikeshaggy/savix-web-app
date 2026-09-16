@@ -94,6 +94,7 @@ class FixedPaymentTileAssembler {
                 BigDecimal.ZERO, 0,
                 BigDecimal.ZERO, 0,
                 BigDecimal.ZERO, 0,
+                BigDecimal.ZERO,
                 BigDecimal.ZERO
         );
 
@@ -140,13 +141,14 @@ class FixedPaymentTileAssembler {
         return new FixedSummaryDto(
                 plannedAmount,
                 allInPeriod.size(),
-                sumExpectedAmount(paidInPeriod),
+                sumActualPaidAmount(paidInPeriod),
                 paidInPeriod.size(),
                 sumExpectedAmount(pendingInPeriod),
                 pendingInPeriod.size(),
                 sumExpectedAmount(overdueAll),
                 overdueAll.size(),
-                fixedRatio
+                fixedRatio,
+                sumExpectedAmount(paidInPeriod)
         );
     }
 
@@ -200,6 +202,13 @@ class FixedPaymentTileAssembler {
     private BigDecimal sumExpectedAmount(List<FixedPaymentOccurrence> occurrences) {
         return occurrences.stream()
                 .map(FixedPaymentOccurrence::getExpectedAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Actual money out: the linked transaction amount, or the plan when none was recorded. */
+    private BigDecimal sumActualPaidAmount(List<FixedPaymentOccurrence> occurrences) {
+        return occurrences.stream()
+                .map(o -> o.getPaidAmount() != null ? o.getPaidAmount() : o.getExpectedAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

@@ -252,6 +252,9 @@ class PaydayOccurrenceRegressionTest {
         assertThat(tile.summary().remainingCount()).isEqualTo(PENDING_OCCURRENCES.size());
         assertThat(tile.summary().remainingAmount()).isEqualByComparingTo(REMAINING_FIXED_PAY_CYCLE);
         assertThat(tile.summary().paidCount()).isEqualTo(PAID_OCCURRENCES.size());
+        // Stage 3.3: "Paid" is the actual money out (1,879.91 + 89 + 26.99), the plan stays separately available
+        assertThat(tile.summary().paidAmount()).isEqualByComparingTo(LINKED_FIXED_EXPENSES_TO_DATE);
+        assertThat(tile.summary().plannedPaidAmount()).isEqualByComparingTo("2015.99");
     }
 
     private static List<Long> ids(List<FixedOccurrenceRowDto> rows) {

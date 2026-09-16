@@ -32,13 +32,6 @@ const parseDateOnly = (value) => {
   return new Date(year, month - 1, day);
 };
 
-const diffDays = (from, to) => {
-  if (!from || !to) return null;
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-  return Math.round((end - start) / 86400000);
-};
-
 export default function FixedPaymentsView() {
   const t = useTranslations();
   const { lang } = useLanguage();
@@ -226,8 +219,10 @@ export default function FixedPaymentsView() {
         const isPaid = occ.status === 'PAID';
         const isSkipped = occ.status === 'SKIPPED';
         const dueDate = parseDateOnly(occ.dueDate);
-        const paidDate = parseDateOnly(occ.paidAt);
-        const paidDelayDays = isPaid ? diffDays(dueDate, paidDate) : null;
+        // Paid verdict comes from the backend (transaction date vs due date) so the
+        // list, strip, timeline and dashboard all agree — never re-derived from paidAt.
+        const lateDays = isPaid && Number.isFinite(occ.lateDays) ? occ.lateDays : null;
+        const paidOnTime = isPaid ? occ.paidOnTime !== false : null;
         const daysDelta = Number.isFinite(occ.daysDelta) ? occ.daysDelta : 999;
         const isOverdue = !isPaid && occ.status === 'OVERDUE';
         const isDueToday = !isPaid && occ.status === 'PENDING' && daysDelta === 0;
@@ -243,12 +238,11 @@ export default function FixedPaymentsView() {
         let timingLabel = getDaysLabel(daysDelta);
 
         if (isPaid) {
-          const lateDays = Math.max(paidDelayDays ?? 0, 0);
-          badgeKey = lateDays > 0 ? 'paidLate' : 'paidOnTime';
-          tone = lateDays > 0 ? 'amber' : 'green';
-          timingLabel = lateDays > 0
-            ? t('fixedPayments.paidDaysLate', { days: lateDays })
-            : t('fixedPayments.paidOnTime');
+          badgeKey = paidOnTime ? 'paidOnTime' : 'paidLate';
+          tone = paidOnTime ? 'green' : 'amber';
+          timingLabel = paidOnTime
+            ? t('fixedPayments.paidOnTime')
+            : t('fixedPayments.paidDaysLate', { days: Math.max(lateDays ?? 0, 0) });
         } else if (isSkipped) {
           badgeKey = 'skipped';
           tone = 'slate';
@@ -272,8 +266,9 @@ export default function FixedPaymentsView() {
           isDueToday,
           isDueSoon,
           needsAttention,
-          paidDelayDays,
-          paidDate: occ.paidAt ? String(occ.paidAt).slice(0, 10) : null,
+          lateDays,
+          paidOnTime,
+          paidDate: occ.paidDate ?? null,
           displayAmount: occ.paidAmount ?? occ.expectedAmount,
           badgeKey,
           tone,
@@ -453,6 +448,9 @@ export default function FixedPaymentsView() {
             </div>
             <div className="text-[10px] text-white/25 mt-1.5">
               {t('fixedPayments.countItems', { count: summary?.paidCount ?? 0 })}
+              {summary?.plannedPaidAmount != null && Number(summary.plannedPaidAmount) !== Number(summary.paidAmount) && (
+                <> · {t('fixedPayments.plannedShort')}: {formatCurrency(summary.plannedPaidAmount, lang)}</>
+              )}
             </div>
           </div>
           {/* Remaining */}
@@ -626,7 +624,7 @@ export default function FixedPaymentsView() {
                               <span>{occ.categoryName}</span>
                             </span>
                             <span className="text-white/14">·</span>
-                            <span className={occ.isOverdue ? 'text-red-300' : occ.isPaid ? 'text-green-300' : 'text-white/35'}>
+                            <span className={occ.isOverdue ? 'text-red-300' : occ.isPaid ? (occ.paidOnTime ? 'text-green-300' : 'text-amber-300') : 'text-white/35'}>
                               {occ.timingLabel}
                             </span>
                             {occ.paidDate && (

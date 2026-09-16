@@ -545,6 +545,7 @@ class SpendingProjectionServiceTest {
                 BigDecimal.ZERO, 0,
                 remainingAmount, 1,
                 BigDecimal.ZERO, 0,
+                BigDecimal.ZERO,
                 BigDecimal.ZERO);
         FixedProgressDto progress = new FixedProgressDto(
                 0, 1, BigDecimal.ZERO,

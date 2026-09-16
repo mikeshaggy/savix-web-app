@@ -110,7 +110,8 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
         when(transactionQueryService.totals(any(), any(), any(), any())).thenReturn(totals);
 
         FixedSummaryDto summary = new FixedSummaryDto(
-                BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO);
+                BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO, 0, BigDecimal.ZERO,
+                BigDecimal.ZERO);
         FixedTransactionsTileDto tile = new FixedTransactionsTileDto(
                 START, END, LocalDate.of(2026, 6, 1), null, null,
                 summary, null,

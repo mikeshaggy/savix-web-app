@@ -282,7 +282,8 @@ public class DashboardSummaryService {
                 upcoming,
                 tile.balanceAfterFixed(),
                 tile.riskIndicator().isAtRisk(),
-                tile.riskIndicator().shortfallAmount());
+                tile.riskIndicator().shortfallAmount(),
+                tile.summary().plannedPaidAmount());
     }
 
     private DashboardFixedPaymentOccurrenceDto fixedPaymentOccurrence(FixedOccurrenceRowDto row) {

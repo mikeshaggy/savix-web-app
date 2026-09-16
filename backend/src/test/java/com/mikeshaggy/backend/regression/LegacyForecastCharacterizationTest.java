@@ -38,6 +38,7 @@ import java.util.List;
 
 import static com.mikeshaggy.backend.regression.September2026Fixture.CLOCK;
 import static com.mikeshaggy.backend.regression.September2026Fixture.LAST_PAY_CYCLE_PERIOD_V2;
+import static com.mikeshaggy.backend.regression.September2026Fixture.LINKED_FIXED_EXPENSES_TO_DATE;
 import static com.mikeshaggy.backend.regression.September2026Fixture.MONTHLY_PERIOD;
 import static com.mikeshaggy.backend.regression.September2026Fixture.PAY_CYCLE_PERIOD_V2;
 import static com.mikeshaggy.backend.regression.September2026Fixture.PREVIOUS_MONTH_PERIOD;
@@ -307,10 +308,11 @@ class LegacyForecastCharacterizationTest {
                     null,
                     new FixedSummaryDto(
                             new BigDecimal("2810.26"), 8,
-                            new BigDecimal("2015.99"), 3,
+                            LINKED_FIXED_EXPENSES_TO_DATE, 3,
                             new BigDecimal("794.27"), 5,
                             BigDecimal.ZERO, 0,
-                            new BigDecimal("38.00")),
+                            new BigDecimal("38.00"),
+                            new BigDecimal("2015.99")),
                     new FixedProgressDto(3, 8, new BigDecimal("37.50"),
                             LocalDate.of(2026, 9, 20), "FX_UTILITY_A", "FX_INSTALMENT",
                             new BigDecimal("408.30"), 8),

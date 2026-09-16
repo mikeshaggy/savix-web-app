@@ -106,7 +106,7 @@ class FixedPaymentOccurrenceServiceTest {
                             .build();
 
             Transaction savedTransaction =
-                    Transaction.builder().id(200L).amount(new BigDecimal("1500.00")).build();
+                    Transaction.builder().id(200L).amount(new BigDecimal("1500.00")).transactionDate(TODAY).build();
 
             when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(occurrence));
@@ -122,7 +122,7 @@ class FixedPaymentOccurrenceServiceTest {
 
             assertThat(saved.getStatus()).isEqualTo(OccurrenceStatus.PAID);
             assertThat(saved.getPaidAmount()).isEqualByComparingTo("1500.00");
-            assertThat(saved.getPaidAt()).isNotNull();
+            assertThat(saved.getPaidAt()).isEqualTo(TODAY.atStartOfDay());
             assertThat(saved.getTransaction()).isSameAs(savedTransaction);
         }
 
@@ -140,7 +140,7 @@ class FixedPaymentOccurrenceServiceTest {
                             .build();
 
             Transaction savedTransaction =
-                    Transaction.builder().id(201L).amount(new BigDecimal("1500.00")).build();
+                    Transaction.builder().id(201L).amount(new BigDecimal("1500.00")).transactionDate(TODAY).build();
 
             when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(101L, USER_ID))
                     .thenReturn(Optional.of(occurrence));
@@ -167,7 +167,7 @@ class FixedPaymentOccurrenceServiceTest {
                             .build();
 
             Transaction savedTransaction =
-                    Transaction.builder().id(202L).amount(new BigDecimal("1450.00")).build();
+                    Transaction.builder().id(202L).amount(new BigDecimal("1450.00")).transactionDate(TODAY).build();
 
             when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(102L, USER_ID))
                     .thenReturn(Optional.of(occurrence));
@@ -255,6 +255,7 @@ class FixedPaymentOccurrenceServiceTest {
                 .wallet(txWallet)
                 .category(category)
                 .amount(new BigDecimal("1480.00"))
+                .transactionDate(TODAY)
                 .build();
     }
 
@@ -430,6 +431,133 @@ class FixedPaymentOccurrenceServiceTest {
                     .isInstanceOf(ConflictException.class)
                     .hasMessageContaining("not linked");
             verify(occurrenceRepository, never()).save(any());
+        }
+    }
+
+    /** Stage 3.2 — paid date and lateness derive from the transaction date, never from the link time. */
+    @Nested
+    class PaidDateAndLateness {
+
+        private static final LocalDate DUE = LocalDate.of(2026, 9, 10);
+
+        private Transaction expenseDated(Long id, LocalDate date) {
+            return Transaction.builder()
+                    .id(id)
+                    .wallet(wallet)
+                    .category(category)
+                    .amount(new BigDecimal("1879.91"))
+                    .transactionDate(date)
+                    .build();
+        }
+
+        private FixedOccurrenceRowDto link(Long occurrenceId, Transaction tx) {
+            FixedPaymentOccurrence occurrence = buildOccurrence(occurrenceId, OccurrenceStatus.PENDING, DUE);
+            when(occurrenceRepository.findByIdAndFixedPaymentWalletUserId(occurrenceId, USER_ID))
+                    .thenReturn(Optional.of(occurrence));
+            when(transactionRepository.findByIdAndWalletUserId(tx.getId(), USER_ID))
+                    .thenReturn(Optional.of(tx));
+            return fixedPaymentOccurrenceService.linkExistingTransaction(occurrenceId, tx.getId(), USER_ID);
+        }
+
+        @Test
+        void transactionDatedDayAfterDueDate_isOneDayLate() {
+            FixedOccurrenceRowDto dto = link(500L, expenseDated(600L, DUE.plusDays(1)));
+
+            assertThat(dto.paidDate()).isEqualTo(LocalDate.of(2026, 9, 11));
+            assertThat(dto.lateDays()).isEqualTo(1);
+            assertThat(dto.paidOnTime()).isFalse();
+            assertThat(dto.paidAt()).isEqualTo(LocalDate.of(2026, 9, 11).atStartOfDay());
+        }
+
+        @Test
+        void transactionDatedOnDueDate_isOnTime() {
+            FixedOccurrenceRowDto dto = link(501L, expenseDated(601L, DUE));
+
+            assertThat(dto.paidDate()).isEqualTo(DUE);
+            assertThat(dto.lateDays()).isZero();
+            assertThat(dto.paidOnTime()).isTrue();
+        }
+
+        @Test
+        void transactionDatedBeforeDueDate_isOnTimeWithNegativeLateDays() {
+            FixedOccurrenceRowDto dto = link(502L, expenseDated(602L, DUE.minusDays(3)));
+
+            assertThat(dto.lateDays()).isEqualTo(-3);
+            assertThat(dto.paidOnTime()).isTrue();
+        }
+
+        @Test
+        void linkingAtHalfPastMidnightTheNextDay_doesNotChangeTheVerdict() {
+            // the clock (link time) is Sep 11 00:30 UTC; the transaction is dated Sep 10
+            Instant linkInstant = DUE.plusDays(1).atTime(0, 30).atZone(ZoneId.of("UTC")).toInstant();
+            when(clock.instant()).thenReturn(linkInstant);
+            when(clock.getZone()).thenReturn(ZoneId.of("UTC"));
+
+            FixedOccurrenceRowDto dto = link(503L, expenseDated(603L, DUE));
+
+            assertThat(dto.paidDate()).isEqualTo(DUE);
+            assertThat(dto.lateDays()).isZero();
+            assertThat(dto.paidOnTime()).isTrue();
+            assertThat(dto.paidAt()).isEqualTo(DUE.atStartOfDay());
+        }
+
+        @Test
+        void paidAmountIsTheTransactionAmount_expectedAmountStaysPlanned() {
+            FixedOccurrenceRowDto dto = link(504L, expenseDated(604L, DUE));
+
+            assertThat(dto.paidAmount()).isEqualByComparingTo("1879.91");
+            assertThat(dto.expectedAmount()).isEqualByComparingTo("1500.00");
+        }
+
+        @Test
+        void unpaidRow_hasNoPaidDateLatenessOrVerdict() {
+            FixedPaymentOccurrence occurrence = buildOccurrence(505L, OccurrenceStatus.PENDING, DUE);
+
+            FixedOccurrenceRowDto dto = FixedOccurrenceRowDto.from(occurrence, TODAY);
+
+            assertThat(dto.paidDate()).isNull();
+            assertThat(dto.lateDays()).isNull();
+            assertThat(dto.paidOnTime()).isNull();
+        }
+
+        @Test
+        void legacyPaidRowWithoutTransaction_fallsBackToPaidAtDate() {
+            FixedPaymentOccurrence occurrence = buildOccurrence(506L, OccurrenceStatus.PAID, DUE);
+            occurrence.setPaidAt(DUE.plusDays(2).atTime(23, 45)); // historical link timestamp
+
+            FixedOccurrenceRowDto dto = FixedOccurrenceRowDto.from(occurrence, TODAY);
+
+            assertThat(dto.paidDate()).isEqualTo(DUE.plusDays(2));
+            assertThat(dto.lateDays()).isEqualTo(2);
+            assertThat(dto.paidOnTime()).isFalse();
+        }
+
+        @Test
+        void linkedTransactionWinsOverStalePaidAt() {
+            // a row linked before Stage 3.2 keeps the link timestamp in paidAt; the transaction date rules
+            FixedPaymentOccurrence occurrence = buildOccurrence(507L, OccurrenceStatus.PAID, DUE);
+            occurrence.setPaidAt(DUE.plusDays(5).atTime(9, 0));
+            occurrence.setTransaction(expenseDated(607L, DUE));
+
+            FixedOccurrenceRowDto dto = FixedOccurrenceRowDto.from(occurrence, TODAY);
+
+            assertThat(dto.paidDate()).isEqualTo(DUE);
+            assertThat(dto.lateDays()).isZero();
+            assertThat(dto.paidOnTime()).isTrue();
+        }
+
+        @Test
+        void syncWithTransaction_updatesPaidAmountAndPaidDate() {
+            FixedPaymentOccurrence occurrence = buildOccurrence(508L, OccurrenceStatus.PAID, DUE);
+            occurrence.setPaidAmount(new BigDecimal("1480.00"));
+            occurrence.setPaidAt(DUE.atStartOfDay());
+
+            fixedPaymentOccurrenceService.syncWithTransaction(
+                    occurrence, new BigDecimal("1600.00"), DUE.plusDays(4));
+
+            assertThat(occurrence.getPaidAmount()).isEqualByComparingTo("1600.00");
+            assertThat(occurrence.getPaidAt()).isEqualTo(DUE.plusDays(4).atStartOfDay());
+            verify(occurrenceRepository).save(occurrence);
         }
     }
 }

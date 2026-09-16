@@ -14,6 +14,7 @@ public record DashboardFixedPaymentsDto(
         List<DashboardFixedPaymentOccurrenceDto> upcomingOccurrences,
         BigDecimal balanceAfterRemainingFixedPayments,
         boolean atRisk,
-        BigDecimal shortfallAmount
+        BigDecimal shortfallAmount,
+        BigDecimal plannedPaidAmount
 ) {
 }

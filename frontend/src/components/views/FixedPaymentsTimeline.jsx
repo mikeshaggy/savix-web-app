@@ -35,8 +35,10 @@ const shortDate = (dt, lang) =>
 
 const SOON_DAYS = 7;
 
+// PAID vs PAID_LATE is the backend's verdict (transaction date vs due date);
+// the list and strip read the same `paidOnTime` flag, so all three agree.
 const classify = (occ) => {
-  if (occ.status === 'PAID')    return 'PAID';
+  if (occ.status === 'PAID')    return occ.paidOnTime === false ? 'PAID_LATE' : 'PAID';
   if (occ.status === 'SKIPPED') return 'SKIPPED';
   if (occ.status === 'OVERDUE' || Number(occ.daysDelta) < 0) return 'OVERDUE';
   if (Number(occ.daysDelta) === 0)             return 'DUE_TODAY';
@@ -44,10 +46,11 @@ const classify = (occ) => {
   return 'UPCOMING';
 };
 
-const STATUS_PRIORITY = ['OVERDUE', 'DUE_TODAY', 'DUE_SOON', 'UPCOMING', 'SKIPPED', 'PAID'];
+const STATUS_PRIORITY = ['OVERDUE', 'DUE_TODAY', 'DUE_SOON', 'UPCOMING', 'SKIPPED', 'PAID_LATE', 'PAID'];
 
 const STATUS_STYLE = {
   PAID:      { color: '#4ade80', glow: 'rgba(74,222,128,0.30)',   bg: 'rgba(74,222,128,0.12)',  border: 'rgba(74,222,128,0.45)'  },
+  PAID_LATE: { color: '#fbbf24', glow: 'rgba(251,191,36,0.30)',   bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.45)'  },
   OVERDUE:   { color: '#f87171', glow: 'rgba(248,113,113,0.35)',  bg: 'rgba(248,113,113,0.13)', border: 'rgba(248,113,113,0.50)' },
   DUE_TODAY: { color: '#f59e0b', glow: 'rgba(245,158,11,0.35)',   bg: 'rgba(245,158,11,0.13)',  border: 'rgba(245,158,11,0.50)'  },
   DUE_SOON:  { color: '#fbbf24', glow: 'rgba(251,191,36,0.25)',   bg: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.38)'  },
@@ -57,6 +60,7 @@ const STATUS_STYLE = {
 
 const BADGE_KEY = {
   PAID:      'badge_paidOnTime',
+  PAID_LATE: 'badge_paidLate',
   OVERDUE:   'badge_overdue',
   DUE_TODAY: 'badge_dueSoon',
   DUE_SOON:  'badge_dueSoon',
@@ -181,7 +185,14 @@ function PortalTooltip({ anchorRect, group, lang, t }) {
                   {occ.categoryEmoji ? `${occ.categoryEmoji} ` : ''}{occ.title}
                 </div>
                 <div style={{ fontSize: 9, marginTop: 2, color: sc.color }}>
-                  {t(BADGE_KEY[s] ?? 'badge_upcoming')}
+                  {s === 'PAID_LATE' && occ.lateDays > 0
+                    ? t('paidDaysLate', { days: occ.lateDays })
+                    : t(BADGE_KEY[s] ?? 'badge_upcoming')}
+                  {(s === 'PAID' || s === 'PAID_LATE') && occ.paidDate && (
+                    <span style={{ color: 'rgba(255,255,255,0.30)' }}>
+                      {' · '}{t('paidOnDate', { date: shortDate(parseDate(occ.paidDate), lang) })}
+                    </span>
+                  )}
                 </div>
               </div>
               <div
@@ -418,7 +429,8 @@ export default function FixedPaymentsTimeline({ tileData, lang }) {
   if (!tileData || !periodStart) return null;
 
   const LEGEND = [
-    { status: 'PAID',      key: 'legend_paid'    },
+    { status: 'PAID',      key: 'legend_paid'     },
+    { status: 'PAID_LATE', key: 'legend_paidLate' },
     { status: 'DUE_TODAY', key: 'legend_dueToday' },
     { status: 'DUE_SOON',  key: 'legend_dueSoon'  },
     { status: 'UPCOMING',  key: 'legend_upcoming' },

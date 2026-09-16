@@ -145,8 +145,11 @@ class FixedPaymentControllerTest {
                     new BigDecimal("1500.00"),
                     transactionId == null ? null : new BigDecimal("1480.00"),
                     LocalDate.of(2026, 3, 1), status, 5L,
-                    transactionId == null ? null : LocalDateTime.of(2026, 3, 11, 10, 0),
-                    transactionId);
+                    transactionId == null ? null : LocalDate.of(2026, 3, 2).atStartOfDay(),
+                    transactionId,
+                    transactionId == null ? null : LocalDate.of(2026, 3, 2),
+                    transactionId == null ? null : 1,
+                    transactionId == null ? null : Boolean.FALSE);
         }
 
         @Test
@@ -164,7 +167,10 @@ class FixedPaymentControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.occurrenceId").value(10))
                     .andExpect(jsonPath("$.status").value("PAID"))
-                    .andExpect(jsonPath("$.transactionId").value(123));
+                    .andExpect(jsonPath("$.transactionId").value(123))
+                    .andExpect(jsonPath("$.paidDate").value("2026-03-02"))
+                    .andExpect(jsonPath("$.lateDays").value(1))
+                    .andExpect(jsonPath("$.paidOnTime").value(false));
         }
 
         @Test
@@ -204,7 +210,10 @@ class FixedPaymentControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.occurrenceId").value(10))
                     .andExpect(jsonPath("$.status").value("PENDING"))
-                    .andExpect(jsonPath("$.transactionId").doesNotExist());
+                    .andExpect(jsonPath("$.transactionId").doesNotExist())
+                    .andExpect(jsonPath("$.paidDate").doesNotExist())
+                    .andExpect(jsonPath("$.lateDays").doesNotExist())
+                    .andExpect(jsonPath("$.paidOnTime").doesNotExist());
         }
     }
 }
