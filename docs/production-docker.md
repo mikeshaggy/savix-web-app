@@ -102,10 +102,12 @@ are **not immutable**: later adoption must verify the installed image IDs and se
 explicit image references before any replacement. Exporter versions/digests were
 not established by the inventory and are not guessed here.
 
-Health commands and timings retain the inventory: backend Actuator HTTP probe
+Health timings retain the inventory: backend Actuator HTTP probe
 (30s/3s/40s start/3 retries), frontend root-page Node fetch (30s/3s/30s start/3),
-PostgreSQL `pg_isready` (10s/5s/10). The frontend root probe does not establish
-end-to-end readiness; its improvement belongs to later work. Redis and exporters
+PostgreSQL `pg_isready` (10s/5s/10). SHG-16 points the backend probe at
+`/actuator/health/readiness`, excluding SMTP from deployment readiness. The frontend
+root probe does not establish end-to-end readiness; SHG-16's deployment script
+separately checks `/api/health` through backend readiness, followed by `/login`. Redis and exporters
 have no health checks. Startup dependency ordering was not recorded in the
 inventory, so no new `depends_on` or rollout behavior is inferred.
 
@@ -220,3 +222,12 @@ Validation images remain local as `savix-backend:shg12-validation` and
 `savix-frontend:shg12-validation`. They describe the uncommitted SHG-12 worktree,
 not an immutable production release. Detailed local evidence is under
 `.local/shg-12/` and remains ignored by Git.
+
+## SHG-16 orchestration
+
+The [deployment runbook](deployment-orchestration.md) now provides preflight, a
+verified dump gate, candidate-image Flyway runs, application-only rollout, health
+verification and explicit manual image rollback. It adds `compose.deploy.yml`
+and points the production backend probe at dedicated readiness; the SHG-12
+topology is unchanged. No production adoption has run; GitHub Actions and the
+production runner remain SHG-17 work.

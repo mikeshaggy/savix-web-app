@@ -156,6 +156,13 @@ See [.env.example](.env.example) for all required variables.
 | `PROXY_SECRET` | Shared secret for frontend → backend auth |
 | `COOKIE_DOMAIN` | Cookie domain for cross-subdomain auth |
 
+### Deployment orchestration (SHG-16)
+
+[Deployment, backup gates, health verification and manual application rollback](docs/deployment-orchestration.md)
+are available through `scripts/deploy.sh`. Images must already exist locally.
+[Isolated validation](docs/shg-16-validation.md) covers the success and failure gates.
+GitHub Actions and production runner setup remain SHG-17 work.
+
 ### Production runtime secrets (SHG-13)
 
 Production requires the existing JWT key pair in read-only host file mounts and

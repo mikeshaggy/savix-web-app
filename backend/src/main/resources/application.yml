@@ -107,3 +107,9 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # Mail stays in aggregate health, but does not gate normal traffic.
+          include: readinessState,db,redis,diskSpace

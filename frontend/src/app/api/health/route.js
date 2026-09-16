@@ -8,7 +8,7 @@ export async function GET() {
   const base = process.env.PROXY_BASE;
   if (!base) return NextResponse.json({ status: 'DOWN' }, { status: 503 });
   try {
-    const response = await fetch(`${base}/actuator/health`, {
+    const response = await fetch(`${base}/actuator/health/readiness`, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
