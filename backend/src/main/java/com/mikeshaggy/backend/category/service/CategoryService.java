@@ -58,6 +58,7 @@ public class CategoryService {
                 .type(request.type())
                 .emoji((request.emoji() == null || request.emoji().isBlank()) ? null : request.emoji().trim())
                 .excludedFromTopCategories(Boolean.TRUE.equals(request.excludedFromTopCategories()))
+                .excludedFromPace(Boolean.TRUE.equals(request.excludedFromPace()))
                 .user(user)
                 .build();
 

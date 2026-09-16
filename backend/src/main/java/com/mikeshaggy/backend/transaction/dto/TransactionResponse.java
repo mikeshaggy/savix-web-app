@@ -22,6 +22,7 @@ public record TransactionResponse(
         String notes,
         Importance importance,
         Long fixedPaymentOccurrenceId,
+        boolean excludedFromPace,
         Instant createdAt
 ) {
     public static TransactionResponse from(Transaction transaction) {
@@ -41,6 +42,7 @@ public record TransactionResponse(
                 transaction.getFixedPaymentOccurrence() == null
                         ? null
                         : transaction.getFixedPaymentOccurrence().getId(),
+                transaction.isExcludedFromPace(),
                 transaction.getCreatedAt()
         );
     }

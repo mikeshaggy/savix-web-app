@@ -31,5 +31,7 @@ public record TransactionCreateRequest(
 
         Importance importance,
 
-        Long occurrenceId
+        Long occurrenceId,
+
+        Boolean excludedFromPace
 ) {}

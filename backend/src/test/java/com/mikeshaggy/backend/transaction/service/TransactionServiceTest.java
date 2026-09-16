@@ -88,7 +88,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null);
+                            1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
@@ -123,7 +123,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 2, "March Salary", new BigDecimal("5000.00"), DATE, null, null, null);
+                            1, 2, "March Salary", new BigDecimal("5000.00"), DATE, null, null, null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(2, USER_ID)).thenReturn(incomeCategory);
@@ -155,7 +155,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 2, "Salary", new BigDecimal("5000"), DATE, null, Importance.ESSENTIAL, null);
+                            1, 2, "Salary", new BigDecimal("5000"), DATE, null, Importance.ESSENTIAL, null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(2, USER_ID)).thenReturn(incomeCategory);
@@ -172,7 +172,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 1, "Groceries", new BigDecimal("50"), DATE, null, null, null);
+                            1, 1, "Groceries", new BigDecimal("50"), DATE, null, null, null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
@@ -189,7 +189,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
+                            1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
@@ -213,7 +213,7 @@ class TransactionServiceTest {
             // given
             TransactionCreateRequest request =
                     new TransactionCreateRequest(
-                            1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null);
+                            1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
@@ -244,7 +244,7 @@ class TransactionServiceTest {
                             DATE,
                             "business lunch",
                             Importance.NICE_TO_HAVE,
-                            null);
+                            null, null);
 
             when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
             when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
@@ -271,11 +271,77 @@ class TransactionServiceTest {
             assertThat(saved.getTransactionDate()).isEqualTo(DATE);
             assertThat(saved.getNotes()).isEqualTo("business lunch");
             assertThat(saved.getImportance()).isEqualTo(Importance.NICE_TO_HAVE);
+            assertThat(saved.isExcludedFromPace()).isFalse();
+        }
+
+        @Test
+        void persistsPaceExclusionWhenRequested() {
+            // given
+            TransactionCreateRequest request =
+                    new TransactionCreateRequest(
+                            1, 1, "Repayment", new BigDecimal("300.00"), DATE, null, Importance.ESSENTIAL, null, true);
+
+            when(walletService.getWalletEntityByIdForUser(1, USER_ID)).thenReturn(wallet);
+            when(categoryService.getCategoryEntityByIdForUser(1, USER_ID)).thenReturn(expenseCategory);
+            when(transactionRepository.save(any(Transaction.class)))
+                    .thenAnswer(
+                            inv -> {
+                                Transaction t = inv.getArgument(0);
+                                t.setId(302L);
+                                return t;
+                            });
+
+            // when
+            TransactionResponse response = transactionService.createTransaction(request, USER_ID);
+
+            // then
+            assertThat(response.excludedFromPace()).isTrue();
+            ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+            verify(transactionRepository).save(captor.capture());
+            assertThat(captor.getValue().isExcludedFromPace()).isTrue();
         }
     }
 
     @Nested
     class UpdateTransaction {
+
+        @Test
+        void updateTogglesPaceExclusionOnlyWhenProvided() {
+            // given
+            Transaction existing =
+                    Transaction.builder()
+                            .id(100L)
+                            .title("Repayment")
+                            .amount(new BigDecimal("300.00"))
+                            .wallet(wallet)
+                            .category(expenseCategory)
+                            .transactionDate(DATE)
+                            .importance(Importance.ESSENTIAL)
+                            .build();
+            when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
+                    .thenReturn(Optional.of(existing));
+            when(transactionRepository.save(any(Transaction.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            // when: exclude
+            TransactionResponse excluded = transactionService.updateTransaction(100L,
+                    new TransactionUpdateRequest(1, 1, "Repayment", new BigDecimal("300.00"), DATE, null,
+                            Importance.ESSENTIAL, true), USER_ID);
+            // and: omit the flag → unchanged
+            TransactionResponse untouched = transactionService.updateTransaction(100L,
+                    new TransactionUpdateRequest(1, 1, "Repayment", new BigDecimal("300.00"), DATE, null,
+                            Importance.ESSENTIAL, null), USER_ID);
+            // and: explicit false → cleared
+            TransactionResponse cleared = transactionService.updateTransaction(100L,
+                    new TransactionUpdateRequest(1, 1, "Repayment", new BigDecimal("300.00"), DATE, null,
+                            Importance.ESSENTIAL, false), USER_ID);
+
+            // then
+            assertThat(excluded.excludedFromPace()).isTrue();
+            assertThat(untouched.excludedFromPace()).isTrue();
+            assertThat(cleared.excludedFromPace()).isFalse();
+            assertThat(existing.isExcludedFromPace()).isFalse();
+        }
 
         @Test
         void updateSameWalletAndCategory() {
@@ -293,7 +359,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            1, 1, "Updated", new BigDecimal("75.00"), DATE, "notes", Importance.HAVE_TO_HAVE);
+                            1, 1, "Updated", new BigDecimal("75.00"), DATE, "notes", Importance.HAVE_TO_HAVE, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -337,7 +403,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            1, 1, "Old", new BigDecimal("50.00"), newDate, null, Importance.ESSENTIAL);
+                            1, 1, "Old", new BigDecimal("50.00"), newDate, null, Importance.ESSENTIAL, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -380,7 +446,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            2, 1, "Moved", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL);
+                            2, 1, "Moved", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -421,7 +487,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            1, 2, "Salary Correction", new BigDecimal("200.00"), DATE, null, null);
+                            1, 2, "Salary Correction", new BigDecimal("200.00"), DATE, null, null, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -465,7 +531,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            2, 2, "Salary Correction", new BigDecimal("3000.00"), DATE, null, null);
+                            2, 2, "Salary Correction", new BigDecimal("3000.00"), DATE, null, null, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -512,7 +578,7 @@ class TransactionServiceTest {
 
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            1, 1, "Updated", new BigDecimal("75.00"), DATE, null, null);
+                            1, 1, "Updated", new BigDecimal("75.00"), DATE, null, null, null);
 
             when(transactionRepository.findByIdAndWalletUserId(100L, USER_ID))
                     .thenReturn(Optional.of(existing));
@@ -531,7 +597,7 @@ class TransactionServiceTest {
             // given
             TransactionUpdateRequest request =
                     new TransactionUpdateRequest(
-                            1, 1, "X", new BigDecimal("10"), DATE, null, Importance.ESSENTIAL);
+                            1, 1, "X", new BigDecimal("10"), DATE, null, Importance.ESSENTIAL, null);
 
             when(transactionRepository.findByIdAndWalletUserId(999L, USER_ID))
                     .thenReturn(Optional.empty());

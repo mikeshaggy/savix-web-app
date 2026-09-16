@@ -43,6 +43,14 @@ public class Category {
     @Builder.Default
     private boolean excludedFromTopCategories = false;
 
+    /**
+     * Excludes every transaction in this category from the spending-pace inputs
+     * (Forecast v2). Reporting totals, ledger and dashboard sums are unaffected.
+     */
+    @Column(name = "excluded_from_pace", nullable = false)
+    @Builder.Default
+    private boolean excludedFromPace = false;
+
     @CreationTimestamp
     private Instant createdAt;
 

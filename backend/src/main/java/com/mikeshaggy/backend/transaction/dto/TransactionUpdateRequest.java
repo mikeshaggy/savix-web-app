@@ -30,7 +30,9 @@ public record TransactionUpdateRequest(
 
         String notes,
 
-        Importance importance
+        Importance importance,
+
+        Boolean excludedFromPace
 ) {
     public void applyTo(Transaction transaction) {
         transaction.setTitle(title);
@@ -38,5 +40,8 @@ public record TransactionUpdateRequest(
         transaction.setTransactionDate(transactionDate);
         transaction.setNotes(notes);
         transaction.setImportance(importance);
+        if (excludedFromPace != null) {
+            transaction.setExcludedFromPace(excludedFromPace);
+        }
     }
 }

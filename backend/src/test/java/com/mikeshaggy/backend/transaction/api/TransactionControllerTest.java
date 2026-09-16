@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.transaction.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -12,6 +13,7 @@ import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.transaction.domain.Importance;
+import com.mikeshaggy.backend.transaction.dto.TransactionCreateRequest;
 import com.mikeshaggy.backend.transaction.dto.TransactionResponse;
 import com.mikeshaggy.backend.transaction.service.TransactionOrchestrator;
 import com.mikeshaggy.backend.transaction.service.TransactionService;
@@ -23,6 +25,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -80,6 +83,7 @@ class TransactionControllerTest {
                             null,
                             Importance.ESSENTIAL,
                             null,
+                            false,
                             Instant.parse("2026-03-11T10:00:00Z"));
             when(transactionOrchestrator.createTransaction(any(), eq(TEST_USER_ID))).thenReturn(response);
 
@@ -105,6 +109,54 @@ class TransactionControllerTest {
                     .andExpect(jsonPath("$.title").value("Weekly groceries"))
                     .andExpect(jsonPath("$.amount").value(42.50))
                     .andExpect(jsonPath("$.categoryType").value("EXPENSE"));
+        }
+
+        @Test
+        void excludedFromPaceRoundTripsThroughRequestAndResponseJson() throws Exception {
+            // given
+            var response =
+                    new TransactionResponse(
+                            2L,
+                            1,
+                            "Main Wallet",
+                            1,
+                            "Groceries",
+                            CategoryType.EXPENSE,
+                            "🛒",
+                            "One-off repayment",
+                            new BigDecimal("300.00"),
+                            LocalDate.of(2026, 3, 11),
+                            null,
+                            Importance.ESSENTIAL,
+                            null,
+                            true,
+                            Instant.parse("2026-03-11T10:00:00Z"));
+            when(transactionOrchestrator.createTransaction(any(), eq(TEST_USER_ID))).thenReturn(response);
+
+            // when
+            mockMvc
+                    .perform(
+                            post("/api/transactions")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(
+                                            """
+                                            {
+                                                "walletId": 1,
+                                                "categoryId": 1,
+                                                "title": "One-off repayment",
+                                                "amount": 300.00,
+                                                "transactionDate": "2026-03-11",
+                                                "importance": "ESSENTIAL",
+                                                "excludedFromPace": true
+                                            }
+                                            """))
+                    // then
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.excludedFromPace").value(true));
+
+            ArgumentCaptor<TransactionCreateRequest> captor = ArgumentCaptor.forClass(TransactionCreateRequest.class);
+            org.mockito.Mockito.verify(transactionOrchestrator).createTransaction(captor.capture(), eq(TEST_USER_ID));
+            assertThat(captor.getValue().excludedFromPace()).isTrue();
         }
 
         @Test

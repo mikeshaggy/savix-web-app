@@ -47,6 +47,15 @@ public class Transaction {
     private Importance importance;
 
     /**
+     * Per-transaction override that keeps this row out of the spending-pace
+     * inputs (Forecast v2), e.g. a one-off repayment. Reporting totals, ledger
+     * and dashboard sums are unaffected.
+     */
+    @Column(name = "excluded_from_pace", nullable = false)
+    @Builder.Default
+    private boolean excludedFromPace = false;
+
+    /**
      * Inverse (read-only) side of the 1:1 link to a fixed payment occurrence.
      * The owning side is {@link FixedPaymentOccurrence#getTransaction()} which
      * holds the {@code transaction_id} FK. Never serialized directly (responses

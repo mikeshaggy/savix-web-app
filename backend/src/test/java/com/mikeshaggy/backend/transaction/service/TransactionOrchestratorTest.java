@@ -91,7 +91,7 @@ class TransactionOrchestratorTest {
 
     private TransactionUpdateRequest updateRequest(int walletId, int categoryId, BigDecimal amount) {
         return new TransactionUpdateRequest(
-                walletId, categoryId, "Rent", amount, DATE, null, Importance.ESSENTIAL);
+                walletId, categoryId, "Rent", amount, DATE, null, Importance.ESSENTIAL, null);
     }
 
     @Test
@@ -99,7 +99,7 @@ class TransactionOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
+                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
 
@@ -117,7 +117,7 @@ class TransactionOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null);
+                        1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
 
@@ -135,7 +135,7 @@ class TransactionOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
+                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
         doThrow(new EntityNotFoundException("Occurrence not found with id: 10"))

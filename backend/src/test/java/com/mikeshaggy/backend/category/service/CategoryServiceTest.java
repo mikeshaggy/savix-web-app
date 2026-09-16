@@ -63,7 +63,7 @@ class CategoryServiceTest {
             target.setCycleAnchor(false);
 
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Freelance", CategoryType.INCOME, null, true, null);
+                    new CategoryUpdateRequest("Freelance", CategoryType.INCOME, null, true, null, null);
 
             when(categoryRepository.findByIdAndUserId(2, USER_ID)).thenReturn(Optional.of(target));
             when(categoryRepository.findByUserIdAndIsCycleAnchorTrue(USER_ID))
@@ -85,7 +85,7 @@ class CategoryServiceTest {
             target.setCycleAnchor(true);
 
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Salary", CategoryType.INCOME, null, true, null);
+                    new CategoryUpdateRequest("Salary", CategoryType.INCOME, null, true, null, null);
 
             when(categoryRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(target));
             when(categoryRepository.findByUserIdAndIsCycleAnchorTrue(USER_ID))
@@ -106,7 +106,7 @@ class CategoryServiceTest {
             Category target = category(1, "Food", CategoryType.EXPENSE);
 
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Food", CategoryType.EXPENSE, "🍔", null, null);
+                    new CategoryUpdateRequest("Food", CategoryType.EXPENSE, "🍔", null, null, null);
 
             when(categoryRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(target));
             when(categoryRepository.save(any(Category.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -125,7 +125,7 @@ class CategoryServiceTest {
         @Test
         void createWithDuplicateEmoji_throws() {
             // given
-            CategoryCreateRequest request = new CategoryCreateRequest("Food", CategoryType.EXPENSE, "🍔", null);
+            CategoryCreateRequest request = new CategoryCreateRequest("Food", CategoryType.EXPENSE, "🍔", null, null);
 
             when(categoryRepository.existsByUserIdAndEmoji(USER_ID, "🍔")).thenReturn(true);
 
@@ -143,7 +143,7 @@ class CategoryServiceTest {
             // given
             Category target = category(1, "Food", CategoryType.EXPENSE);
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Food", CategoryType.EXPENSE, "🍕", null, null);
+                    new CategoryUpdateRequest("Food", CategoryType.EXPENSE, "🍕", null, null, null);
 
             when(categoryRepository.existsByUserIdAndEmojiAndIdNot(USER_ID, "🍕", 1)).thenReturn(true);
 
@@ -161,7 +161,7 @@ class CategoryServiceTest {
             target.setEmoji("🍔");
 
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Food Updated", CategoryType.EXPENSE, "🍔", null, null);
+                    new CategoryUpdateRequest("Food Updated", CategoryType.EXPENSE, "🍔", null, null, null);
 
             when(categoryRepository.existsByUserIdAndEmojiAndIdNot(USER_ID, "🍔", 1)).thenReturn(false);
             when(categoryRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(target));
@@ -177,7 +177,7 @@ class CategoryServiceTest {
         @Test
         void blankEmoji_skipsUniquenessCheck() {
             // given
-            CategoryCreateRequest request = new CategoryCreateRequest("Food", CategoryType.EXPENSE, "  ", null);
+            CategoryCreateRequest request = new CategoryCreateRequest("Food", CategoryType.EXPENSE, "  ", null, null);
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
             when(categoryRepository.save(any(Category.class)))
@@ -203,7 +203,7 @@ class CategoryServiceTest {
         void createCategory_persistsCorrectFields() {
             // given
             CategoryCreateRequest request =
-                    new CategoryCreateRequest("Groceries", CategoryType.EXPENSE, "🛒", null);
+                    new CategoryCreateRequest("Groceries", CategoryType.EXPENSE, "🛒", null, null);
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
             when(categoryRepository.save(any(Category.class)))
@@ -234,7 +234,7 @@ class CategoryServiceTest {
         void createCategory_persistsTopCategoriesExclusion() {
             // given
             CategoryCreateRequest request =
-                    new CategoryCreateRequest("Rent", CategoryType.EXPENSE, null, true);
+                    new CategoryCreateRequest("Rent", CategoryType.EXPENSE, null, true, null);
 
             when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
             when(categoryRepository.save(any(Category.class)))
@@ -261,7 +261,7 @@ class CategoryServiceTest {
             // given
             Category target = category(1, "Rent", CategoryType.EXPENSE);
             CategoryUpdateRequest request =
-                    new CategoryUpdateRequest("Rent", CategoryType.EXPENSE, null, null, true);
+                    new CategoryUpdateRequest("Rent", CategoryType.EXPENSE, null, null, true, null);
 
             when(categoryRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(target));
             when(categoryRepository.save(any(Category.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -272,6 +272,45 @@ class CategoryServiceTest {
             // then
             assertThat(result.excludedFromTopCategories()).isTrue();
             assertThat(target.isExcludedFromTopCategories()).isTrue();
+        }
+
+        @Test
+        void createCategory_persistsPaceExclusionAndDefaultsToFalse() {
+            // given
+            when(userService.getUserOrThrow(USER_ID)).thenReturn(user);
+            when(categoryRepository.save(any(Category.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // when
+            CategoryResponse excluded = categoryService.createCategory(
+                    new CategoryCreateRequest("Money lent", CategoryType.EXPENSE, null, null, true), USER_ID);
+            CategoryResponse omitted = categoryService.createCategory(
+                    new CategoryCreateRequest("Groceries", CategoryType.EXPENSE, null, null, null), USER_ID);
+
+            // then
+            assertThat(excluded.excludedFromPace()).isTrue();
+            assertThat(omitted.excludedFromPace()).isFalse();
+            assertThat(omitted.excludedFromTopCategories()).isFalse();
+        }
+
+        @Test
+        void updateCategory_updatesPaceExclusionOnlyWhenProvided() {
+            // given
+            Category target = category(1, "Money lent", CategoryType.EXPENSE);
+            target.setExcludedFromPace(true);
+            when(categoryRepository.findByIdAndUserId(1, USER_ID)).thenReturn(Optional.of(target));
+            when(categoryRepository.save(any(Category.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // when: null leaves the flag alone
+            CategoryResponse untouched = categoryService.updateCategory(1,
+                    new CategoryUpdateRequest("Money lent", CategoryType.EXPENSE, null, null, null, null), USER_ID);
+            // and: explicit false clears it
+            CategoryResponse cleared = categoryService.updateCategory(1,
+                    new CategoryUpdateRequest("Money lent", CategoryType.EXPENSE, null, null, null, false), USER_ID);
+
+            // then
+            assertThat(untouched.excludedFromPace()).isTrue();
+            assertThat(cleared.excludedFromPace()).isFalse();
+            assertThat(target.isExcludedFromPace()).isFalse();
         }
 
         @Test

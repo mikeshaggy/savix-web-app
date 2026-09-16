@@ -1,6 +1,7 @@
 package com.mikeshaggy.backend.analytics.query;
 
 import com.mikeshaggy.backend.category.domain.CategoryType;
+import com.mikeshaggy.backend.transaction.repository.DailyTotalProjection;
 import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,6 +62,69 @@ class AnalyticsTransactionQueryServiceTest {
         assertThat(stats.highestSpendingDay()).isNull();
         assertThat(stats.highestSpendingDayAmount()).isNull();
         assertThat(stats.activeDays()).isZero();
+    }
+
+    @Test
+    void sumUnlinkedForPaceDelegatesToPaceEligibleQueryAndNormalisesScale() {
+        AnalyticsTransactionQueryService service = new AnalyticsTransactionQueryService(transactionRepository);
+        LocalDate from = LocalDate.of(2026, 9, 9);
+        LocalDate to = LocalDate.of(2026, 9, 14);
+        when(transactionRepository.sumUnlinkedPaceEligibleByWalletUserDateRange(WALLET_ID, USER_ID, from, to))
+                .thenReturn(new BigDecimal("1552.0"));
+
+        assertThat(service.sumUnlinkedForPace(WALLET_ID, USER_ID, from, to)).isEqualTo(new BigDecimal("1552.00"));
+        verifyNoMoreInteractions(transactionRepository);
+    }
+
+    @Test
+    void dailyVariableTotalsZeroFillsEveryDayInRangeInclusive() {
+        AnalyticsTransactionQueryService service = new AnalyticsTransactionQueryService(transactionRepository);
+        LocalDate from = LocalDate.of(2026, 9, 9);
+        LocalDate to = LocalDate.of(2026, 9, 14);
+        when(transactionRepository.findDailyPaceEligibleVariableTotals(WALLET_ID, USER_ID, from, to))
+                .thenReturn(List.of(
+                        dailyRow(LocalDate.of(2026, 9, 9), "94.98"),
+                        dailyRow(LocalDate.of(2026, 9, 10), "335.64"),
+                        dailyRow(LocalDate.of(2026, 9, 13), "443")));
+
+        List<AnalyticsTransactionQueryService.DailyTotal> totals =
+                service.dailyVariableTotals(WALLET_ID, USER_ID, from, to);
+
+        assertThat(totals).extracting(AnalyticsTransactionQueryService.DailyTotal::day).containsExactly(
+                LocalDate.of(2026, 9, 9), LocalDate.of(2026, 9, 10), LocalDate.of(2026, 9, 11),
+                LocalDate.of(2026, 9, 12), LocalDate.of(2026, 9, 13), LocalDate.of(2026, 9, 14));
+        assertThat(totals).extracting(AnalyticsTransactionQueryService.DailyTotal::amount).containsExactly(
+                new BigDecimal("94.98"), new BigDecimal("335.64"), new BigDecimal("0.00"),
+                new BigDecimal("0.00"), new BigDecimal("443.00"), new BigDecimal("0.00"));
+    }
+
+    @Test
+    void dailyVariableTotalsSingleDayRangeAndEmptyRepositoryYieldZeroRow() {
+        AnalyticsTransactionQueryService service = new AnalyticsTransactionQueryService(transactionRepository);
+        LocalDate day = LocalDate.of(2026, 9, 9);
+        when(transactionRepository.findDailyPaceEligibleVariableTotals(WALLET_ID, USER_ID, day, day))
+                .thenReturn(List.of());
+
+        assertThat(service.dailyVariableTotals(WALLET_ID, USER_ID, day, day))
+                .containsExactly(new AnalyticsTransactionQueryService.DailyTotal(day, new BigDecimal("0.00")));
+    }
+
+    @Test
+    void dailyVariableTotalsIsEmptyWhenFromIsAfterTo() {
+        AnalyticsTransactionQueryService service = new AnalyticsTransactionQueryService(transactionRepository);
+        LocalDate from = LocalDate.of(2026, 9, 10);
+        LocalDate to = LocalDate.of(2026, 9, 9);
+        when(transactionRepository.findDailyPaceEligibleVariableTotals(WALLET_ID, USER_ID, from, to))
+                .thenReturn(List.of());
+
+        assertThat(service.dailyVariableTotals(WALLET_ID, USER_ID, from, to)).isEmpty();
+    }
+
+    private DailyTotalProjection dailyRow(LocalDate day, String amount) {
+        return new DailyTotalProjection() {
+            @Override public LocalDate getDay() { return day; }
+            @Override public BigDecimal getAmount() { return new BigDecimal(amount); }
+        };
     }
 
     private HeatmapProjection heatmapRow(LocalDate date, String amount) {

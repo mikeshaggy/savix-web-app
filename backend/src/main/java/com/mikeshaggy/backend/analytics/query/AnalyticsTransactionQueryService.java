@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.analytics.query;
 
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.transaction.domain.Importance;
+import com.mikeshaggy.backend.transaction.repository.DailyTotalProjection;
 import com.mikeshaggy.backend.transaction.repository.HeatmapProjection;
 import com.mikeshaggy.backend.transaction.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -34,6 +37,35 @@ public class AnalyticsTransactionQueryService {
      */
     public BigDecimal sumUnlinked(Integer walletId, UUID userId, LocalDate from, LocalDate to, CategoryType type) {
         return money(transactionRepository.sumUnlinkedByWalletUserDateRangeAndType(walletId, userId, from, to, type));
+    }
+
+    /**
+     * Pace-eligible variable spend: unlinked EXPENSE transactions minus rows
+     * excluded from the pace on the transaction or on its category
+     * ({@code excludedFromPace}). Forecast v2 input only — reporting totals and
+     * {@link #sumUnlinked} are unaffected by the exclusion flags.
+     */
+    public BigDecimal sumUnlinkedForPace(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        return money(transactionRepository.sumUnlinkedPaceEligibleByWalletUserDateRange(walletId, userId, from, to));
+    }
+
+    /**
+     * Daily pace-eligible variable EXPENSE totals for every day in {@code [from, to]}
+     * (inclusive, ascending). Days without eligible transactions are present with
+     * zero so callers can take medians over the full window. Empty when
+     * {@code from} is after {@code to}.
+     */
+    public List<DailyTotal> dailyVariableTotals(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        Map<LocalDate, BigDecimal> byDay = transactionRepository
+                .findDailyPaceEligibleVariableTotals(walletId, userId, from, to)
+                .stream()
+                .collect(Collectors.toMap(DailyTotalProjection::getDay, DailyTotalProjection::getAmount, BigDecimal::add));
+
+        List<DailyTotal> totals = new ArrayList<>();
+        for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1)) {
+            totals.add(new DailyTotal(day, money(byDay.getOrDefault(day, BigDecimal.ZERO))));
+        }
+        return List.copyOf(totals);
     }
 
     public BigDecimal expenseByImportance(Integer walletId, UUID userId,
@@ -76,6 +108,9 @@ public class AnalyticsTransactionQueryService {
         public BigDecimal balance() {
             return money(income.subtract(expenses));
         }
+    }
+
+    public record DailyTotal(LocalDate day, BigDecimal amount) {
     }
 
     public record DailyExpenseStats(

@@ -67,7 +67,7 @@ class TransactionCreationOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
+                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
 
@@ -85,7 +85,7 @@ class TransactionCreationOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null);
+                        1, 1, "Groceries", new BigDecimal("50.00"), DATE, null, Importance.ESSENTIAL, null, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
 
@@ -103,7 +103,7 @@ class TransactionCreationOrchestratorTest {
         // given
         TransactionCreateRequest request =
                 new TransactionCreateRequest(
-                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L);
+                        1, 1, "Rent", new BigDecimal("1500"), DATE, null, Importance.ESSENTIAL, 10L, null);
 
         when(transactionService.createTransactionEntity(request, USER_ID)).thenReturn(savedTransaction);
         doThrow(new IllegalArgumentException("Occurrence does not belong to current user"))

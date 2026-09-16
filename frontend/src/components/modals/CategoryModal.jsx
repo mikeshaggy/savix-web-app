@@ -15,6 +15,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
     emoji: '',
     isCycleAnchor: false,
     excludedFromTopCategories: false,
+    excludedFromPace: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -28,6 +29,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         emoji: category.emoji || '',
         isCycleAnchor: category.isCycleAnchor || false,
         excludedFromTopCategories: category.excludedFromTopCategories || false,
+        excludedFromPace: category.excludedFromPace || false,
       });
     } else {
       setFormData({
@@ -36,6 +38,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         emoji: '',
         isCycleAnchor: false,
         excludedFromTopCategories: false,
+        excludedFromPace: false,
       });
     }
     setErrors({});
@@ -59,6 +62,9 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
       const next = { ...prev, [field]: value };
       if (field === 'type' && value === 'EXPENSE') {
         next.isCycleAnchor = false;
+      }
+      if (field === 'type' && value !== 'EXPENSE') {
+        next.excludedFromPace = false;
       }
       return next;
     });
@@ -108,6 +114,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         emoji: trimmedEmoji || null,
         isCycleAnchor: formData.type === 'INCOME' ? formData.isCycleAnchor : false,
         excludedFromTopCategories: formData.excludedFromTopCategories,
+        excludedFromPace: formData.type === 'EXPENSE' ? formData.excludedFromPace : false,
       });
       
       if (!category) {
@@ -117,6 +124,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
           emoji: '',
           isCycleAnchor: false,
           excludedFromTopCategories: false,
+          excludedFromPace: false,
         });
       }
       
@@ -149,6 +157,7 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
         emoji: '',
         isCycleAnchor: false,
         excludedFromTopCategories: false,
+        excludedFromPace: false,
       });
     }
     onClose();
@@ -269,6 +278,15 @@ export default function CategoryModal({ isOpen, onClose, onSave, category = null
                 checked={formData.excludedFromTopCategories}
                 onChange={(checked) => handleChange('excludedFromTopCategories', checked)}
               />
+
+              {formData.type === 'EXPENSE' && (
+                <SettingToggle
+                  label={t('category.excludeFromPace')}
+                  description={t('category.excludeFromPaceHint')}
+                  checked={formData.excludedFromPace}
+                  onChange={(checked) => handleChange('excludedFromPace', checked)}
+                />
+              )}
             </div>
 
           </div>

@@ -40,6 +40,7 @@ create table categories (
     emoji varchar(16),
     is_cycle_anchor boolean not null default false,
     excluded_from_top_categories boolean not null default false,
+    excluded_from_pace boolean not null default false,
     created_at timestamp default NOW(),
     unique(user_id, name, type)
 );
@@ -59,6 +60,7 @@ create table transactions (
     importance varchar(20) check (importance in (
         'ESSENTIAL', 'HAVE_TO_HAVE', 'NICE_TO_HAVE', 'SHOULDNT_HAVE', 'INVESTMENT'
     )),
+    excluded_from_pace boolean not null default false,
     created_at timestamp default NOW()
 );
 
@@ -156,6 +158,7 @@ CREATE INDEX idx_transactions_wallet_date ON transactions(wallet_id, transaction
 CREATE INDEX idx_transactions_wallet_date_category ON transactions(wallet_id, transaction_date, category_id);
 CREATE INDEX idx_transactions_wallet_category_date ON transactions(wallet_id, category_id, transaction_date DESC);
 CREATE INDEX idx_transactions_wallet_date_importance ON transactions(wallet_id, transaction_date, importance);
+CREATE INDEX idx_transactions_excluded_from_pace ON transactions(wallet_id, excluded_from_pace) WHERE excluded_from_pace;
 
 -- categories
 CREATE INDEX idx_categories_user ON categories(user_id);

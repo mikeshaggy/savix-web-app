@@ -12,6 +12,7 @@ public record CategoryResponse(
         String emoji,
         boolean isCycleAnchor,
         boolean excludedFromTopCategories,
+        boolean excludedFromPace,
         Instant createdAt
 ) {
     public static CategoryResponse from(Category category) {
@@ -22,6 +23,7 @@ public record CategoryResponse(
                 category.getEmoji(),
                 category.isCycleAnchor(),
                 category.isExcludedFromTopCategories(),
+                category.isExcludedFromPace(),
                 category.getCreatedAt()
         );
     }

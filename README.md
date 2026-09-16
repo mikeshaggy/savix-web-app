@@ -140,6 +140,7 @@ Fresh databases are created from `01_init.sql` (mounted by `docker-compose.yml`)
 | `02_funds.sql` | Funds / saving goals (`wallets.is_fund`, `funds` table) |
 | `03_fund_currency_status.sql` | Drops `funds.currency`, allows `COMPLETED` fund status |
 | `04_pay_cycle.sql` | Pay cycle foundation: `users.salary_wallet_id` (+ backfill from the latest anchor-category transaction), `user_payday_rules` table |
+| `05_pace_exclusion.sql` | Forecast v2 pace exclusion: `categories.excluded_from_pace`, `transactions.excluded_from_pace`, partial index; one-shot seed of transfer-like expense categories (runs only when the category column is first added, never on rerun) |
 
 ```bash
 pg_dump -U savix-admin -d savix -Fc -f savix-before.dump

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit3, Trash2, Tag, RefreshCw, Search, ArrowUpDown, Anchor, EyeOff, CalendarDays } from 'lucide-react';
+import { Plus, Edit3, Trash2, Tag, RefreshCw, Search, ArrowUpDown, Anchor, EyeOff, CalendarDays, Gauge } from 'lucide-react';
 import { useCategories } from '@/hooks/useApi';
 import { useWallets } from '@/contexts/WalletContext';
 import CategoryModal from '@/components/modals/CategoryModal';
@@ -367,6 +367,12 @@ function CategoryCard({ category, t, onEdit, onDelete }) {
           <EyeOff className="w-3.5 h-3.5" />
           {category.excludedFromTopCategories ? t('category.hiddenFromTop') : t('category.visibleInTop')}
         </span>
+        {category.excludedFromPace && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[4px] bg-sky-400/10 border-sky-400/25 text-sky-300">
+            <Gauge className="w-3.5 h-3.5" />
+            {t('category.excludedFromPace')}
+          </span>
+        )}
       </div>
     </div>
   );

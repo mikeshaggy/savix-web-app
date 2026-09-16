@@ -67,6 +67,7 @@ export default function TransactionModal({
     categoryId: "",
     notes: "",
     importance: "ESSENTIAL",
+    excludedFromPace: false,
   });
 
   const [errors, setErrors] = useState({});
@@ -114,6 +115,7 @@ export default function TransactionModal({
         categoryId: transaction.categoryId?.toString() || "",
         notes: transaction.notes || "",
         importance: transaction.importance || "ESSENTIAL",
+        excludedFromPace: transaction.excludedFromPace || false,
       });
       // Set category search to show selected category name
       const cat = categories?.find((c) => c.id === transaction.categoryId);
@@ -130,6 +132,7 @@ export default function TransactionModal({
         categoryId: prefill.categoryId?.toString() || "",
         notes: prefill.notes || "",
         importance: "ESSENTIAL",
+        excludedFromPace: false,
       });
       const cat = categories?.find((c) => c.id === prefill.categoryId);
       setCategorySearch(cat?.name || "");
@@ -142,6 +145,7 @@ export default function TransactionModal({
         categoryId: "",
         notes: "",
         importance: "ESSENTIAL",
+        excludedFromPace: false,
       });
       setCategorySearch("");
     }
@@ -495,6 +499,8 @@ export default function TransactionModal({
         notes: formData.notes?.trim() || undefined,
         importance:
           selectedCategory?.type === "INCOME" ? undefined : formData.importance,
+        excludedFromPace:
+          selectedCategory?.type === "INCOME" ? false : formData.excludedFromPace,
         ...(createOccurrenceId ? { occurrenceId: createOccurrenceId } : {}),
       };
 
@@ -513,6 +519,7 @@ export default function TransactionModal({
           categoryId: "",
           notes: "",
           importance: "ESSENTIAL",
+          excludedFromPace: false,
         });
         setCategorySearch("");
         setSelectedOccurrence(null);
@@ -969,6 +976,48 @@ export default function TransactionModal({
                       {t(errors.importance)}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Exclude from spending pace - expense only; reporting totals unaffected */}
+              {selectedCategory?.type === "EXPENSE" && (
+                <div
+                  className={`mb-5 rounded-[11px] border px-3.5 py-3 flex items-start gap-3 transition-all ${
+                    formData.excludedFromPace
+                      ? "bg-sky-400/10 border-sky-400/30"
+                      : "bg-[#131325] border-white/[0.055] hover:border-white/[0.12]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={formData.excludedFromPace}
+                    aria-label={t("transaction.excludeFromPace")}
+                    onClick={() =>
+                      handleChange("excludedFromPace", !formData.excludedFromPace)
+                    }
+                    className={`mt-0.5 relative h-6 w-11 shrink-0 rounded-full border transition-all ${
+                      formData.excludedFromPace
+                        ? "bg-sky-500 border-sky-400"
+                        : "bg-white/[0.06] border-white/[0.12]"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1/2 h-[18px] w-[18px] -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform ${
+                        formData.excludedFromPace
+                          ? "translate-x-[19px]"
+                          : "translate-x-[3px]"
+                      }`}
+                    />
+                  </button>
+                  <div className="min-w-0">
+                    <div className="text-[14px] font-semibold text-white/80">
+                      {t("transaction.excludeFromPace")}
+                    </div>
+                    <p className="mt-1 text-[12.5px] leading-relaxed text-white/35">
+                      {t("transaction.excludeFromPaceHint")}
+                    </p>
+                  </div>
                 </div>
               )}
 

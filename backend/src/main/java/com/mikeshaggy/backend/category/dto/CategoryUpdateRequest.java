@@ -19,7 +19,9 @@ public record CategoryUpdateRequest(
 
         Boolean isCycleAnchor,
 
-        Boolean excludedFromTopCategories
+        Boolean excludedFromTopCategories,
+
+        Boolean excludedFromPace
 ) {
         public void applyTo(Category category) {
                 category.setName(name);
@@ -30,6 +32,9 @@ public record CategoryUpdateRequest(
                 }
                 if (excludedFromTopCategories != null) {
                         category.setExcludedFromTopCategories(excludedFromTopCategories);
+                }
+                if (excludedFromPace != null) {
+                        category.setExcludedFromPace(excludedFromPace);
                 }
         }
 }

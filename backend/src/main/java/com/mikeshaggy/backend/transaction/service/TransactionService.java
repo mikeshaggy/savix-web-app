@@ -226,6 +226,7 @@ public class TransactionService {
                 .transactionDate(request.transactionDate())
                 .notes(request.notes())
                 .importance(request.importance())
+                .excludedFromPace(Boolean.TRUE.equals(request.excludedFromPace()))
                 .build();
 
         Transaction savedTransaction = transactionRepository.save(transaction);

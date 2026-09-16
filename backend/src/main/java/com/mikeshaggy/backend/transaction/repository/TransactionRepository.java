@@ -139,6 +139,59 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("to") LocalDate to,
             @Param("type") CategoryType type);
 
+    /**
+     * Variable (unlinked) EXPENSE spend that feeds the spending pace: rows flagged
+     * {@code excludedFromPace} on the transaction or on its category are left out.
+     * Reporting sums ({@link #sumByWalletUserDateRangeAndType},
+     * {@link #sumUnlinkedByWalletUserDateRangeAndType}) are untouched by the flags.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = com.mikeshaggy.backend.category.domain.CategoryType.EXPENSE
+        AND t.excludedFromPace = false
+        AND c.excludedFromPace = false
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+    """)
+    BigDecimal sumUnlinkedPaceEligibleByWalletUserDateRange(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
+    /**
+     * Per-day totals of the same pace-eligible variable EXPENSE spend as
+     * {@link #sumUnlinkedPaceEligibleByWalletUserDateRange}. Only days with at
+     * least one eligible transaction are returned, ascending by day.
+     */
+    @Query("""
+        SELECT t.transactionDate AS day,
+               COALESCE(SUM(t.amount), 0) AS amount
+        FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = com.mikeshaggy.backend.category.domain.CategoryType.EXPENSE
+        AND t.excludedFromPace = false
+        AND c.excludedFromPace = false
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+        GROUP BY t.transactionDate
+        ORDER BY t.transactionDate ASC
+    """)
+    List<DailyTotalProjection> findDailyPaceEligibleVariableTotals(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
         JOIN t.category c
