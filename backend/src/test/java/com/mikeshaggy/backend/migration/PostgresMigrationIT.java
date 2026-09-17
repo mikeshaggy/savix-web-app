@@ -1,5 +1,8 @@
 package com.mikeshaggy.backend.migration;
 
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.PortBinding;
+import com.github.dockerjava.api.model.Ports;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -21,6 +24,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -51,7 +55,11 @@ class PostgresMigrationIT {
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.11-bookworm"))
             .withDatabaseName("shg15").withUsername("shg15").withPassword("synthetic-test-password")
-            .withReuse(false);
+            .withReuse(false)
+            // Host override selects the client address, not Docker's published interface.
+            // The create modifier sets loopback while leaving the host port Docker-assigned.
+            .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withPortBindings(
+                    new PortBinding(Ports.Binding.bindIp("127.0.0.1"), ExposedPort.tcp(5432))));
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final UUID USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000015");
@@ -66,6 +74,32 @@ class PostgresMigrationIT {
             statement.execute("CREATE SCHEMA " + schema);
         }
         // Schema lifetime is bounded by the JUnit-managed container, even on test failure.
+    }
+
+    @Test
+    void postgresPublishesRandomPortOnlyOnLoopbackAndJdbcConnects() throws Exception {
+        var inspection = DockerClientFactory.instance().client()
+                .inspectContainerCmd(POSTGRES.getContainerId()).exec();
+        var bindings = inspection.getNetworkSettings().getPorts().getBindings().get(ExposedPort.tcp(5432));
+        assertThat(bindings).as("Running Docker container must publish 5432/tcp").isNotEmpty();
+        for (var binding : bindings) {
+            assertThat(binding.getHostIp()).as("Actual Docker HostIp").isEqualTo("127.0.0.1");
+            assertThat(Integer.parseInt(binding.getHostPortSpec()))
+                    .isBetween(1, 65535).isEqualTo(POSTGRES.getMappedPort(5432));
+        }
+        // Docker must have been asked to allocate the host port, not given a fixed one.
+        var requested = inspection.getHostConfig().getPortBindings().getBindings().get(ExposedPort.tcp(5432));
+        assertThat(requested).hasSize(1);
+        assertThat(requested[0].getHostPortSpec()).isIn(null, "", "0");
+        try (var connection = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var statement = connection.createStatement();
+             var rows = statement.executeQuery("SELECT 1")) {
+            assertThat(connection.getMetaData().getURL()).contains(":" + POSTGRES.getMappedPort(5432) + "/");
+            assertThat(rows.next()).isTrue();
+            assertThat(rows.getInt(1)).isEqualTo(1);
+        }
+        System.out.printf("Verified Docker 5432/tcp -> 127.0.0.1:%d (dynamic host port); JDBC connected%n",
+                POSTGRES.getMappedPort(5432));
     }
 
     @Test

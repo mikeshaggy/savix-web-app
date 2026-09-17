@@ -85,8 +85,8 @@ PY
     trap cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
-    # Linux host networking keeps the Testcontainers random ports on loopback,
-    # satisfying SHG-15's local-only DB target contract. Ryuk stays enabled.
+    # PostgresMigrationIT explicitly binds Docker's random PostgreSQL port to loopback.
+    # Host networking/host override let this client reach it; Ryuk stays enabled.
     "${docker[@]}" run --rm --platform linux/arm64 --name "$container" --network host \
       --user "$(id -u):$(id -g)" --group-add "$(stat -c '%g' /var/run/docker.sock)" \
       --mount "type=bind,src=$root,dst=$root" \

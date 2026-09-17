@@ -17,6 +17,7 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parent.parent
+DIAGNOSTIC_LIMIT = 32 * 1024
 APPS = ('savix-backend', 'savix-frontend')
 INFRA = ('savix-db', 'savix-redis', 'postgres-exporter', 'redis-exporter')
 
@@ -274,18 +275,22 @@ class Deployment:
         self.health(service)
 
     def diagnostics(self):
-        # Bounded, redacted excerpts only; never print inspect/config/env payloads.
+        # Redact the entire capture before taking a tail: truncation can split secrets/PEM blocks.
+        # Only the bounded, redacted result may be persisted; raw logs stay in memory.
         for service in APPS:
             try:
                 result = subprocess.run(self.docker + ['logs', '--tail', '80', '--since', '10m', self.name(service)],
                                         env=self.env, capture_output=True, timeout=10)
-                content = (result.stdout + result.stderr).decode(errors='replace')[-32768:]
+                content = (result.stdout + result.stderr).decode(errors='replace')
                 content = re.sub(r'-----BEGIN .*?-----.*?-----END .*?-----', '[REDACTED KEY]', content, flags=re.S)
+                content = re.sub(r'(?i)\bauthorization[ \t]*[:=][^\r\n]*', 'Authorization: [REDACTED]', content)
                 for secret in sorted(self.secrets, key=len, reverse=True):
                     content = content.replace(secret, '[REDACTED]')
-                content = re.sub(r'(?i)(password|secret|authorization|token)\s*[:=]\s*\S+', r'\1=[REDACTED]', content)
+                content = re.sub(r'(?i)(password|secret|token)\s*[:=]\s*\S+', r'\1=[REDACTED]', content)
                 path = self.record / (service + '.log')
-                path.write_text(content)
+                # Bound bytes as well as characters; ignore a partial UTF-8 character at the cut.
+                content = content.encode('utf-8')[-DIAGNOSTIC_LIMIT:].decode('utf-8', errors='ignore')
+                path.write_text(content, encoding='utf-8')
                 print(f'Bounded redacted diagnostics: {path}', flush=True)
             except Exception:
                 print(f'Diagnostics unavailable for {service}.', flush=True)

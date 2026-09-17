@@ -221,14 +221,6 @@
                     <testResource>
                         <directory>src/test/resources</directory>
                     </testResource>
-                    <testResource>
-                        <directory>${project.basedir}/../docs/database</directory>
-                        <targetPath>postgres-it/accepted</targetPath>
-                        <includes>
-                            <include>accepted-v1-catalog.json</include>
-                            <include>inspect-catalog.sql</include>
-                        </includes>
-                    </testResource>
                 </testResources>
                 <plugins>
                     <plugin>
