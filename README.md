@@ -91,9 +91,8 @@ savix-web-app/
 - Node.js 20+
 - Docker & Docker Compose
 
-For production image builds and the Raspberry Pi topology, see
-[Production Docker setup](docs/production-docker.md). The development Compose
-file below must not be run on the production host.
+Production operational runbooks are maintained outside the repository.
+The development Compose file below must not be run on a production host.
 
 ### 1. Clone and configure
 
@@ -112,10 +111,11 @@ docker compose up -d
 
 ### 3. Initialize schema and run backend
 
-Flyway is the only schema initializer. See [Database migrations](docs/database-migrations.md)
-for the manual production baseline procedure and migration authoring rules.
-Run the automated real-PostgreSQL checks from `backend/` with
-`./mvnw verify -Ppostgres-it`; see [PostgreSQL migration tests](docs/postgresql-migration-tests.md).
+Flyway is the only schema initializer. Versioned migrations are in
+[backend/src/main/resources/db/migration](backend/src/main/resources/db/migration).
+Run the real-PostgreSQL checks from `backend/` with `./mvnw verify -Ppostgres-it`;
+[accepted-schema fixtures](backend/src/test/resources/postgres-it/accepted) remain
+tracked CI dependencies.
 
 ```bash
 cd backend
@@ -156,33 +156,13 @@ See [.env.example](.env.example) for all required variables.
 | `PROXY_SECRET` | Shared secret for frontend → backend auth |
 | `COOKIE_DOMAIN` | Cookie domain for cross-subdomain auth |
 
-### Deployment orchestration (SHG-16)
+### Production implementation
 
-[Deployment, backup gates, health verification and manual application rollback](docs/deployment-orchestration.md)
-are available through `scripts/deploy.sh`. Images must already exist locally.
-[Isolated validation](docs/shg-16-validation.md) covers the success and failure gates.
-
-### GitHub Actions and production runner (SHG-17)
-
-[ARM64 runner provisioning, workflow and operational adoption](docs/github-actions-runner.md)
-and [SHG-17 validation](docs/shg-17-validation.md). Deployment remains disabled until
-separately approved runner, baseline and first-deployment adoption.
-
-### Production runtime secrets (SHG-13)
-
-Production requires the existing JWT key pair in read-only host file mounts and
-proxy configuration supplied at runtime. See [the runtime contract and later
-adoption procedure](docs/production-secrets.md). Never generate replacement
-production keys or pass secrets into Docker builds.
-
----
-
-## Screenshots
-
-<!-- Add screenshots here -->
-| Dashboard | Transactions | Wallets |
-|-----------|--------------|---------|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Transactions](docs/screenshots/transactions.png) | ![Wallets](docs/screenshots/wallets.png) |
+[Deployment scripts](scripts/deploy.sh), [production Compose](compose.production.yml),
+and the [GitHub Actions workflow](.github/workflows/deploy.yml) are versioned here.
+Automated deployment requires `SAVIX_PRODUCTION_ENABLED=true` after controlled
+production adoption. Operational runbooks are maintained outside the repository;
+application runtime and CI do not depend on them.
 
 ---
 
