@@ -17,8 +17,8 @@ Savix is a full-stack monorepo project demonstrating backend architecture built 
 - **Caching/Sessions:** Redis for rate limiting and token revocation
 - **Email:** Spring Mail with Thymeleaf templates
 - **Validation:** Bean Validation with custom password policy
-- **Testing:** JUnit 5, H2 in-memory database
-- **Build:** Maven with MapStruct, Lombok
+- **Testing:** JUnit 5, H2 in-memory database, opt-in PostgreSQL 16.11 Testcontainers suite
+- **Build:** Maven with Lombok
 
 ### Frontend (Next.js / React)
 - **Framework:** Next.js (App Router) with Server Components
@@ -28,7 +28,7 @@ Savix is a full-stack monorepo project demonstrating backend architecture built 
 - **Icons:** Lucide React
 
 ### Infrastructure
-- **Containerization:** Docker Compose (PostgreSQL, Redis)
+- **Containerization:** Docker Compose (local infrastructure and inventoried production topology)
 - **Deployment:** Docker-based with standalone Next.js output
 - **Security:** Cloudflare Tunnel (Zero Trust) in production
 
@@ -78,7 +78,7 @@ savix-web-app/
 │       └── lib/                # API client, utilities
 │
 ├── docker-compose.yml          # PostgreSQL + Redis setup
-├── 01_init.sql                 # Database schema initialization
+├── 01_init.sql                 # Historical SQL reference (not executed)
 └── .env.example                # Environment variables template
 ```
 
@@ -90,6 +90,10 @@ savix-web-app/
 - Java 21+
 - Node.js 20+
 - Docker & Docker Compose
+
+For production image builds and the Raspberry Pi topology, see
+[Production Docker setup](docs/production-docker.md). The development Compose
+file below must not be run on the production host.
 
 ### 1. Clone and configure
 
@@ -106,10 +110,19 @@ cp .env.example .env
 docker compose up -d
 ```
 
-### 3. Run backend
+### 3. Initialize schema and run backend
+
+Flyway is the only schema initializer. See [Database migrations](docs/database-migrations.md)
+for the manual production baseline procedure and migration authoring rules.
+Run the automated real-PostgreSQL checks from `backend/` with
+`./mvnw verify -Ppostgres-it`; see [PostgreSQL migration tests](docs/postgresql-migration-tests.md).
 
 ```bash
 cd backend
+./mvnw clean verify
+export MIGRATION_ENV=local DB_URL=jdbc:postgresql://127.0.0.1:5432/savix
+export DB_USERNAME=admin DB_PASSWORD=admin DB_SCHEMA=public
+java -jar target/backend-0.0.1-SNAPSHOT.jar db migrate
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
@@ -126,7 +139,7 @@ npm run dev
 ### 5. Access the app
 
 - **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:8080/api
+- **Backend API:** http://localhost:8000/api
 
 ---
 
@@ -142,6 +155,25 @@ See [.env.example](.env.example) for all required variables.
 | `SMTP_*` | Email server configuration |
 | `PROXY_SECRET` | Shared secret for frontend → backend auth |
 | `COOKIE_DOMAIN` | Cookie domain for cross-subdomain auth |
+
+### Deployment orchestration (SHG-16)
+
+[Deployment, backup gates, health verification and manual application rollback](docs/deployment-orchestration.md)
+are available through `scripts/deploy.sh`. Images must already exist locally.
+[Isolated validation](docs/shg-16-validation.md) covers the success and failure gates.
+
+### GitHub Actions and production runner (SHG-17)
+
+[ARM64 runner provisioning, workflow and operational adoption](docs/github-actions-runner.md)
+and [SHG-17 validation](docs/shg-17-validation.md). Deployment remains disabled until
+separately approved runner, baseline and first-deployment adoption.
+
+### Production runtime secrets (SHG-13)
+
+Production requires the existing JWT key pair in read-only host file mounts and
+proxy configuration supplied at runtime. See [the runtime contract and later
+adoption procedure](docs/production-secrets.md). Never generate replacement
+production keys or pass secrets into Docker builds.
 
 ---
 

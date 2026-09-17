@@ -1,0 +1,17 @@
+# SHG-16 overlay; always paired with compose.production.yml.
+services:
+  savix-migrate:
+    image: ${BACKEND_IMAGE:?Set the candidate backend image}
+    pull_policy: never
+    restart: "no"
+    profiles: [deployment]
+    command: [db, validate]
+    environment:
+      MIGRATION_ENV: prod
+      MIGRATION_EXPECTED_HOST: savix-db
+      DB_URL: jdbc:postgresql://savix-db:5432/${POSTGRES_DB:-savix}
+      DB_USERNAME: ${POSTGRES_USER:-savix-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Supply the existing database password}
+      DB_SCHEMA: public
+    networks:
+      - savix_internal

@@ -21,10 +21,21 @@
         <lombok.version>1.18.38</lombok.version>
         <nimbus-jose-jwt.version>9.37.3</nimbus-jose-jwt.version>
         <sonar-maven-plugin.version>3.11.0.3922</sonar-maven-plugin.version>
+        <!-- Boot 3.5.3 manages 1.21.2; this test-only patch supports Docker Engine 29. -->
+        <testcontainers.version>1.21.4</testcontainers.version>
         <jacoco.version>0.8.11</jacoco.version>
     </properties>
 
     <dependencies>
+        <!-- Version supplied by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -106,9 +117,46 @@
             <artifactId>bcprov-jdk18on</artifactId>
             <version>1.78.1</version>
         </dependency>
+        <!-- Test-only; the PostgreSQL container starts only in the postgres-it profile. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
+        <!-- Also protect JARs built outside Docker from local secret resources. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <excludes>
+                    <exclude>**/application-local*</exclude>
+                    <!-- Retained historical evidence, never executable migration resources. -->
+                    <exclude>db/*.sql</exclude>
+                    <exclude>**/.env*</exclude>
+                    <exclude>**/*.env*</exclude>
+                    <exclude>**/secrets/**</exclude>
+                    <exclude>**/keys/**</exclude>
+                    <exclude>**/jwt-private-key*</exclude>
+                    <exclude>**/jwt-public-key*</exclude>
+                    <exclude>**/*.pem</exclude>
+                    <exclude>**/*.der</exclude>
+                    <exclude>**/*.key</exclude>
+                    <exclude>**/*.p12</exclude>
+                    <exclude>**/*.pfx</exclude>
+                    <exclude>**/*.jks</exclude>
+                    <exclude>**/*.keystore</exclude>
+                    <exclude>**/*.crt</exclude>
+                    <exclude>**/*.cer</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -127,6 +175,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>com.mikeshaggy.backend.BackendApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -163,5 +212,38 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>postgres-it</id>
+            <build>
+                <testResources>
+                    <testResource>
+                        <directory>src/test/resources</directory>
+                    </testResource>
+                </testResources>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/PostgresMigrationIT.java</include>
+                            </includes>
+                            <failIfNoTests>true</failIfNoTests>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

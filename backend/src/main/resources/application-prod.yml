@@ -2,10 +2,20 @@
 # PRODUCTION CONFIG (Raspberry Pi deployment).
 #
 # Activated with spring.profiles.active=prod. All secrets are supplied via
-# environment variables. Database, mail credentials, frontend URL, and proxy
+# environment variables and read-only JWT files. Database, mail credentials, frontend URL, and proxy
 # secret have no development fallback in this profile.
 # ──────────────────────────────────────────────────────────────────────────────
 spring:
+  flyway:
+    enabled: false
+    baseline-on-migrate: false
+    clean-disabled: true
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: none
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -26,6 +36,12 @@ app:
     url: ${FRONTEND_URL}
   proxy:
     secret: ${PROXY_SECRET}
+
+auth:
+  jwt:
+    # No classpath fallback in production. Both aliases accept file: resource URIs.
+    public-key-location: ${JWT_PUBLIC_KEY:${JWT_PUBLIC_KEY_PATH:}}
+    private-key-location: ${JWT_PRIVATE_KEY:${JWT_PRIVATE_KEY_PATH:}}
 
 logging:
   level:

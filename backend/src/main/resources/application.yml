@@ -1,4 +1,14 @@
 spring:
+  flyway:
+    enabled: false
+    baseline-on-migrate: false
+    clean-disabled: true
+  sql:
+    init:
+      mode: never
+  jpa:
+    hibernate:
+      ddl-auto: none
   application:
     name: savix-backend
   datasource:
@@ -97,3 +107,9 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+      group:
+        readiness:
+          # Mail stays in aggregate health, but does not gate normal traffic.
+          include: readinessState,db,redis,diskSpace

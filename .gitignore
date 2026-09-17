@@ -14,6 +14,14 @@
 !.env.example
 
 # Secrets and keys
+*.der
+*.cer
+*.env
+*.env.*
+!*.env.example
+keys/
+jwt-private-key*
+jwt-public-key*
 *.pem
 *.key
 *.p12
