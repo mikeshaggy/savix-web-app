@@ -1,5 +1,9 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import com.mikeshaggy.backend.config.FeatureFlags;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
+import com.mikeshaggy.backend.analytics.forecast.ForecastService;
 import static com.mikeshaggy.backend.regression.September2026Fixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -60,6 +64,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 class PaydayOccurrenceRegressionTest {
+
+    /** Legacy-only regression: both Forecast v2 flags off, the orchestrator is never called. */
+    private static final FeatureFlags FLAGS_OFF = new FeatureFlags(false, false, false, false, false);
+    private final ForecastService forecastService = mock(ForecastService.class);
 
     private static final LocalDate PAYDAY_DUE = EXPECTED_NEXT_PAYDAY; // Oct 9
     private static final LocalDate LAST_CYCLE_DAY = EXPECTED_NEXT_PAYDAY.minusDays(1); // Oct 8
@@ -224,7 +232,8 @@ class PaydayOccurrenceRegressionTest {
                 .thenReturn(VARIABLE_EXPENSES_TO_DATE);
         SpendingProjectionService projectionService = new SpendingProjectionService(
                 transactionQueryService, walletService, periodService, fixedPaymentDashboardService,
-                new SpendingProjectionCalculator(), CLOCK);
+                new SpendingProjectionCalculator(), forecastService, new ForecastShadowObserver(FLAGS_OFF, forecastService, mock(PlatformTransactionManager.class)),
+                FLAGS_OFF, CLOCK);
 
         SpendingProjectionDto projection = projectionService
                 .getSpendingProjection(SALARY_WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null);
@@ -317,7 +326,8 @@ class PaydayOccurrenceRegressionTest {
                 .thenReturn(VARIABLE_EXPENSES_TO_DATE);
         SpendingProjectionService projectionService = new SpendingProjectionService(
                 transactionQueryService, walletService, periodService, fixedPaymentDashboardService,
-                new SpendingProjectionCalculator(), CLOCK);
+                new SpendingProjectionCalculator(), forecastService, new ForecastShadowObserver(FLAGS_OFF, forecastService, mock(PlatformTransactionManager.class)),
+                FLAGS_OFF, CLOCK);
 
         FixedTransactionsTileDto page = fixedPaymentDashboardService
                 .getFixedPaymentsTileDataForCurrentPeriod(SALARY_WALLET_ID, USER_ID);

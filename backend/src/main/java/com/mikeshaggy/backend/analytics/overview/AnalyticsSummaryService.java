@@ -14,6 +14,7 @@ import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
 import com.mikeshaggy.backend.common.period.PeriodService;
+import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,11 +43,14 @@ public class AnalyticsSummaryService {
     public AnalyticsSummaryDto getSummary(Integer walletId, UUID userId,
                                           PeriodType periodType,
                                           LocalDate startDate, LocalDate endDate) {
-        walletService.getWalletEntityByIdForUser(walletId, userId);
+        Wallet wallet = walletService.getWalletEntityByIdForUser(walletId, userId);
+        ResolvedPeriods resolvedPeriods = periodService.resolvePeriods(
+                periodType, walletId, userId, startDate, endDate);
 
-        // ── 1. Projection data (covers forecast KPIs + period window) ─────────
+        // ── 1. Projection data (covers forecast KPIs + period window) — legacy-only path: the overview is
+        //       neither the dashboard nor the projection endpoint, so Forecast v2 is not computed or shadowed here
         SpendingProjectionDto proj = spendingProjectionService.getSpendingProjection(
-                walletId, userId, periodType, startDate, endDate);
+                wallet, userId, resolvedPeriods.primary(), null);
 
         // ── 2. Top spending category ──────────────────────────────────────────
         CategoryAggregationResult categoryResult = categoryAggregationService.aggregateExpenses(
@@ -59,8 +63,6 @@ public class AnalyticsSummaryService {
                 walletId, userId, proj.startDate(), proj.endDate());
 
         // ── 4. Comparison (vs previous equivalent period) ─────────────────────
-        ResolvedPeriods resolvedPeriods = periodService.resolvePeriods(
-                periodType, walletId, userId, startDate, endDate);
         PeriodDto compare = resolvedPeriods.compare();
 
         BigDecimal compareExpenses = compare == null

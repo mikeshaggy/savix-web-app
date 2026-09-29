@@ -1,24 +1,34 @@
 package com.mikeshaggy.backend.analytics.forecast;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.category.domain.CategoryType;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.PeriodService;
+import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedProgressDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.dto.RiskIndicatorDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
+import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -32,9 +42,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,14 +69,18 @@ class SpendingProjectionServiceTest {
     @Mock
     private FixedPaymentDashboardService fixedPaymentDashboardService;
 
+    @Mock
+    private ForecastService forecastService;
+
+    /** Both Forecast v2 flags off unless a test says otherwise: the legacy behaviour these tests pin. */
+    private FeatureFlags featureFlags = new FeatureFlags(false, false, false, false, false);
+
     private SpendingProjectionService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T10:00:00Z"), ZoneOffset.UTC);
-        service = new SpendingProjectionService(
-                transactionQueryService, walletService, periodService,
-                fixedPaymentDashboardService, new SpendingProjectionCalculator(), clock);
+        service = serviceWithClock(clock);
         Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("1000.00")).build();
         lenient().when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID)).thenReturn(wallet);
         lenient().when(fixedPaymentDashboardService.getFixedPaymentsTileData(
@@ -500,6 +517,191 @@ class SpendingProjectionServiceTest {
     }
 
     /** pay-cycle-v2 shape of the salary wallet's open cycle: end = next payday − 1, state OPEN. */
+    // --- Stage 4.7 / 4.8: Forecast v2 policy on the two consumer paths and the legacy-only path ---------
+
+    @Nested
+    class ForecastV2Policy {
+
+        private final ListAppender<ILoggingEvent> shadowLog = new ListAppender<>();
+        private Logger shadowLogger;
+        private final ForecastV2Dto v2 = September2026Fixture.forecastV2Dto();
+        private final PeriodDto openCycle = openCycle(LocalDate.of(2026, 5, 10), LocalDate.of(2026, 6, 9));
+
+        @BeforeEach
+        void captureShadowLog() {
+            shadowLogger = (Logger) LoggerFactory.getLogger(ForecastShadowObserver.class);
+            shadowLog.start();
+            shadowLogger.addAppender(shadowLog);
+            lenient().when(forecastService.isApplicable(any())).thenCallRealMethod();
+            sums(new BigDecimal("5000.00"), new BigDecimal("5000.00"), new BigDecimal("1850.00"));
+            lenient().when(fixedPaymentDashboardService.getFixedPaymentsTileData(
+                            any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
+                    .thenReturn(fixedTile(new BigDecimal("350.00")));
+        }
+
+        @AfterEach
+        void releaseShadowLog() {
+            shadowLogger.detachAppender(shadowLog);
+            shadowLog.stop();
+        }
+
+        private SpendingProjectionService withFlags(boolean forecastV2, boolean shadow) {
+            featureFlags = new FeatureFlags(false, forecastV2, shadow, false, false);
+            return serviceWithClock(Clock.fixed(Instant.parse("2026-05-19T10:00:00Z"), ZoneOffset.UTC));
+        }
+
+        private SpendingProjectionDto endpoint(SpendingProjectionService svc, PeriodDto period) {
+            when(periodService.resolve(eq(period.periodType()), eq(WALLET_ID), eq(USER_ID), any(), any())).thenReturn(period);
+            return svc.getSpendingProjection(WALLET_ID, USER_ID, period.periodType(), null, null);
+        }
+
+        @Test
+        void bothOff_legacyPayloadForecastNullNoV2ComputeNoLine() {
+            SpendingProjectionDto result = endpoint(withFlags(false, false), openCycle);
+
+            assertThat(result.forecast()).isNull();
+            assertThat(result.safeToSpendToday()).isEqualByComparingTo("-3235.00");
+            verify(forecastService, never()).forecast(any(), any(), any(), any(), any());
+            assertThat(shadowLog.list).isEmpty();
+        }
+
+        @Test
+        void v2On_forecastPresentForTheOpenSalaryCycleLegacyFieldsUnchangedNoLine() {
+            SpendingProjectionDto legacy = endpoint(withFlags(false, false), openCycle);
+            FixedTransactionsTileDto tile = fixedTile(new BigDecimal("350.00"));
+            when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
+                    .thenReturn(tile);
+            when(forecastService.forecast(any(Wallet.class), eq(USER_ID), eq(openCycle), eq(TODAY), any())).thenReturn(v2);
+
+            SpendingProjectionDto result = endpoint(withFlags(true, false), openCycle);
+
+            assertThat(result.forecast()).isSameAs(v2);
+            assertThat(result.forecast().status()).isEqualTo(ForecastStatus.FINE);
+            assertThat(result.forecast().oneOffs().getFirst().shareOfVariable()).isEqualByComparingTo("19.33");
+            // every legacy field is what the flag-off payload carried
+            assertThat(result.withForecast(null)).isEqualTo(legacy);
+            assertThat(result.safeToSpendToday()).isEqualByComparingTo("-3235.00");
+            assertThat(shadowLog.list).isEmpty();
+            // the tile loaded for the legacy figures is the one handed to the orchestrator — once per request
+            // (two requests in this test: the flag-off reference and the flag-on call)
+            verify(fixedPaymentDashboardService, times(2)).getFixedPaymentsTileData(any(), any(Wallet.class), any(), any());
+            verify(forecastService).forecast(any(Wallet.class), eq(USER_ID), eq(openCycle), eq(TODAY), same(tile));
+        }
+
+        @Test
+        void v2On_reportingPeriodsAndSavingsWalletStayForecastNull() {
+            SpendingProjectionService svc = withFlags(true, false);
+
+            PeriodDto monthly = PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), LocalDate.of(2026, 6, 1), PeriodType.MONTHLY);
+            assertThat(endpoint(svc, monthly).forecast()).isNull();
+            PeriodDto custom = PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 18), LocalDate.of(2026, 5, 19), PeriodType.CUSTOM);
+            assertThat(endpoint(svc, custom).forecast()).isNull();
+            PeriodDto last = new PeriodDto(LocalDate.of(2026, 4, 10), LocalDate.of(2026, 5, 9), LocalDate.of(2026, 5, 10),
+                    PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED, null, true);
+            assertThat(endpoint(svc, last).forecast()).isNull();
+            // a savings wallet under pay-cycle-v2 resolves to the calendar month typed MONTHLY, salaryWallet = false
+            PeriodDto savings = new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31), LocalDate.of(2026, 6, 1),
+                    PeriodType.MONTHLY, null, null, false);
+            assertThat(endpoint(svc, savings).forecast()).isNull();
+            assertThat(shadowLog.list).isEmpty();
+        }
+
+        @Test
+        void shadowOnV2Off_legacyPayloadUnchangedForecastAbsentExactlyOneLine() {
+            SpendingProjectionDto legacy = endpoint(withFlags(false, false), openCycle);
+            when(forecastService.forecast(any(Wallet.class), eq(USER_ID), eq(openCycle), eq(TODAY), any())).thenReturn(v2);
+
+            SpendingProjectionDto result = endpoint(withFlags(false, true), openCycle);
+
+            assertThat(result.forecast()).isNull();
+            assertThat(result).isEqualTo(legacy);
+            verify(forecastService, times(1)).forecast(any(), any(), any(), any(), any());
+            assertThat(shadowLog.list).hasSize(1);
+            String line = shadowLog.list.getFirst().getFormattedMessage();
+            assertThat(line).startsWith("forecast.shadow ")
+                    .contains(" legacyStatus=DANGER")
+                    .contains(" legacySafeToSpend=-3235.00")
+                    .contains(" legacyProjectedEnd=-1085.00")
+                    .contains(" v2Status=FINE")
+                    .contains(" v2Discretionary=5102.62")
+                    .contains(" v2Typical=1232.48")
+                    .contains(" v2Low=425.42")
+                    .contains(" v2High=2008.30")
+                    .contains(" cyclesUsed=3")
+                    .contains(" wHist=0.8000")
+                    .contains(" oneOffs=2[");
+        }
+
+        @Test
+        void shadowOnV2Off_aFailingV2ComputationLeavesTheLegacyResponseIntact() {
+            SpendingProjectionDto legacy = endpoint(withFlags(false, false), openCycle);
+            when(forecastService.forecast(any(), any(), any(), any(), any()))
+                    .thenThrow(new IllegalStateException("shadow boom"));
+
+            SpendingProjectionDto result = endpoint(withFlags(false, true), openCycle);
+
+            assertThat(result).isEqualTo(legacy);
+            assertThat(result.forecast()).isNull();
+            assertThat(shadowLog.list).hasSize(1);
+            assertThat(shadowLog.list.getFirst().getLevel()).isEqualTo(Level.WARN);
+            assertThat(shadowLog.list.getFirst().getFormattedMessage()).startsWith("forecast.shadow failed")
+                    .contains("shadow boom");
+        }
+
+        @Test
+        void v2On_aFailingActiveComputationPropagates() {
+            when(forecastService.forecast(any(), any(), any(), any(), any()))
+                    .thenThrow(new IllegalStateException("active boom"));
+
+            assertThatThrownBy(() -> endpoint(withFlags(true, false), openCycle))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("active boom");
+            assertThat(shadowLog.list).isEmpty();
+        }
+
+        @Test
+        void bothOn_activeV2IsAuthoritativeAndNothingIsShadowLogged() {
+            when(forecastService.forecast(any(Wallet.class), eq(USER_ID), eq(openCycle), eq(TODAY), any())).thenReturn(v2);
+
+            SpendingProjectionDto result = endpoint(withFlags(true, true), openCycle);
+
+            assertThat(result.forecast()).isSameAs(v2);
+            verify(forecastService, times(1)).forecast(any(), any(), any(), any(), any());
+            assertThat(shadowLog.list).isEmpty();
+        }
+
+        @Test
+        void dashboardPath_sharesTheCallersTileAndNeverLogs() {
+            FixedTransactionsTileDto tile = fixedTile(new BigDecimal("350.00"));
+            Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("1000.00")).build();
+            when(forecastService.forecast(wallet, USER_ID, openCycle, TODAY, tile)).thenReturn(v2);
+
+            SpendingProjectionDto active = withFlags(true, true).getSpendingProjection(wallet, USER_ID, openCycle, TODAY, tile);
+            SpendingProjectionDto shadow = withFlags(false, true).getSpendingProjection(wallet, USER_ID, openCycle, TODAY, tile);
+
+            assertThat(active.forecast()).isSameAs(v2);
+            assertThat(active.remainingFixedPayments()).isEqualByComparingTo("350.00");
+            assertThat(shadow.forecast()).isNull();
+            assertThat(shadow).isEqualTo(active.withForecast(null));
+            // the dashboard emits the shadow line itself: this path computes v2 only when the flag is on
+            verify(forecastService, times(1)).forecast(any(), any(), any(), any(), any());
+            verify(fixedPaymentDashboardService, never()).getFixedPaymentsTileData(any(), any(Wallet.class), any(), any());
+            assertThat(shadowLog.list).isEmpty();
+        }
+
+        @Test
+        void legacyOnlyPath_neverComputesV2WhateverTheFlags() {
+            Wallet wallet = Wallet.builder().id(WALLET_ID).balance(new BigDecimal("1000.00")).build();
+
+            SpendingProjectionDto result = withFlags(true, true).getSpendingProjection(wallet, USER_ID, openCycle, TODAY);
+
+            assertThat(result.forecast()).isNull();
+            assertThat(result.projectionAvailable()).isTrue();
+            verify(forecastService, never()).forecast(any(), any(), any(), any(), any());
+            assertThat(shadowLog.list).isEmpty();
+        }
+    }
+
     private static PeriodDto openCycle(LocalDate start, LocalDate end) {
         return new PeriodDto(start, end, end.plusDays(1), PeriodType.PAY_CYCLE, CycleState.OPEN, end.plusDays(1), true);
     }
@@ -534,9 +736,14 @@ class SpendingProjectionServiceTest {
 
     private SpendingProjectionService serviceWithDate(LocalDate date) {
         Clock clock = Clock.fixed(date.atStartOfDay().toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+        return serviceWithClock(clock);
+    }
+
+    private SpendingProjectionService serviceWithClock(Clock clock) {
         return new SpendingProjectionService(
                 transactionQueryService, walletService, periodService,
-                fixedPaymentDashboardService, new SpendingProjectionCalculator(), clock);
+                fixedPaymentDashboardService, new SpendingProjectionCalculator(),
+                forecastService, new ForecastShadowObserver(featureFlags, forecastService, mock(PlatformTransactionManager.class)), featureFlags, clock);
     }
 
     private FixedTransactionsTileDto fixedTile(BigDecimal remainingAmount) {

@@ -7,6 +7,8 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.budget.domain.CategoryBudget;
 import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
 import com.mikeshaggy.backend.common.calculation.budget.BudgetUsageCalculator;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
+import com.mikeshaggy.backend.analytics.forecast.ForecastV2Dto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
@@ -77,6 +79,7 @@ public class DashboardSummaryService {
     private final WalletService walletService;
     private final AnalyticsTransactionQueryService transactionQueryService;
     private final SpendingProjectionService spendingProjectionService;
+    private final ForecastShadowObserver forecastShadowObserver;
     private final FixedPaymentDashboardService fixedPaymentDashboardService;
     private final InsightEngine insightEngine;
     private final CategoryAggregationService categoryAggregationService;
@@ -122,9 +125,10 @@ public class DashboardSummaryService {
         FixedTransactionsTileDto fixedPaymentsTile = fixedPaymentsShown
                 ? fixedPaymentDashboardService.getFixedPaymentsTileData(primary, wallet, userId, cutoffDate)
                 : null;
+        // one projection per request: legacy figures plus, with forecast-v2 on, the Forecast v2 result the
+        // cycle-health verdict below is read from (Stage 4.7)
         SpendingProjectionDto projection = spendingProjectionService.getSpendingProjection(
-                wallet, userId, primary, cutoffDate,
-                fixedPaymentsTile == null ? null : fixedPaymentsTile.summary().remainingAmount());
+                wallet, userId, primary, cutoffDate, fixedPaymentsTile);
         CategoryAggregationResult currentCategories = categoryAggregationService.aggregateExpenses(
                 walletId, userId, primary.startDate(), cutoffDate, resolvedCategoryMode);
         CategoryAggregationResult compareCategories = comparison.available()
@@ -152,6 +156,10 @@ public class DashboardSummaryService {
         DeltaCalculator.Delta expensesDelta = delta(
                 currentSnapshot.expenses(), compareSnapshot.expenses(), comparison.available());
         DashboardCycleHealthDto cycleHealth = cycleHealth(primary, wallet.getBalance(), projection, expensesDelta);
+        // Stage 4.8 shadow mode: compare v2 against the legacy verdict just derived — a no-op unless
+        // forecast-v2-shadow is on and forecast-v2 off; never touches the response
+        forecastShadowObserver.observe(wallet, userId, primary, cutoffDate, fixedPaymentsTile, projection,
+                cycleHealth == null || cycleHealth.status() == null ? null : cycleHealth.status().name());
         DashboardPeriodDto period = period(primary, cutoffDate, cutoffDate, periodEnd, comparison);
         DashboardFixedPaymentsDto fixedPayments = fixedPaymentsTile == null ? null : fixedPayments(fixedPaymentsTile);
         DashboardPreviousCyclePreviewDto previousCyclePreview = previousCyclePreview(
@@ -225,6 +233,10 @@ public class DashboardSummaryService {
      * A health verdict exists only for the salary wallet's open pay cycle. Reporting periods (MONTHLY, CUSTOM,
      * LAST_PAY_CYCLE), non-salary wallets and legacy-resolved cycles get {@code null}; a cycle awaiting its salary
      * gets a verdict-less shell carrying the current balance and the reason.
+     * <p>
+     * {@code projection.forecast()} is non-null exactly when {@code forecast-v2} is on and the period is
+     * applicable (the flag is read in {@code SpendingProjectionService} only). Then the legacy {@code status} is
+     * {@code null} and {@code forecastStatus} carries the verdict (Stage 4.7); the legacy figures stay populated.
      */
     private DashboardCycleHealthDto cycleHealth(PeriodDto primary,
                                                 BigDecimal currentBalance,
@@ -233,16 +245,19 @@ public class DashboardSummaryService {
         if (primary.periodType() != PeriodType.PAY_CYCLE || !Boolean.TRUE.equals(primary.salaryWallet())) {
             return null;
         }
+        ForecastV2Dto forecast = projection.forecast();
         if (primary.cycleState() == CycleState.AWAITING_SALARY) {
-            return new DashboardCycleHealthDto(
+            DashboardCycleHealthDto awaiting = new DashboardCycleHealthDto(
                     null, money(currentBalance), null, null, null, null, null,
                     false, SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+            // no verdict either way; v2 contributes the obligation-side figures it can still state
+            return forecast == null ? awaiting : withForecast(awaiting, forecast);
         }
         if (primary.cycleState() != CycleState.OPEN || !projection.projectionAvailable()) {
             return null;
         }
-        DashboardHealthStatus status = healthStatus(projection, expensesDelta.percent());
-        return new DashboardCycleHealthDto(
+        DashboardHealthStatus status = forecast == null ? healthStatus(projection, expensesDelta.percent()) : null;
+        DashboardCycleHealthDto legacy = new DashboardCycleHealthDto(
                 status,
                 money(currentBalance),
                 projection.safeToSpendToday(),
@@ -252,6 +267,29 @@ public class DashboardSummaryService {
                 expensesDelta.percent(),
                 projection.projectionAvailable(),
                 projection.projectionReason());
+        return forecast == null ? legacy : withForecast(legacy, forecast);
+    }
+
+    private static DashboardCycleHealthDto withForecast(DashboardCycleHealthDto health, ForecastV2Dto forecast) {
+        return new DashboardCycleHealthDto(
+                health.status(),
+                health.currentBalance(),
+                health.safeToSpend(),
+                health.safeToSpendPerDay(),
+                health.projectedEndBalance(),
+                health.spendingPaceDeltaAmount(),
+                health.spendingPaceDeltaPercent(),
+                health.projectionAvailable(),
+                health.projectionReason(),
+                forecast.status(),
+                forecast.discretionaryNow(),
+                forecast.discretionaryPerDay(),
+                forecast.expectedEndBalanceTypical(),
+                forecast.expectedEndBalanceLow(),
+                forecast.expectedEndBalanceHigh(),
+                forecast.confidence(),
+                forecast.oneOffs().size(),
+                forecast.committed());
     }
 
     private DashboardHealthStatus healthStatus(SpendingProjectionDto projection, BigDecimal spendingPaceDeltaPercent) {

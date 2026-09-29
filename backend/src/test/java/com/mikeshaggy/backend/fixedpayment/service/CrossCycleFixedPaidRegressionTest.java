@@ -1,11 +1,16 @@
 package com.mikeshaggy.backend.fixedpayment.service;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import com.mikeshaggy.backend.config.FeatureFlags;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
+import com.mikeshaggy.backend.analytics.forecast.ForecastService;
 import static com.mikeshaggy.backend.regression.September2026Fixture.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator;
@@ -56,6 +61,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 class CrossCycleFixedPaidRegressionTest {
+
+    /** Legacy-only regression: both Forecast v2 flags off, the orchestrator is never called. */
+    private static final FeatureFlags FLAGS_OFF = new FeatureFlags(false, false, false, false, false);
+    private final ForecastService forecastService = mock(ForecastService.class);
 
     // current cycle Sep 9 → Oct 8 (expected payday Oct 9); previous cycle Aug 10 → Sep 8; today Sep 14
     private static final LocalDate RENT_DUE = LocalDate.of(2026, 9, 10);      // current cycle
@@ -138,7 +147,8 @@ class CrossCycleFixedPaidRegressionTest {
                 walletService, transactionService, periodService, payCycleService, CLOCK);
         projectionService = new SpendingProjectionService(
                 transactionQueryService, walletService, periodService, fixedPaymentDashboardService,
-                new SpendingProjectionCalculator(), CLOCK);
+                new SpendingProjectionCalculator(), forecastService, new ForecastShadowObserver(FLAGS_OFF, forecastService, mock(PlatformTransactionManager.class)),
+                FLAGS_OFF, CLOCK);
     }
 
     @Test

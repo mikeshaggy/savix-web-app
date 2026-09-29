@@ -1,5 +1,9 @@
 package com.mikeshaggy.backend.regression;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import com.mikeshaggy.backend.config.FeatureFlags;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
+import com.mikeshaggy.backend.analytics.forecast.ForecastService;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator;
@@ -53,6 +57,7 @@ import static com.mikeshaggy.backend.regression.September2026Fixture.projectionI
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -157,18 +162,26 @@ class LegacyForecastCharacterizationTest {
         private CategoryBudgetRepository categoryBudgetRepository;
 
         private DashboardSummaryService dashboardSummaryService() {
+            // legacy characterization: both Forecast v2 flags off, the v2 orchestrator is never invoked
+            FeatureFlags flagsOff = new FeatureFlags(false, false, false, false, false);
+            ForecastService forecastService = mock(ForecastService.class);
+            ForecastShadowObserver shadowObserver = new ForecastShadowObserver(flagsOff, forecastService, mock(PlatformTransactionManager.class));
             SpendingProjectionService spendingProjectionService = new SpendingProjectionService(
                     transactionQueryService,
                     walletService,
                     periodService,
                     fixedPaymentDashboardService,
                     new SpendingProjectionCalculator(),
+                    forecastService,
+                    shadowObserver,
+                    flagsOff,
                     CLOCK);
             return new DashboardSummaryService(
                     periodService,
                     walletService,
                     transactionQueryService,
                     spendingProjectionService,
+                    shadowObserver,
                     fixedPaymentDashboardService,
                     insightEngine,
                     categoryAggregationService,

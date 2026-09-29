@@ -481,7 +481,7 @@ class InsightEngineTest {
                 safeTotal,
                 perDay,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                true, null);
+                true, null, null);
     }
 
     /** A reporting-only projection (MONTHLY / CUSTOM / closed cycle): no safe-to-spend, no verdict material. */
@@ -494,7 +494,7 @@ class InsightEngineTest {
                 null, null, BigDecimal.ZERO,
                 null, null,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null,
-                false, "REPORTING_PERIOD");
+                false, "REPORTING_PERIOD", null);
     }
 
     private CategoryBreakdownProjection category(Integer categoryId, String name, String amount) {

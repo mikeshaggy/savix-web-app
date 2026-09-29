@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -104,8 +105,9 @@ class AnalyticsRegressionSafetyTest {
                 categoryAggregationService,
                 new OverviewStatusCalculator());
         // Stage 2: only the salary wallet's OPEN pay cycle carries a projection; the Overview is fed PAY_CYCLE
+        // (Stage 4.7: through the legacy-only overload — the overview never computes Forecast v2)
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), isNull()))
                 .thenReturn(new SpendingProjectionDto(
                         PeriodType.PAY_CYCLE,
                         "Current pay cycle",
@@ -128,6 +130,7 @@ class AnalyticsRegressionSafetyTest {
                         new BigDecimal("38.71"),
                         BigDecimal.ZERO,
                         true,
+                        null,
                         null));
         when(categoryAggregationService.aggregateExpenses(
                 WALLET_ID, USER_ID, CURRENT_START, CURRENT_END, CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES))

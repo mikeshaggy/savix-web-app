@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -82,9 +83,9 @@ class AnalyticsSummaryServiceTest {
                 BigDecimal.ZERO,
                 null, null,
                 new BigDecimal("2200.00"), BigDecimal.ZERO, new BigDecimal("110.00"), null,
-                false, "REPORTING_PERIOD");
+                false, "REPORTING_PERIOD", null);
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.MONTHLY, null, null))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), isNull()))
                 .thenReturn(reportingProjection);
         when(periodService.resolvePeriods(PeriodType.MONTHLY, WALLET_ID, USER_ID, null, null))
                 .thenReturn(new ResolvedPeriods(
@@ -119,9 +120,9 @@ class AnalyticsSummaryServiceTest {
                 BigDecimal.ZERO,
                 null, null,
                 new BigDecimal("2900.00"), BigDecimal.ZERO, new BigDecimal("93.55"), null,
-                false, "AWAITING_SALARY");
+                false, "AWAITING_SALARY", null);
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), isNull()))
                 .thenReturn(awaitingProjection);
         when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
                 .thenReturn(new ResolvedPeriods(
@@ -146,9 +147,9 @@ class AnalyticsSummaryServiceTest {
                 BigDecimal.ZERO,
                 new BigDecimal("590.00"), new BigDecimal("53.64"),
                 new BigDecimal("2200.00"), BigDecimal.ZERO, new BigDecimal("110.00"), new BigDecimal("1210.00"),
-                true, null);
+                true, null, null);
         when(spendingProjectionService.getSpendingProjection(
-                WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), isNull()))
                 .thenReturn(openProjection);
         when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
                 .thenReturn(new ResolvedPeriods(

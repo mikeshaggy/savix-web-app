@@ -4,6 +4,7 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationService;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
@@ -60,6 +61,9 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
 
     @Mock
     private SpendingProjectionService spendingProjectionService;
+
+    @Mock
+    private ForecastShadowObserver forecastShadowObserver;
 
     @Mock
     private FixedPaymentDashboardService fixedPaymentDashboardService;
@@ -131,9 +135,9 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
                 BigDecimal.ZERO, new BigDecimal("300.00"), new BigDecimal("150.00"),
                 new BigDecimal("1200.00"), BigDecimal.ZERO,
                 new BigDecimal("60.00"), new BigDecimal("660.00"),
-                true, null);
+                true, null, null);
         when(spendingProjectionService.getSpendingProjection(
-                any(Wallet.class), any(UUID.class), any(PeriodDto.class), any(LocalDate.class), any(BigDecimal.class)))
+                any(Wallet.class), any(UUID.class), any(PeriodDto.class), any(LocalDate.class), any()))
                 .thenReturn(projection);
 
         CategoryAggregation groceriesAgg = new CategoryAggregation(

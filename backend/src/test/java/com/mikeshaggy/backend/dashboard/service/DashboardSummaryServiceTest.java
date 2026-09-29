@@ -4,6 +4,10 @@ import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator;
+import com.mikeshaggy.backend.analytics.forecast.ForecastShadowObserver;
+import com.mikeshaggy.backend.analytics.forecast.ForecastConfidence;
+import com.mikeshaggy.backend.analytics.forecast.ForecastStatus;
+import com.mikeshaggy.backend.analytics.forecast.ForecastV2Dto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.analytics.insight.PrecomputedInsightData;
@@ -20,6 +24,7 @@ import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCategoryDirection;
+import com.mikeshaggy.backend.dashboard.dto.DashboardCycleHealthDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
@@ -31,9 +36,11 @@ import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
 import com.mikeshaggy.backend.fixedpayment.dto.RiskIndicatorDto;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
 import com.mikeshaggy.backend.budget.repository.CategoryBudgetRepository;
+import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -51,8 +58,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +86,9 @@ class DashboardSummaryServiceTest {
     private SpendingProjectionService spendingProjectionService;
 
     @Mock
+    private ForecastShadowObserver forecastShadowObserver;
+
+    @Mock
     private FixedPaymentDashboardService fixedPaymentDashboardService;
 
     @Mock
@@ -97,6 +109,7 @@ class DashboardSummaryServiceTest {
                 walletService,
                 transactionQueryService,
                 spendingProjectionService,
+                forecastShadowObserver,
                 fixedPaymentDashboardService,
                 insightEngine,
                 categoryAggregationService,
@@ -137,7 +150,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(fixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection("620.00", "740.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -220,7 +233,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection("100.00", "900.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -260,7 +273,7 @@ class DashboardSummaryServiceTest {
         assertThat(result.period().asOfDate()).isEqualTo(cutoff);
         assertThat(result.period().cutoffDate()).isEqualTo(cutoff);
         verify(spendingProjectionService).getSpendingProjection(
-                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any(BigDecimal.class));
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any());
         verify(fixedPaymentDashboardService).getFixedPaymentsTileData(
                 any(), any(Wallet.class), eq(USER_ID), eq(cutoff));
         assertInsightWindow(cutoff, compareCutoff);
@@ -287,7 +300,7 @@ class DashboardSummaryServiceTest {
         assertThat(result.period().daysRemaining()).isEqualTo(5);
         verify(transactionQueryService).totals(WALLET_ID, USER_ID, current.startDate(), cutoff);
         verify(spendingProjectionService).getSpendingProjection(
-                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any(BigDecimal.class));
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any());
         assertInsightWindow(cutoff, compareCutoff);
     }
 
@@ -340,7 +353,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection("620.00", "740.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -354,7 +367,7 @@ class DashboardSummaryServiceTest {
 
         verify(spendingProjectionService, org.mockito.Mockito.times(1))
                 .getSpendingProjection(any(Wallet.class), eq(USER_ID), any(PeriodDto.class),
-                        eq(LocalDate.of(2026, 5, 26)), any(BigDecimal.class));
+                        eq(LocalDate.of(2026, 5, 26)), any());
     }
 
     @Test
@@ -383,7 +396,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection("620.00", "740.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -425,7 +438,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection("620.00", "740.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -466,7 +479,7 @@ class DashboardSummaryServiceTest {
                 any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
-                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(TODAY), any(BigDecimal.class)))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(TODAY), any()))
                 .thenReturn(reportingProjection(PeriodType.PAY_CYCLE, start, expectedPayday.minusDays(1),
                         SpendingProjectionCalculator.REASON_AWAITING_SALARY));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(), eq(TODAY), any()))
@@ -611,9 +624,186 @@ class DashboardSummaryServiceTest {
     }
 
     /** One dashboard request for {@code primary} with the same stubbed totals regardless of period type. */
+    // --- Stage 4.7 / 4.8: Forecast v2 verdict family and the per-request shadow hand-off ---------------
+
+    @Nested
+    class ForecastV2 {
+
+        private final ForecastV2Dto v2 = September2026Fixture.forecastV2Dto();
+
+        @Test
+        void flagOff_legacyVerdictUnchangedAndV2FieldsAbsent() {
+            PeriodDto current = payCycle();
+            DashboardSummaryDto result = summaryFor(PeriodType.PAY_CYCLE, current, null, null);
+
+            DashboardCycleHealthDto health = result.cycleHealth();
+            assertThat(health.status()).isEqualTo(DashboardHealthStatus.ON_TRACK);
+            assertThat(health.safeToSpend()).isEqualByComparingTo("620.00");
+            assertThat(health.forecastStatus()).isNull();
+            assertThat(health.discretionaryNow()).isNull();
+            assertThat(health.discretionaryPerDay()).isNull();
+            assertThat(health.expectedEndBalanceTypical()).isNull();
+            assertThat(health.expectedEndBalanceLow()).isNull();
+            assertThat(health.expectedEndBalanceHigh()).isNull();
+            assertThat(health.confidence()).isNull();
+            assertThat(health.oneOffCount()).isNull();
+            assertThat(health.committed()).isNull();
+            // the shadow observer is handed the request exactly once, with the legacy verdict the client sees
+            verify(forecastShadowObserver, times(1)).observe(any(Wallet.class), eq(USER_ID), same(current),
+                    eq(TODAY), any(FixedTransactionsTileDto.class), any(SpendingProjectionDto.class), eq("ON_TRACK"));
+        }
+
+        @Test
+        void flagOn_legacyStatusNullAndForecastStatusCarriesTheVerdict() {
+            // "flag on" reaches the dashboard as a projection carrying the ForecastService result
+            SpendingProjectionDto projection = projection("620.00", "740.00").withForecast(v2);
+
+            DashboardSummaryDto result = summaryFor(PeriodType.PAY_CYCLE, payCycle(), null, null, projection);
+
+            DashboardCycleHealthDto health = result.cycleHealth();
+            assertThat(health.status()).isNull();
+            assertThat(health.forecastStatus()).isEqualTo(ForecastStatus.FINE);
+            assertThat(health.discretionaryNow()).isEqualByComparingTo("5102.62");
+            assertThat(health.discretionaryPerDay()).isEqualByComparingTo("212.61");
+            assertThat(health.expectedEndBalanceTypical()).isEqualByComparingTo("1232.48");
+            assertThat(health.expectedEndBalanceLow()).isEqualByComparingTo("425.42");
+            assertThat(health.expectedEndBalanceHigh()).isEqualByComparingTo("2008.30");
+            assertThat(health.confidence()).isEqualTo(ForecastConfidence.HIGH);
+            assertThat(health.oneOffCount()).isEqualTo(2);
+            assertThat(health.committed()).isEqualByComparingTo("794.27");
+            // legacy figures remain for the comparison window; only the verdict moved
+            assertThat(health.currentBalance()).isEqualByComparingTo("2500.00");
+            assertThat(health.safeToSpend()).isEqualByComparingTo("620.00");
+            assertThat(health.safeToSpendPerDay()).isEqualByComparingTo("124.00");
+            assertThat(health.projectedEndBalance()).isEqualByComparingTo("740.00");
+            assertThat(health.projectionAvailable()).isTrue();
+            // one hand-off per request; no legacy verdict to report — active v2 is authoritative
+            verify(forecastShadowObserver, times(1)).observe(any(Wallet.class), eq(USER_ID), any(PeriodDto.class),
+                    eq(TODAY), any(FixedTransactionsTileDto.class), same(projection), isNull());
+        }
+
+        @Test
+        void flagOn_shortAndTightVerdictsPassThrough() {
+            for (ForecastStatus status : List.of(ForecastStatus.TIGHT, ForecastStatus.SHORT)) {
+                org.mockito.Mockito.reset(periodService, walletService, transactionQueryService, spendingProjectionService,
+                        fixedPaymentDashboardService, insightEngine, categoryAggregationService);
+                ForecastV2Dto verdict = new ForecastV2Dto(status, v2.confidence(), v2.discretionaryNow(),
+                        v2.discretionaryPerDay(), v2.committed(), v2.expectedVariableRemaining(),
+                        v2.expectedVariableRemainingLow(), v2.expectedVariableRemainingHigh(), v2.expectedEndBalanceTypical(),
+                        v2.expectedEndBalanceLow(), v2.expectedEndBalanceHigh(), v2.trimmedDailyPace(), v2.rawDailyBurnRate(),
+                        v2.historicalTypicalPerDay(), v2.historyWeight(), v2.baselineCyclesUsed(), v2.baselineCycles(),
+                        v2.oneOffs(), v2.committedOccurrences(), null);
+                DashboardSummaryDto result = summaryFor(PeriodType.PAY_CYCLE, payCycle(), null, null,
+                        projection("-1.00", "740.00").withForecast(verdict));
+                assertThat(result.cycleHealth().status()).isNull();
+                assertThat(result.cycleHealth().forecastStatus()).isEqualTo(status);
+            }
+        }
+
+        @Test
+        void awaitingSalary_noVerdictInEitherFamilyButTheObligationSideIsStated() {
+            LocalDate start = LocalDate.of(2026, 4, 24);
+            LocalDate expectedPayday = LocalDate.of(2026, 5, 24);
+            PeriodDto awaiting = new PeriodDto(start, expectedPayday.minusDays(1), expectedPayday, PeriodType.PAY_CYCLE,
+                    CycleState.AWAITING_SALARY, expectedPayday, true);
+            ForecastV2Dto shell = new ForecastV2Dto(null, null, new BigDecimal("2318.02"), null, new BigDecimal("181.98"),
+                    null, null, null, null, null, null, null, null, null, null, null, List.of(), List.of(), List.of(),
+                    SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+            SpendingProjectionDto projection = reportingProjection(PeriodType.PAY_CYCLE, start, expectedPayday.minusDays(1),
+                    SpendingProjectionCalculator.REASON_AWAITING_SALARY).withForecast(shell);
+
+            DashboardSummaryDto result = summaryFor(PeriodType.PAY_CYCLE, awaiting, null, null, projection);
+
+            DashboardCycleHealthDto health = result.cycleHealth();
+            assertThat(health).isNotNull();
+            assertThat(health.status()).isNull();
+            assertThat(health.forecastStatus()).isNull();
+            assertThat(health.confidence()).isNull();
+            assertThat(health.projectionReason()).isEqualTo(SpendingProjectionCalculator.REASON_AWAITING_SALARY);
+            assertThat(health.projectionAvailable()).isFalse();
+            assertThat(health.committed()).isEqualByComparingTo("181.98");
+            assertThat(health.discretionaryNow()).isEqualByComparingTo("2318.02");
+            assertThat(health.discretionaryPerDay()).isNull();
+            assertThat(health.expectedEndBalanceTypical()).isNull();
+            assertThat(health.expectedEndBalanceLow()).isNull();
+            assertThat(health.expectedEndBalanceHigh()).isNull();
+            assertThat(health.oneOffCount()).isZero();
+            verify(forecastShadowObserver, times(1)).observe(any(Wallet.class), eq(USER_ID), same(awaiting), eq(TODAY),
+                    any(FixedTransactionsTileDto.class), same(projection), isNull());
+        }
+
+        @Test
+        void reportingPeriods_noForecastVerdictAndTheObserverDecidesTheyAreNotApplicable() {
+            PeriodDto month = PeriodDto.of(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                    LocalDate.of(2026, 6, 1), PeriodType.MONTHLY);
+            PeriodDto last = new PeriodDto(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30), LocalDate.of(2026, 5, 1),
+                    PeriodType.LAST_PAY_CYCLE, CycleState.CLOSED, null, true);
+            PeriodDto savingsMonth = new PeriodDto(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 31),
+                    LocalDate.of(2026, 6, 1), PeriodType.MONTHLY, null, null, false);
+
+            assertThat(summaryFor(PeriodType.MONTHLY, month, null, null).cycleHealth()).isNull();
+            org.mockito.Mockito.reset(periodService, walletService, transactionQueryService, spendingProjectionService,
+                    fixedPaymentDashboardService, insightEngine, categoryAggregationService);
+            assertThat(summaryFor(PeriodType.LAST_PAY_CYCLE, last, null, null).cycleHealth()).isNull();
+            org.mockito.Mockito.reset(periodService, walletService, transactionQueryService, spendingProjectionService,
+                    fixedPaymentDashboardService, insightEngine, categoryAggregationService);
+            assertThat(summaryFor(PeriodType.PAY_CYCLE, savingsMonth, null, null).cycleHealth()).isNull();
+
+            // every request hands off exactly once, with no legacy verdict (the observer skips non-applicable periods)
+            verify(forecastShadowObserver, times(3)).observe(any(Wallet.class), eq(USER_ID), any(PeriodDto.class), any(),
+                    any(), any(SpendingProjectionDto.class), isNull());
+        }
+
+        @Test
+        void shadowHandOffCarriesTheRealDashboardVerdictIncludingWarning() {
+            // 3100 vs 2860 last cycle is +8.39 % (no warning); a 100 % pace delta trips WARNING — the observer must
+            // see the dashboard's own verdict, not a projection-only approximation
+            PeriodDto current = payCycle();
+            PeriodDto compare = PeriodDto.of(LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 30), LocalDate.of(2026, 5, 1),
+                    PeriodType.LAST_PAY_CYCLE);
+            when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
+                    .thenReturn(Wallet.builder().id(WALLET_ID).name("Main").balance(new BigDecimal("2500.00")).build());
+            when(periodService.resolvePeriods(PeriodType.PAY_CYCLE, WALLET_ID, USER_ID, null, null))
+                    .thenReturn(new ResolvedPeriods(current, compare));
+            when(transactionQueryService.totals(WALLET_ID, USER_ID, LocalDate.of(2026, 5, 1), TODAY))
+                    .thenReturn(new AnalyticsTransactionQueryService.PeriodTotals(new BigDecimal("5000.00"), new BigDecimal("3100.00")));
+            when(transactionQueryService.totals(WALLET_ID, USER_ID, LocalDate.of(2026, 4, 1), LocalDate.of(2026, 4, 26)))
+                    .thenReturn(new AnalyticsTransactionQueryService.PeriodTotals(new BigDecimal("5000.00"), new BigDecimal("1550.00")));
+            when(fixedPaymentDashboardService.getFixedPaymentsTileData(any(), any(Wallet.class), eq(USER_ID), eq(TODAY)))
+                    .thenReturn(fixedTile());
+            when(spendingProjectionService.getSpendingProjection(any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(TODAY), any()))
+                    .thenReturn(projection("620.00", "740.00"));
+            when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(), eq(TODAY), any()))
+                    .thenReturn(new InsightResponseDto(current.startDate(), TODAY, List.of()));
+            when(categoryAggregationService.aggregateExpenses(eq(WALLET_ID), eq(USER_ID), any(), any(), any()))
+                    .thenReturn(new CategoryAggregationResult(BigDecimal.ZERO, List.of()));
+
+            DashboardSummaryDto result = service.getSummary(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, null,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+
+            assertThat(result.cycleHealth().status()).isEqualTo(DashboardHealthStatus.WARNING);
+            verify(forecastShadowObserver, times(1)).observe(any(Wallet.class), eq(USER_ID), same(current), eq(TODAY),
+                    any(FixedTransactionsTileDto.class), any(SpendingProjectionDto.class), eq("WARNING"));
+        }
+    }
+
     private DashboardSummaryDto summaryFor(PeriodType requested, PeriodDto primary, LocalDate startDate, LocalDate endDate) {
+        SpendingProjectionDto projection = primary.periodType() == PeriodType.PAY_CYCLE
+                && primary.cycleState() == CycleState.OPEN
+                ? projection("620.00", "740.00")
+                : reportingProjection(primary.periodType(), primary.startDate(), primary.endDate(),
+                        primary.periodType() == PeriodType.LAST_PAY_CYCLE
+                                ? SpendingProjectionCalculator.REASON_CLOSED_CYCLE
+                                : SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
+        return summaryFor(requested, primary, startDate, endDate, projection);
+    }
+
+    private DashboardSummaryDto summaryFor(PeriodType requested, PeriodDto primary, LocalDate startDate, LocalDate endDate,
+                                           SpendingProjectionDto projection) {
         boolean tileShown = primary.periodType() == PeriodType.PAY_CYCLE || primary.periodType() == PeriodType.LAST_PAY_CYCLE;
-        LocalDate cutoff = primary.endDate().isBefore(TODAY) ? primary.endDate() : TODAY;
+        // a cycle awaiting its salary keeps counting through today; every other period is capped at its end
+        LocalDate cutoff = primary.cycleState() != CycleState.AWAITING_SALARY && primary.endDate().isBefore(TODAY)
+                ? primary.endDate() : TODAY;
         when(walletService.getWalletEntityByIdForUser(WALLET_ID, USER_ID))
                 .thenReturn(Wallet.builder().id(WALLET_ID).name("Main").balance(new BigDecimal("2500.00")).build());
         when(periodService.resolvePeriods(requested, WALLET_ID, USER_ID, startDate, endDate))
@@ -626,13 +816,6 @@ class DashboardSummaryServiceTest {
                     any(), any(Wallet.class), eq(USER_ID), eq(cutoff)))
                     .thenReturn(fixedTile());
         }
-        SpendingProjectionDto projection = primary.periodType() == PeriodType.PAY_CYCLE
-                && primary.cycleState() == CycleState.OPEN
-                ? projection("620.00", "740.00")
-                : reportingProjection(primary.periodType(), primary.startDate(), primary.endDate(),
-                        primary.periodType() == PeriodType.LAST_PAY_CYCLE
-                                ? SpendingProjectionCalculator.REASON_CLOSED_CYCLE
-                                : SpendingProjectionCalculator.REASON_REPORTING_PERIOD);
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any()))
                 .thenReturn(projection);
@@ -679,7 +862,7 @@ class DashboardSummaryServiceTest {
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
                 any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(LocalDate.of(2026, 5, 26)),
-                any(BigDecimal.class)))
+                any()))
                 .thenReturn(projection(safeToSpend, projectedEndBalance));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(),
                 eq(LocalDate.of(2026, 5, 26)), any()))
@@ -721,6 +904,7 @@ class DashboardSummaryServiceTest {
                 new BigDecimal("119.23"),
                 new BigDecimal("596.15"),
                 true,
+                null,
                 null);
     }
 
@@ -835,7 +1019,7 @@ class DashboardSummaryServiceTest {
                 new BigDecimal("5000.00"), new BigDecimal("5000.00"), new BigDecimal("3100.00"),
                 null, null, null, BigDecimal.ZERO, null, null,
                 new BigDecimal("3100.00"), BigDecimal.ZERO, new BigDecimal("119.23"), null,
-                false, reason);
+                false, reason, null);
     }
 
     private void stubSummaryForCutoff(PeriodDto current, PeriodDto compare,
@@ -858,7 +1042,7 @@ class DashboardSummaryServiceTest {
                 any(), any(Wallet.class), eq(USER_ID), eq(cutoff)))
                 .thenReturn(emptyFixedTile());
         when(spendingProjectionService.getSpendingProjection(
-                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any(BigDecimal.class)))
+                any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any()))
                 .thenReturn(projection("620.00", "740.00"));
         when(insightEngine.getInsightsForWindow(any(Wallet.class), eq(USER_ID), any(), any(), eq(cutoff), any()))
                 .thenReturn(new InsightResponseDto(current.startDate(), cutoff, List.of()));

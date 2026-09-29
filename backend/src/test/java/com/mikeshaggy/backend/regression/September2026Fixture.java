@@ -1,5 +1,9 @@
 package com.mikeshaggy.backend.regression;
 
+import com.mikeshaggy.backend.analytics.forecast.ForecastConfidence;
+import com.mikeshaggy.backend.analytics.forecast.ForecastStatus;
+import com.mikeshaggy.backend.analytics.forecast.ForecastV2Dto;
+import com.mikeshaggy.backend.analytics.forecast.OneOffDto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.PeriodWindow;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalculator.ProjectionInput;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
@@ -101,6 +105,32 @@ public final class September2026Fixture {
     public static final BigDecimal ONE_OFF_AMOUNT = new BigDecimal("300.00");
     public static final LocalDate ONE_OFF_DATE = LocalDate.of(2026, 9, 13);
     public static final String ONE_OFF_CATEGORY = "misc";
+
+    // Forecast v2 (Stage 4.5–4.7) on the audit date, as the calculator tests pin it
+    public static final BigDecimal V2_DISCRETIONARY_NOW = new BigDecimal("5102.62");
+    public static final BigDecimal V2_DISCRETIONARY_PER_DAY = new BigDecimal("212.61");
+    public static final BigDecimal V2_EXPECTED_VARIABLE_REMAINING = new BigDecimal("3870.14");
+    public static final BigDecimal V2_EXPECTED_END_TYPICAL = new BigDecimal("1232.48");
+    public static final BigDecimal V2_EXPECTED_END_LOW = new BigDecimal("425.42");
+    public static final BigDecimal V2_EXPECTED_END_HIGH = new BigDecimal("2008.30");
+    public static final BigDecimal ONE_OFF_SHARE_OF_VARIABLE = new BigDecimal("19.33"); // percentage points of 1552.02
+
+    /**
+     * The Stage 4.7 read model of the audit-date forecast: FINE, HIGH confidence, the 300 PLN repayment listed
+     * (not excluded) next to a second, already-excluded synthetic one-off. Synthetic ids and titles only.
+     */
+    public static ForecastV2Dto forecastV2Dto() {
+        OneOffDto repayment = new OneOffDto(300L, ONE_OFF_DATE, ONE_OFF_TITLE, ONE_OFF_CATEGORY, ONE_OFF_AMOUNT,
+                ONE_OFF_SHARE_OF_VARIABLE, new BigDecimal("462.33"), new BigDecimal("462.33"), false);
+        OneOffDto excluded = new OneOffDto(301L, ONE_OFF_DATE, "FX_OTHER", ONE_OFF_CATEGORY, new BigDecimal("250.00"),
+                new BigDecimal("16.11"), new BigDecimal("0.00"), new BigDecimal("0.00"), true);
+        return new ForecastV2Dto(ForecastStatus.FINE, ForecastConfidence.HIGH,
+                V2_DISCRETIONARY_NOW, V2_DISCRETIONARY_PER_DAY, REMAINING_FIXED_PAY_CYCLE,
+                V2_EXPECTED_VARIABLE_REMAINING, new BigDecimal("4677.20"), new BigDecimal("3094.32"),
+                V2_EXPECTED_END_TYPICAL, V2_EXPECTED_END_LOW, V2_EXPECTED_END_HIGH,
+                new BigDecimal("326.20"), new BigDecimal("258.67"), LAST_CYCLE_VARIABLE_PER_DAY, new BigDecimal("0.8000"),
+                3, List.of(), List.of(repayment, excluded), List.of(), null);
+    }
 
     public record FixedOccurrence(
             String title, String category, BigDecimal plannedAmount, BigDecimal paidAmount,

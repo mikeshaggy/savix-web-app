@@ -96,6 +96,9 @@ public class HistoricalVariableSpendService {
                 walletId, userId, cycle.start(), cycle.end());
         int length = cycle.lengthDays();
         int remainingDays = Math.max(length - dayIndex, 0);
+        BigDecimal variableTotal = money(daily.stream()
+                .map(DailyTotal::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
 
         // v_c[k] for k = d+1 .. L_c; the series is 1-based by day index, the list 0-based
         BigDecimal remaining = money(daily.stream()
@@ -108,17 +111,19 @@ public class HistoricalVariableSpendService {
                 : remaining.multiply(BigDecimal.valueOf(daysRemaining))
                         .divide(BigDecimal.valueOf(remainingDays), SCALE, ROUNDING);
 
-        return new CycleContribution(cycle, length, remaining, remainingDays, remainingNormalized);
+        return new CycleContribution(cycle, length, variableTotal, remaining, remainingDays, remainingNormalized);
     }
 
     /**
      * One closed cycle's share of the baseline. {@code remainingNormalized} is {@code null} — and the cycle
      * is not counted in {@link HistoricalBaseline#cyclesUsed} — when the cycle was not longer than the current
-     * day index ({@code L_c ≤ d}: no day after {@code d} exists).
+     * day index ({@code L_c ≤ d}: no day after {@code d} exists). {@code variableTotal} (Σ of the whole cycle's
+     * pace-eligible daily series) is descriptive only — Stage 4.7 exposes it; the baseline never uses it.
      */
     public record CycleContribution(
             PayCycle cycle,
             int cycleLength,
+            BigDecimal variableTotal,
             BigDecimal remaining,
             int remainingDays,
             BigDecimal remainingNormalized) {

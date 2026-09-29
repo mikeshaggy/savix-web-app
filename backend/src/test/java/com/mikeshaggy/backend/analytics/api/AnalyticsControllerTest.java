@@ -35,6 +35,7 @@ import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownService;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
 import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
+import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
@@ -392,6 +393,49 @@ class AnalyticsControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Wallet not found with id: 77"));
         }
+
+        @Test
+        void forecastAbsent_serialisesAsExplicitJsonNull() throws Exception {
+            // Stage 4.7 AC-5: forecast-v2 off (or not applicable) leaves `forecast` null on the wire, same
+            // NON_NULL-less contract as the legacy fields above.
+            when(spendingProjectionService.getSpendingProjection(
+                    eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE), isNull(), isNull()))
+                    .thenReturn(projection(PeriodType.PAY_CYCLE));
+
+            mockMvc.perform(get("/api/wallets/1/analytics/projections"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.forecast").value(nullValue()));
+        }
+
+        @Test
+        void forecastPresent_serialisesTheV2ShapeWithNoEntitiesAndPercentagePointShare() throws Exception {
+            // Stage 4.7 AC-1/AC-5: with forecast-v2 on, `forecast` carries the pure DTO tree (no entities), and
+            // `oneOffs[].shareOfVariable` is a percentage-point figure (19.33 = 19.33 %), not a fraction.
+            SpendingProjectionDto response = projection(PeriodType.PAY_CYCLE).withForecast(September2026Fixture.forecastV2Dto());
+            when(spendingProjectionService.getSpendingProjection(
+                    eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE), isNull(), isNull()))
+                    .thenReturn(response);
+
+            mockMvc.perform(get("/api/wallets/1/analytics/projections"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.forecast").exists())
+                    .andExpect(jsonPath("$.forecast.status").value("FINE"))
+                    .andExpect(jsonPath("$.forecast.confidence").value("HIGH"))
+                    .andExpect(jsonPath("$.forecast.discretionaryNow").value(5102.62))
+                    .andExpect(jsonPath("$.forecast.committed").value(794.27))
+                    .andExpect(jsonPath("$.forecast.historyWeight").value(0.8000))
+                    .andExpect(jsonPath("$.forecast.baselineCyclesUsed").value(3))
+                    .andExpect(jsonPath("$.forecast.projectionReason").value(nullValue()))
+                    .andExpect(jsonPath("$.forecast.oneOffs.length()").value(2))
+                    .andExpect(jsonPath("$.forecast.oneOffs[0].transactionId").value(300))
+                    .andExpect(jsonPath("$.forecast.oneOffs[0].shareOfVariable").value(19.33))
+                    .andExpect(jsonPath("$.forecast.oneOffs[0].excluded").value(false))
+                    .andExpect(jsonPath("$.forecast.oneOffs[1].excluded").value(true))
+                    .andExpect(jsonPath("$.forecast.committedOccurrences").isArray())
+                    // pure read-model fields only — never an entity id/class discriminator
+                    .andExpect(jsonPath("$.forecast.oneOffs[0].transactionEntity").doesNotExist())
+                    .andExpect(jsonPath("$.forecast.oneOffs[0].category").doesNotExist());
+        }
     }
 
     @Nested
@@ -612,6 +656,7 @@ class AnalyticsControllerTest {
                 new BigDecimal("185.00"),
                 new BigDecimal("3885.00"),
                 true,
+                null,
                 null);
     }
 
@@ -638,7 +683,8 @@ class AnalyticsControllerTest {
                 new BigDecimal("92.50"),
                 null,
                 false,
-                "REPORTING_PERIOD");
+                "REPORTING_PERIOD",
+                null);
     }
 
     private CategoryBreakdownDto categoryBreakdown(PeriodType periodType) {
