@@ -11,6 +11,7 @@ import com.mikeshaggy.backend.auth.service.JwtService;
 import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.ledger.domain.SourceType;
+import com.mikeshaggy.backend.ledger.dto.BalanceSparklineResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryChartPointResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistorySummaryResponse;
@@ -18,6 +19,7 @@ import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelineEntryRespon
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelineGroupResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryTimelinePaginationResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletEntryResponse;
+import com.mikeshaggy.backend.ledger.service.BalanceSparklineService;
 import com.mikeshaggy.backend.ledger.service.WalletEntryService;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -43,6 +45,9 @@ class WalletEntryControllerTest {
 
     @MockitoBean
     private WalletEntryService walletEntryService;
+
+    @MockitoBean
+    private BalanceSparklineService balanceSparklineService;
 
     @MockitoBean
     private CurrentUserProvider currentUserProvider;
@@ -136,5 +141,66 @@ class WalletEntryControllerTest {
                 .andExpect(jsonPath("$.timeline[0].entries[0].sourceLabel").value("Transaction"))
                 .andExpect(jsonPath("$.timeline[0].entries[0].sourceReference").value("#55"))
                 .andExpect(jsonPath("$.timelinePagination.currentPage").value(0));
+    }
+
+    @Test
+    void getBalanceSparkline_defaultsToNinetyDaysAndSerializesContract() throws Exception {
+        // given
+        BalanceSparklineResponse response =
+                new BalanceSparklineResponse(
+                        1,
+                        LocalDate.of(2026, 6, 17),
+                        LocalDate.of(2026, 9, 14),
+                        List.of(new BalanceSparklineResponse.Point(LocalDate.of(2026, 9, 14), new BigDecimal("5896.89"))),
+                        List.of(LocalDate.of(2026, 9, 9)),
+                        List.of(new BalanceSparklineResponse.CycleMinimum(
+                                LocalDate.of(2026, 8, 10),
+                                LocalDate.of(2026, 9, 8),
+                                new BigDecimal("-93.29"),
+                                LocalDate.of(2026, 9, 5))));
+        when(balanceSparklineService.getSparkline(1, TEST_USER_ID, 90)).thenReturn(response);
+
+        // when / then
+        mockMvc.perform(get("/api/wallet-entries/wallet/1/balance-history/sparkline"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.walletId").value(1))
+                .andExpect(jsonPath("$.from").value("2026-06-17"))
+                .andExpect(jsonPath("$.to").value("2026-09-14"))
+                .andExpect(jsonPath("$.points[0].date").value("2026-09-14"))
+                .andExpect(jsonPath("$.points[0].balance").value(5896.89))
+                .andExpect(jsonPath("$.paydays[0]").value("2026-09-09"))
+                .andExpect(jsonPath("$.cycleMinima[0].cycleStart").value("2026-08-10"))
+                .andExpect(jsonPath("$.cycleMinima[0].cycleEnd").value("2026-09-08"))
+                .andExpect(jsonPath("$.cycleMinima[0].minBalance").value(-93.29))
+                .andExpect(jsonPath("$.cycleMinima[0].date").value("2026-09-05"));
+    }
+
+    @Test
+    void getBalanceSparkline_passesDaysAndMapsInvalidDaysToBadRequest() throws Exception {
+        // given
+        when(balanceSparklineService.getSparkline(1, TEST_USER_ID, 400))
+                .thenThrow(new IllegalArgumentException("days must be between 1 and 366"));
+
+        // when / then
+        mockMvc.perform(get("/api/wallet-entries/wallet/1/balance-history/sparkline").param("days", "400"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("days must be between 1 and 366"));
+    }
+
+    @Test
+    void getBalanceSparkline_foreignWalletIsNotFound() throws Exception {
+        // given
+        when(balanceSparklineService.getSparkline(99, TEST_USER_ID, 90))
+                .thenThrow(new jakarta.persistence.EntityNotFoundException("Wallet not found with id: 99"));
+
+        // when / then
+        mockMvc.perform(get("/api/wallet-entries/wallet/99/balance-history/sparkline"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getBalanceSparkline_nonNumericDaysIsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/wallet-entries/wallet/1/balance-history/sparkline").param("days", "abc"))
+                .andExpect(status().isBadRequest());
     }
 }

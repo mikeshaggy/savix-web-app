@@ -3,8 +3,10 @@ package com.mikeshaggy.backend.transfer.api;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.transfer.dto.TransferCreateRequest;
 import com.mikeshaggy.backend.transfer.dto.TransferResponse;
+import com.mikeshaggy.backend.transfer.dto.TransferSummaryResponse;
 import com.mikeshaggy.backend.transfer.dto.TransferUpdateRequest;
 import com.mikeshaggy.backend.transfer.service.TransferService;
+import com.mikeshaggy.backend.transfer.service.TransferSummaryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ public class TransferController {
     public static final String BASE_URL = "/api/transfers";
 
     private final TransferService transferService;
+    private final TransferSummaryService transferSummaryService;
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping
@@ -47,6 +50,18 @@ public class TransferController {
                 currentUserProvider.getCurrentUserId()
         );
         return ResponseEntity.ok(transfers);
+    }
+
+    @GetMapping("/wallet/{walletId}/summary")
+    public ResponseEntity<TransferSummaryResponse> getTransferSummaryByWalletId(
+            @PathVariable Integer walletId,
+            @RequestParam(defaultValue = "" + TransferSummaryService.DEFAULT_CYCLES) Integer cycles) {
+        TransferSummaryResponse summary = transferSummaryService.getSummary(
+                walletId,
+                currentUserProvider.getCurrentUserId(),
+                cycles
+        );
+        return ResponseEntity.ok(summary);
     }
 
     @PostMapping

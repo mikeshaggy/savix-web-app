@@ -1,8 +1,10 @@
 package com.mikeshaggy.backend.ledger.api;
 
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
+import com.mikeshaggy.backend.ledger.dto.BalanceSparklineResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletBalanceHistoryResponse;
 import com.mikeshaggy.backend.ledger.dto.WalletEntryResponse;
+import com.mikeshaggy.backend.ledger.service.BalanceSparklineService;
 import com.mikeshaggy.backend.ledger.service.WalletEntryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +26,7 @@ public class WalletEntryController {
     public static final String BASE_URL = "/api/wallet-entries";
 
     private final WalletEntryService walletEntryService;
+    private final BalanceSparklineService balanceSparklineService;
     private final CurrentUserProvider currentUserProvider;
 
     @GetMapping("/wallet/{walletId}")
@@ -58,6 +61,19 @@ public class WalletEntryController {
                 to,
                 page,
                 size
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/wallet/{walletId}/balance-history/sparkline")
+    public ResponseEntity<BalanceSparklineResponse> getBalanceSparklineByWalletId(
+            @PathVariable Integer walletId,
+            @RequestParam(defaultValue = "" + BalanceSparklineService.DEFAULT_DAYS) Integer days
+    ) {
+        BalanceSparklineResponse response = balanceSparklineService.getSparkline(
+                walletId,
+                currentUserProvider.getCurrentUserId(),
+                days
         );
         return ResponseEntity.ok(response);
     }
