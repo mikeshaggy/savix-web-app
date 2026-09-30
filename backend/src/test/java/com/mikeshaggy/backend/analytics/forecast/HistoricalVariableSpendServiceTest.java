@@ -83,6 +83,10 @@ class HistoricalVariableSpendServiceTest {
         assertThat(baseline.cyclesUsed()).isEqualTo(6);
         assertThat(baseline.perCycle()).extracting(CycleContribution::cycle).containsExactly(C6, C5, C4, C3, C2, C1);
         assertThat(baseline.perCycle()).extracting(CycleContribution::cycleLength).containsExactly(33, 32, 31, 30, 29, 28);
+        // Stage 5.4: each contribution carries its full zero-filled daily series (one entry per cycle day)
+        assertThat(baseline.perCycle()).allSatisfy(c -> assertThat(c.dailyAmounts()).hasSize(c.cycleLength()));
+        assertThat(baseline.perCycle()).allSatisfy(c -> assertThat(c.dailyAmounts().stream()
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)).isEqualByComparingTo(c.variableTotal()));
         assertThat(baseline.perCycle()).extracting(CycleContribution::remainingDays).containsExactly(27, 26, 25, 24, 23, 22);
         assertThat(baseline.perCycle()).extracting(c -> c.remaining().toPlainString())
                 .containsExactly("2700.00", "1690.00", "1250.00", "1500.00", "1381.00", "1100.00");

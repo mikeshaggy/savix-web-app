@@ -4,6 +4,9 @@ import { TrendingUp, TrendingDown, Calendar, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { CardLoading } from '@/components/common/Loading';
+import { useFeatures } from '@/hooks/useFeatures';
+import { forecastPageVariant, headlineModel } from '@/lib/forecastV2';
+import ForecastV2Headline, { ForecastStatusHint, ForecastStatusPill, TONE_CFG } from '@/components/forecast/ForecastV2Headline';
 
 // Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
 // T12:00:00 prevents timezone drift when parsing date-only strings.
@@ -75,9 +78,69 @@ function ReportingHeader({ projData, period, t, formatCurrency }) {
   );
 }
 
+/**
+ * Forecast v2 hero (Stage 5.2, `forecast-v2` on): the dashboard's headline pair plus "N cycles used · confidence".
+ * No "% of income"; a verdict line only for TIGHT / SHORT. Reads `projData.forecast` (ForecastV2Dto) only — never
+ * the deprecated legacy projection fields.
+ */
+function CycleForecastHeroV2({ projData, period, t }) {
+  const tf = useTranslations('forecast');
+  const forecast = projData.forecast ?? {};
+  const model = headlineModel(forecast, { status: forecast.status, daysRemaining: projData.daysRemaining });
+  const tone = model.tone ? TONE_CFG[model.tone] : null;
+
+  // Committed and expected variable are shown by the Stage 5.6 cards right below — the sub-line keeps only
+  // what the forecast rests on, so no figure appears twice.
+  const details = [
+    forecast.baselineCyclesUsed != null && tf('cyclesUsed', { count: forecast.baselineCyclesUsed }),
+    forecast.confidence && ['HIGH', 'MEDIUM', 'LOW'].includes(forecast.confidence)
+      && tf('confidenceLabel', { level: tf(`confidence_${forecast.confidence}`) }),
+  ].filter(Boolean);
+
+  return (
+    <div
+      className={`rounded-2xl border ${tone ? tone.border : 'border-white/[0.06]'} bg-[#0e0e1c] mb-6 overflow-hidden`}
+      style={{
+        boxShadow: tone ? `0 0 48px ${tone.glow}` : undefined,
+        animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both',
+      }}
+      data-testid="forecast-v2-page-hero"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-6 py-3 border-b border-white/[0.04]">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-white/45">
+            {t('cycleForecast')}
+          </span>
+          <ForecastStatusPill model={model} />
+        </div>
+        {period?.startDate && period?.endDate && (
+          <div className="flex items-center gap-1.5 text-[11px] text-white/35 flex-shrink-0">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="font-mono">{fmtShort(period.startDate)} – {fmtShort(period.endDate)}</span>
+          </div>
+        )}
+      </div>
+
+      <ForecastV2Headline model={model} />
+
+      {(details.length > 0 || model.status) && (
+        <div className="px-6 md:px-8 py-3 border-t border-white/[0.04]">
+          {details.length > 0 && (
+            <div className="text-[11px] text-white/40 tabular-nums" data-testid="forecast-v2-subline">
+              {details.join(' · ')}
+            </div>
+          )}
+          <ForecastStatusHint model={model} className="mt-1" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CycleForecastHero({ projData, loading, period }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
   if (loading) {
     return (
@@ -87,11 +150,12 @@ export default function CycleForecastHero({ projData, loading, period }) {
     );
   }
 
-  if (!projData) return null;
+  const variant = forecastPageVariant({ forecastV2, projData });
+  if (!variant) return null;
 
   // Reporting mode (Stage 2.8): MONTHLY / CUSTOM / LAST_PAY_CYCLE, a closed cycle, an AWAITING_SALARY
   // cycle or a non-salary wallet carry no projection — show the period and its actuals, nothing else.
-  if (!projData.projectionAvailable) {
+  if (variant === 'reporting') {
     return (
       <ReportingHeader
         projData={projData}
@@ -100,6 +164,9 @@ export default function CycleForecastHero({ projData, loading, period }) {
         formatCurrency={formatCurrency}
       />
     );
+  }
+  if (variant === 'v2') {
+    return <CycleForecastHeroV2 projData={projData} period={period} t={t} />;
   }
 
   const endBalance = projData.projectedEndBalance ?? 0;

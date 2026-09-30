@@ -6,7 +6,8 @@
     "dev": "NODE_OPTIONS=--no-experimental-webstorage next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test src/lib/forecastV2.test.mjs src/lib/forecastV2.i18n.test.mjs src/lib/forecastStage5b.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.525.0",

@@ -2,6 +2,9 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { useFeatures } from '@/hooks/useFeatures';
+import { forecastPageVariant } from '@/lib/forecastV2';
+import ForecastTrajectoryV2 from '@/components/forecast/ForecastTrajectoryV2';
 
 // Format "YYYY-MM-DD" → locale short date, e.g. "May 1".
 // T12:00:00 prevents timezone drift when parsing date-only strings.
@@ -216,6 +219,7 @@ function StatCell({ label, value, color }) {
 export default function SpendingTrajectoryChart({ projData, loading }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
   if (loading) {
     return (
@@ -224,6 +228,12 @@ export default function SpendingTrajectoryChart({ projData, loading }) {
   }
 
   if (!projData) return null;
+
+  // Stage 5.4: the open salary cycle with Forecast v2 draws the v2 trajectory (no safe-pace / income ceiling /
+  // projected line); reporting periods — incl. AWAITING_SALARY — keep the actuals-only chart below.
+  if (forecastPageVariant({ forecastV2, projData }) === 'v2') {
+    return <ForecastTrajectoryV2 projData={projData} />;
+  }
 
   // Reporting mode (Stage 2.8): the projected fields are null — draw the actual spend against income only,
   // no projected line, no pace verdict, no "% over income".

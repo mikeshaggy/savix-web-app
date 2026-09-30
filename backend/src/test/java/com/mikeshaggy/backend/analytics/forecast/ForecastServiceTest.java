@@ -178,6 +178,11 @@ class ForecastServiceTest {
             assertThat(forecast.baselineCyclesUsed()).isNull();
             assertThat(forecast.baselineCycles()).isEmpty();
             assertThat(forecast.oneOffs()).isEmpty();
+            // Stage 5 explanation fields: nothing to explain without a horizon
+            assertThat(forecast.variableToDate()).isNull();
+            assertThat(forecast.historicalMedianRemaining()).isNull();
+            assertThat(forecast.paceProjection()).isNull();
+            assertThat(forecast.trajectory()).isNull();
             verifyNoInteractions(transactionQueryService, historicalVariableSpendService);
         }
     }
@@ -221,6 +226,22 @@ class ForecastServiceTest {
                     .isBetween(new BigDecimal("800.00"), new BigDecimal("2800.00"));
             assertThat(forecast.expectedEndBalanceLow()).isEqualByComparingTo("425.42");
             assertThat(forecast.expectedEndBalanceHigh()).isEqualByComparingTo("2008.30");
+
+            // Stage 5 explanation fields reproduce the blend exactly: 0.80 × 2880.48 + 0.20 × 7828.80 = 3870.14
+            assertThat(forecast.variableToDate()).isEqualByComparingTo("1552.02");
+            assertThat(forecast.historicalMedianRemaining()).isEqualByComparingTo("2880.48");
+            assertThat(forecast.paceProjection()).isEqualByComparingTo("7828.80");   // 326.20 × 24
+            assertThat(forecast.historyWeight().multiply(forecast.historicalMedianRemaining())
+                    .add(BigDecimal.ONE.subtract(forecast.historyWeight()).multiply(forecast.paceProjection()))
+                    .setScale(2, java.math.RoundingMode.HALF_UP))
+                    .isEqualByComparingTo(forecast.expectedVariableRemaining());
+            // Stage 5.4 trajectory: the same pace series, cumulated; the stubbed baseline carries no daily series
+            assertThat(forecast.trajectory()).isNotNull();
+            assertThat(forecast.trajectory().current()).hasSize(DAY_INDEX);
+            assertThat(forecast.trajectory().current().getLast().cumulative())
+                    .isEqualByComparingTo(forecast.variableToDate());
+            assertThat(forecast.trajectory().current().getFirst().date()).isEqualTo(CURRENT_CYCLE_START);
+            assertThat(forecast.trajectory().typical()).isEmpty();
 
             // baseline cycles carried through as read models
             assertThat(forecast.baselineCycles()).hasSize(3);

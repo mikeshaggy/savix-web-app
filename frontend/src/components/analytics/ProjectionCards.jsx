@@ -9,8 +9,13 @@ import {
   CalendarClock,
   InboxIcon,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { useFeatures } from '@/hooks/useFeatures';
+import { useForecastCurrency } from '@/hooks/useForecastCurrency';
+import { forecastPageVariant, formatWholeCurrency } from '@/lib/forecastV2';
+import { projectionCardsModel } from '@/lib/forecastCards';
+import ForecastFactCard from '@/components/forecast/ForecastFactCard';
 import AnalyticsMetricCard from './AnalyticsMetricCard';
 import { CardLoading } from '@/components/common/Loading';
 import ErrorState from '@/components/common/ErrorState';
@@ -61,9 +66,88 @@ function ProjectionProgressBar({ projectedPeriodExpenses, incomeForPeriod }) {
   );
 }
 
+const V2_CARD_CFG = {
+  leftUntilPayday: { icon: Wallet, color: '#4ade80' },
+  expectedAtPayday: { icon: TrendingUp, color: '#e2e8f0' },
+  committed: { icon: Lock, color: '#a78bfa' },
+  expectedVariable: { icon: Flame, color: '#fb923c' },
+};
+
+/**
+ * Stage 5.6 cards (`forecast-v2` on): Left until payday / Expected at payday (range) / Committed / Expected
+ * variable, all ForecastV2Dto fields. The hero is the single large presentation of the two headline figures, so
+ * their cards are context cards (balance − committed; pessimistic … optimistic) without a large value; only
+ * Committed and Expected variable are shown as figures. No burn rate, safe-to-spend, projected surplus or
+ * "% of income".
+ */
+function ProjectionCardsV2({ forecast }) {
+  const t = useTranslations('forecast');
+  const locale = useLocale();
+  const lang = locale === 'pl' ? 'pl' : 'en';
+  const formatCurrency = useForecastCurrency();
+  const money = (v) => (v === null ? '—' : formatCurrency(v));
+  const approx = (v) => (v === null ? '—' : t('approxAmount', { amount: formatWholeCurrency(v, lang) }));
+  const neg = (v) => v !== null && v < 0;
+
+  const cards = projectionCardsModel(forecast).map((card) => {
+    const cfg = V2_CARD_CFG[card.key];
+    switch (card.key) {
+      case 'leftUntilPayday':
+        return {
+          ...cfg,
+          key: card.key,
+          label: t('leftUntilPayday'),
+          rows: [
+            { label: t('balance'), value: money(card.balance), negative: neg(card.balance) },
+            { label: `− ${t('committed')}`, value: money(card.committed) },
+          ],
+          note: t('cardLeftNote'),
+        };
+      case 'expectedAtPayday':
+        return {
+          ...cfg,
+          key: card.key,
+          label: t('expectedLeftAtPayday'),
+          rows: [
+            { label: t('pessimistic'), value: approx(card.pessimistic), negative: neg(card.pessimistic) },
+            { label: t('optimistic'), value: approx(card.optimistic), negative: neg(card.optimistic) },
+          ],
+          note: card.basisKey ? t(card.basisKey) : null,
+        };
+      case 'committed':
+        return {
+          ...cfg,
+          key: card.key,
+          label: t('committed'),
+          figure: money(card.value),
+          note: t('cardCommittedSubtext', { count: card.count }),
+        };
+      default:
+        return {
+          ...cfg,
+          key: card.key,
+          label: t('expectedVariable'),
+          figure: money(card.value),
+          note: card.lessSpend !== null && card.moreSpend !== null
+            ? t('cardVariableSubtext', { less: money(card.lessSpend), more: money(card.moreSpend) })
+            : null,
+        };
+    }
+  });
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" data-testid="projection-cards-v2">
+      {cards.map(({ key, ...card }) => (
+        <ForecastFactCard key={key} {...card} />
+      ))}
+    </div>
+  );
+}
+
 export default function ProjectionCards({ data, loading, error, onRetry }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
   if (loading) {
     return (
@@ -87,6 +171,10 @@ export default function ProjectionCards({ data, loading, error, onRetry }) {
   }
 
   if (!data) return null;
+
+  if (forecastPageVariant({ forecastV2, projData: data }) === 'v2') {
+    return <ProjectionCardsV2 forecast={data.forecast} />;
+  }
 
   const allZero =
     data.expensesToDate === 0 &&

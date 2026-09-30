@@ -1,8 +1,11 @@
 'use client';
 import React from 'react';
-import { Flame, ShieldCheck, CalendarClock, Lock, TrendingDown, Zap } from 'lucide-react';
+import { Flame, ShieldCheck, CalendarClock, Lock, TrendingDown, Zap, History, Wallet, Sigma } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { useFeatures } from '@/hooks/useFeatures';
+import { useForecastCurrency } from '@/hooks/useForecastCurrency';
+import { forecastPageVariant, paceRowsModel } from '@/lib/forecastV2';
 
 function PaceRow({ icon: Icon, label, subtext, value, color }) {
   return (
@@ -31,9 +34,64 @@ function PaceRow({ icon: Icon, label, subtext, value, color }) {
   );
 }
 
+// Stage 5.3 row presentation, keyed by paceRowsModel keys; `muted` rows (raw average) render grey.
+const MUTED_COLOR = '#6b7280';
+const V2_ROW_CFG = {
+  discretionaryPerDay: { icon: Wallet, color: '#4ade80', subtext: 'discretionaryPerDaySubtext' },
+  typicalPace: { icon: History, color: '#60a5fa', subtext: 'typicalPaceSubtext' },
+  trimmedPace: { icon: Flame, color: '#fb923c', subtext: 'trimmedPaceSubtext' },
+  rawAverage: { icon: Sigma, color: '#60a5fa', subtext: 'rawAverageSubtext' },
+  committed: { icon: Lock, color: '#a78bfa', subtext: 'committedSubtext' },
+  daysToPayday: { icon: CalendarClock, color: '#60a5fa' },
+};
+
+/**
+ * Forecast v2 pace panel (Stage 5.3, `forecast-v2` on): the v2 per-day figures side by side. No required
+ * reduction, no safe daily budget, no safe-to-spend footer and no legacy projected-variable split.
+ */
+function SpendingPacePanelV2({ projData, t }) {
+  const tf = useTranslations('forecast');
+  const formatCurrency = useForecastCurrency();
+  const rows = paceRowsModel(projData.forecast, projData).map(({ key, kind, value, muted }) => {
+    const cfg = V2_ROW_CFG[key];
+    const negative = key === 'discretionaryPerDay' && value !== null && value < 0;
+    const subtext = key === 'daysToPayday'
+      ? t('daysRemainingSubtext', { days: projData.daysElapsed ?? 0, total: projData.daysInPeriod ?? 0 })
+      : key === 'typicalPace' && value === null
+        ? tf('typicalPaceUnavailable')
+        : tf(cfg.subtext);
+    return {
+      key,
+      icon: cfg.icon,
+      label: tf(key),
+      subtext,
+      value: value === null ? '—' : kind === 'days' ? value : formatCurrency(value),
+      color: negative ? '#f87171' : muted ? MUTED_COLOR : cfg.color,
+    };
+  });
+
+  return (
+    <div
+      className="bg-[#0e0e1c] border border-white/[0.06] rounded-xl p-6 relative overflow-hidden"
+      data-testid="pace-panel-v2"
+    >
+      <div className="text-xs font-bold tracking-[0.12em] uppercase text-white/35 mb-1">
+        {t('spendingPace')}
+      </div>
+      <div className="mt-1">
+        {rows.map(({ key, ...row }) => (
+          <PaceRow key={key} {...row} />
+        ))}
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-20 bg-violet-500" />
+    </div>
+  );
+}
+
 export default function SpendingPacePanel({ projData, loading }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
   if (loading) {
     return (
@@ -42,6 +100,10 @@ export default function SpendingPacePanel({ projData, loading }) {
   }
 
   if (!projData) return null;
+
+  if (forecastPageVariant({ forecastV2, projData }) === 'v2') {
+    return <SpendingPacePanelV2 projData={projData} t={t} />;
+  }
 
   const isActive = projData.projectionAvailable;
 

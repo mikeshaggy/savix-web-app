@@ -111,7 +111,8 @@ public class HistoricalVariableSpendService {
                 : remaining.multiply(BigDecimal.valueOf(daysRemaining))
                         .divide(BigDecimal.valueOf(remainingDays), SCALE, ROUNDING);
 
-        return new CycleContribution(cycle, length, variableTotal, remaining, remainingDays, remainingNormalized);
+        return new CycleContribution(cycle, length, variableTotal, remaining, remainingDays, remainingNormalized,
+                daily.stream().map(DailyTotal::amount).toList());
     }
 
     /**
@@ -119,6 +120,8 @@ public class HistoricalVariableSpendService {
      * is not counted in {@link HistoricalBaseline#cyclesUsed} — when the cycle was not longer than the current
      * day index ({@code L_c ≤ d}: no day after {@code d} exists). {@code variableTotal} (Σ of the whole cycle's
      * pace-eligible daily series) is descriptive only — Stage 4.7 exposes it; the baseline never uses it.
+     * {@code dailyAmounts} is that same zero-filled series, day 1 first (Stage 5.4 trajectory band); it is
+     * empty when a caller built the contribution without it.
      */
     public record CycleContribution(
             PayCycle cycle,
@@ -126,7 +129,18 @@ public class HistoricalVariableSpendService {
             BigDecimal variableTotal,
             BigDecimal remaining,
             int remainingDays,
-            BigDecimal remainingNormalized) {
+            BigDecimal remainingNormalized,
+            List<BigDecimal> dailyAmounts) {
+
+        public CycleContribution {
+            dailyAmounts = dailyAmounts == null ? List.of() : List.copyOf(dailyAmounts);
+        }
+
+        /** Without the daily series (no trajectory band contribution). */
+        public CycleContribution(PayCycle cycle, int cycleLength, BigDecimal variableTotal, BigDecimal remaining,
+                                 int remainingDays, BigDecimal remainingNormalized) {
+            this(cycle, cycleLength, variableTotal, remaining, remainingDays, remainingNormalized, List.of());
+        }
 
         public boolean usable() {
             return remainingNormalized != null;

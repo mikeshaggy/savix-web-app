@@ -2,6 +2,9 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { useFeatures } from '@/hooks/useFeatures';
+import { forecastPageVariant } from '@/lib/forecastV2';
+import ForecastBreakdownV2 from '@/components/forecast/ForecastBreakdownV2';
 
 function InputRow({ label, value, color }) {
   return (
@@ -20,9 +23,10 @@ function InputRow({ label, value, color }) {
   );
 }
 
-export default function ForecastBreakdown({ projData, loading }) {
+export default function ForecastBreakdown({ projData, loading, onExcludeOneOff }) {
   const t = useTranslations('analytics');
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
   if (loading) {
     return (
@@ -34,6 +38,11 @@ export default function ForecastBreakdown({ projData, loading }) {
 
   // The breakdown explains a projection; a reporting period has none (Stage 2.8) — the hero shows the actuals.
   if (!projData.projectionAvailable) return null;
+
+  // Stage 5.5: with Forecast v2 the explanation is the v2 arithmetic, never the legacy income − spend ledger.
+  if (forecastPageVariant({ forecastV2, projData }) === 'v2') {
+    return <ForecastBreakdownV2 projData={projData} onExcludeOneOff={onExcludeOneOff} />;
+  }
 
   const spentSoFar = projData.expensesToDate ?? 0;
   const remainingFixed = projData.remainingFixedPayments ?? 0;

@@ -16,6 +16,13 @@ import java.util.List;
  *
  * <p>Money is 2 dp; {@code historyWeight} is a 4 dp ratio; {@code baselineCyclesUsed} counts the cycles that
  * actually entered the median (a listed cycle may be unusable, see {@link BaselineCycleDto#normalised()}).
+ *
+ * <p>Stage 5 explanation fields (additive, read-only, {@code null} while awaiting salary):
+ * {@code variableToDate} = pace-eligible variable spend so far (Σ of the pace series, excluded rows left out);
+ * {@code historicalMedianRemaining} = the baseline median of normalised remaining spend (null without history);
+ * {@code paceProjection} = {@code trimmedDailyPace × R}; the blend is
+ * {@code historyWeight × historicalMedianRemaining + (1 − historyWeight) × paceProjection}.
+ * {@code trajectory} carries the cumulative series of the Stage 5.4 chart.
  */
 public record ForecastV2Dto(
         ForecastStatus status,
@@ -37,11 +44,31 @@ public record ForecastV2Dto(
         List<BaselineCycleDto> baselineCycles,
         List<OneOffDto> oneOffs,
         List<CommittedOccurrenceDto> committedOccurrences,
-        String projectionReason
+        String projectionReason,
+        BigDecimal variableToDate,
+        BigDecimal historicalMedianRemaining,
+        BigDecimal paceProjection,
+        ForecastTrajectoryDto trajectory
 ) {
     public ForecastV2Dto {
         baselineCycles = baselineCycles == null ? List.of() : List.copyOf(baselineCycles);
         oneOffs = oneOffs == null ? List.of() : List.copyOf(oneOffs);
         committedOccurrences = committedOccurrences == null ? List.of() : List.copyOf(committedOccurrences);
+    }
+
+    /** The Stage 4.7 shape, without the Stage 5 explanation fields. */
+    public ForecastV2Dto(ForecastStatus status, ForecastConfidence confidence, BigDecimal discretionaryNow,
+                         BigDecimal discretionaryPerDay, BigDecimal committed, BigDecimal expectedVariableRemaining,
+                         BigDecimal expectedVariableRemainingLow, BigDecimal expectedVariableRemainingHigh,
+                         BigDecimal expectedEndBalanceTypical, BigDecimal expectedEndBalanceLow,
+                         BigDecimal expectedEndBalanceHigh, BigDecimal trimmedDailyPace, BigDecimal rawDailyBurnRate,
+                         BigDecimal historicalTypicalPerDay, BigDecimal historyWeight, Integer baselineCyclesUsed,
+                         List<BaselineCycleDto> baselineCycles, List<OneOffDto> oneOffs,
+                         List<CommittedOccurrenceDto> committedOccurrences, String projectionReason) {
+        this(status, confidence, discretionaryNow, discretionaryPerDay, committed, expectedVariableRemaining,
+                expectedVariableRemainingLow, expectedVariableRemainingHigh, expectedEndBalanceTypical,
+                expectedEndBalanceLow, expectedEndBalanceHigh, trimmedDailyPace, rawDailyBurnRate,
+                historicalTypicalPerDay, historyWeight, baselineCyclesUsed, baselineCycles, oneOffs,
+                committedOccurrences, projectionReason, null, null, null, null);
     }
 }

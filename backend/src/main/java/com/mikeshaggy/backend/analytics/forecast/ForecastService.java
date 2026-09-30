@@ -148,7 +148,12 @@ public class ForecastService {
                 baseline.perCycle().stream().map(BaselineCycleDto::from).toList(),
                 oneOffs.stream().map(OneOffDto::from).toList(),
                 committedRows,
-                null);
+                null,
+                pace.variableToDate(),
+                baseline.median(),
+                pace.paceProjection(),
+                // Stage 5.4: the same `daily` list and baseline cycles, re-shaped as cumulative series
+                ForecastTrajectoryBuilder.build(start, cycleLengthDays, daily, baseline.perCycle()));
     }
 
     /**

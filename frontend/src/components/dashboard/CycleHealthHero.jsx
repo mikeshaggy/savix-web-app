@@ -2,6 +2,10 @@
 import React from 'react';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useTranslations } from 'next-intl';
+import { useFeatures } from '@/hooks/useFeatures';
+import { useForecastCurrency } from '@/hooks/useForecastCurrency';
+import { dashboardHeroVariant, headlineModel } from '@/lib/forecastV2';
+import ForecastV2Headline, { ForecastStatusHint, ForecastStatusPill, TONE_CFG } from '@/components/forecast/ForecastV2Headline';
 
 const STATUS_CFG = {
   ON_TRACK: {
@@ -129,15 +133,99 @@ function AwaitingSalaryHero({ cycleHealth, period, t, formatCurrency }) {
   );
 }
 
+/**
+ * Forecast v2 hero (Stage 5.1, `forecast-v2` on): "Left until payday" + "Expected left at payday" (range).
+ * Reads only the v2 fields of cycleHealth — the legacy `status` is null while the flag is on and is never mapped.
+ * A status word appears only for TIGHT / SHORT; FINE keeps a neutral frame.
+ */
+function CycleHealthHeroV2({ cycleHealth, period, t }) {
+  const formatCurrency = useForecastCurrency();
+  const daysElapsed = period?.daysElapsed ?? 0;
+  const daysRemaining = period?.daysRemaining ?? 0;
+  const daysInPeriod = period?.daysInPeriod ?? (daysElapsed + daysRemaining);
+  const progressPct = daysInPeriod > 0 ? Math.min((daysElapsed / daysInPeriod) * 100, 100) : 0;
+  const model = headlineModel(cycleHealth, { status: cycleHealth.forecastStatus, daysRemaining: period?.daysRemaining });
+  const tone = model.tone ? TONE_CFG[model.tone] : null;
+
+  const cycleEndDate = period?.endDate ?? null;
+  const cutoffDate = period?.cutoffDate ?? period?.asOfDate ?? null;
+  const showCycleEnd = period?.type === 'PAY_CYCLE' && cycleEndDate && cycleEndDate !== cutoffDate;
+  const cycleEndShort = showCycleEnd ? formatShortDate(cycleEndDate) : null;
+
+  return (
+    <div
+      className={`w-full bg-[#0e0e1c] rounded-[18px] overflow-hidden mb-5 border ${tone ? tone.border : 'border-white/[0.06]'}`}
+      style={{
+        boxShadow: tone ? `0 0 48px ${tone.glow}` : undefined,
+        animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both',
+        animationDelay: '0.04s',
+      }}
+      data-testid="forecast-v2-hero"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-6 py-3 border-b border-white/[0.04]">
+        <ForecastStatusPill model={model} />
+        <div className="flex items-center gap-3 text-[11px] text-white/35 ml-auto">
+          {cycleEndShort && <span>{t('dashboard.cycleEnds', { date: cycleEndShort })}</span>}
+          {daysRemaining > 0 && (
+            <span className={cycleEndShort ? 'opacity-60' : ''}>
+              {t('dashboard.daysRemaining', { days: daysRemaining })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <ForecastV2Headline model={model} />
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 md:px-8 py-3 border-t border-white/[0.04] text-[11px] text-white/40 tabular-nums">
+        {cycleHealth.currentBalance != null && (
+          <span>
+            {t('forecast.currentBalance')}{' '}
+            <span className="font-mono text-white/60">{formatCurrency(cycleHealth.currentBalance)}</span>
+          </span>
+        )}
+        {cycleHealth.committed != null && (
+          <span>
+            {t('forecast.committed')}{' '}
+            <span className="font-mono text-white/60">{formatCurrency(cycleHealth.committed)}</span>
+          </span>
+        )}
+        <ForecastStatusHint model={model} className="basis-full" />
+      </div>
+
+      {daysInPeriod > 0 && (
+        <div className="flex items-center gap-3 px-6 py-3 border-t border-white/[0.04]">
+          <span className="text-[9px] text-white/30 whitespace-nowrap shrink-0">
+            {t('dashboard.daysElapsed', { days: daysElapsed })}
+          </span>
+          <div className="flex-1 h-[3px] bg-white/[0.07] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${progressPct}%`, background: tone ? tone.accent : 'rgba(255,255,255,0.35)' }}
+            />
+          </div>
+          <span className="text-[9px] text-white/30 whitespace-nowrap shrink-0">
+            {t('dashboard.daysTotal', { days: daysInPeriod })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CycleHealthHero({ cycleHealth, period, kpis }) {
   const t = useTranslations();
   const formatCurrency = useFormatCurrency();
+  const { forecastV2 } = useFeatures();
 
-  if (!cycleHealth || period?.reporting) {
+  const variant = dashboardHeroVariant({ forecastV2, cycleHealth, period });
+  if (variant === 'reporting') {
     return <ReportingHeader period={period} kpis={kpis} t={t} formatCurrency={formatCurrency} />;
   }
-  if (cycleHealth.projectionReason === 'AWAITING_SALARY') {
+  if (variant === 'awaiting') {
     return <AwaitingSalaryHero cycleHealth={cycleHealth} period={period} t={t} formatCurrency={formatCurrency} />;
+  }
+  if (variant === 'v2') {
+    return <CycleHealthHeroV2 cycleHealth={cycleHealth} period={period} t={t} />;
   }
 
   const {
