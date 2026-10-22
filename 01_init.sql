@@ -150,6 +150,28 @@ create unique index uq_active_fund_name
 on funds(user_id, lower(name))
 where status = 'ACTIVE';
 
+-- Insights v2 (06_insights.sql): persisted, dismissable insight events, unique per wallet/type/cycle/dedupe key.
+create table insights (
+    id           bigserial primary key,
+    user_id      uuid not null references users(id) on delete cascade,
+    wallet_id    int  not null references wallets(id) on delete cascade,
+    type         varchar(40) not null,
+    severity     varchar(16) not null check (severity in ('INFO','WARN','ALERT')),
+    cycle_start  date not null,
+    dedupe_key   varchar(120) not null,
+    title        varchar(200) not null,
+    description  text,
+    payload      jsonb,
+    action_type  varchar(40),
+    action_ref   varchar(120),
+    created_at   timestamp not null default NOW(),
+    dismissed_at timestamp,
+    constraint uq_insights_wallet_type_cycle_key unique (wallet_id, type, cycle_start, dedupe_key)
+);
+
+create index idx_insights_wallet_cycle on insights (wallet_id, cycle_start) where dismissed_at is null;
+create index idx_insights_user on insights (user_id);
+
 -- transactions
 CREATE INDEX idx_transactions_wallet ON transactions(wallet_id);
 CREATE INDEX idx_transactions_category ON transactions(category_id);
