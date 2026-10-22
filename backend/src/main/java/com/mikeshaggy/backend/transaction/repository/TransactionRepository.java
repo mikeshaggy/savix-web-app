@@ -193,6 +193,63 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             @Param("to") LocalDate to);
 
     /**
+     * Per-day, per-category totals of the same pace-eligible variable EXPENSE spend as
+     * {@link #findDailyPaceEligibleVariableTotals} (Stage 7.3 category baseline). Only (day, category) pairs with at
+     * least one eligible transaction are returned, ascending by day then category id.
+     */
+    @Query("""
+        SELECT t.transactionDate AS date,
+               c.id AS categoryId,
+               c.name AS name,
+               c.emoji AS emoji,
+               COALESCE(SUM(t.amount), 0) AS amount,
+               COUNT(t) AS transactionCount
+        FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = com.mikeshaggy.backend.category.domain.CategoryType.EXPENSE
+        AND t.excludedFromPace = false
+        AND c.excludedFromPace = false
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+        GROUP BY t.transactionDate, c.id, c.name, c.emoji
+        ORDER BY t.transactionDate ASC, c.id ASC
+    """)
+    List<DailyCategorySpendProjection> findDailyPaceEligibleCategoryTotals(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
+    /**
+     * The part of {@link #sumUnlinkedPaceEligibleByWalletUserDateRange} classified with {@code importance}
+     * (Stage 7.3 {@code HighImpulseSpending}): same pace-eligible variable EXPENSE set, narrowed to one class.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t
+        JOIN t.category c
+        WHERE t.wallet.id = :walletId
+        AND t.wallet.user.id = :userId
+        AND t.transactionDate BETWEEN :from AND :to
+        AND c.type = com.mikeshaggy.backend.category.domain.CategoryType.EXPENSE
+        AND t.excludedFromPace = false
+        AND c.excludedFromPace = false
+        AND t.importance = :importance
+        AND NOT EXISTS (
+            SELECT 1 FROM FixedPaymentOccurrence o WHERE o.transaction = t
+        )
+    """)
+    BigDecimal sumUnlinkedPaceEligibleByWalletUserDateRangeAndImportance(
+            @Param("walletId") Integer walletId,
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("importance") Importance importance);
+
+    /**
      * Every unlinked EXPENSE transaction in the window, <em>including</em> rows flagged {@code excludedFromPace}
      * on the transaction or the category — the one-off explanation layer (Stage 4.6) must still see them and
      * report them as excluded. The category is fetched so {@code Transaction#isPaceExcluded()} needs no extra

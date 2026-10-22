@@ -36,6 +36,9 @@ import com.mikeshaggy.backend.insight.domain.InsightType;
 import com.mikeshaggy.backend.insight.dto.InsightAvailability;
 import com.mikeshaggy.backend.insight.dto.InsightListResponse;
 import com.mikeshaggy.backend.insight.dto.InsightResponse;
+import com.mikeshaggy.backend.insight.detector.MultiInsightDetector;
+import com.mikeshaggy.backend.insight.domain.InsightType.Recurrence;
+import com.mikeshaggy.backend.insight.domain.InsightKind;
 import com.mikeshaggy.backend.insight.repository.InsightRepository;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
@@ -53,8 +56,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +99,7 @@ class InsightServiceTest {
     private final List<Insight> table = new ArrayList<>();
     private final AtomicLong ids = new AtomicLong();
     private final AtomicInteger inserts = new AtomicInteger();
+    private final AtomicInteger refreshes = new AtomicInteger();
 
     @BeforeEach
     void setUp() {
@@ -579,6 +585,327 @@ class InsightServiceTest {
         verifyNoInteractions(repository);
     }
 
+    // --- Stage 7.3 lifecycle: recurrence and stale-insight reconciliation ------------------------------------------
+
+    @Test
+    void lifecyclePolicy_isPinnedPerType() {
+        assertThat(Arrays.stream(InsightType.values()).filter(InsightType::conditional)).containsExactlyInAnyOrder(
+                InsightType.CATEGORY_ABOVE_TYPICAL, InsightType.SAVINGS_FUNDING_DAILY,
+                InsightType.ONE_OFF_SKEWING_FORECAST, InsightType.FIXED_PAYMENT_NOT_COVERABLE,
+                InsightType.FIXED_PAYMENT_AMOUNT_DRIFT, InsightType.RECURRING_MERCHANT_DETECTED,
+                InsightType.HIGH_IMPULSE_SPENDING);
+        assertThat(Arrays.stream(InsightType.values()).filter(t -> t.recurrence() == Recurrence.ONCE_PER_WALLET))
+                .containsExactlyInAnyOrder(InsightType.CYCLE_CLOSED, InsightType.PRE_PAYDAY_NEGATIVE);
+        assertThat(Arrays.stream(InsightType.values()).filter(t -> t.recurrence() == Recurrence.UNTIL_DISMISSED))
+                .containsExactly(InsightType.RECURRING_MERCHANT_DETECTED);
+    }
+
+    @Test
+    void cycleClosed_isStoredOncePerClosedCycle_acrossRollover() {
+        AtomicReference<String> key = new AtomicReference<>("cycle:2026-09-09");
+        InsightService service = service(detector(InsightType.CYCLE_CLOSED,
+                ctx -> Optional.of(candidate(InsightType.CYCLE_CLOSED, InsightSeverity.INFO, key.get()))));
+
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+
+        // the next salary arrived: a new cycle, and the cycle that closed is the one before it
+        LocalDate next = LocalDate.of(2026, 11, 10);
+        stubCycle(PayCycle.open(USER, WALLET_ID, next, LocalDate.of(2026, 12, 10)));
+        key.set("cycle:2026-10-09");
+        InsightListResponse november = service.evaluate(WALLET_ID, USER);
+        service.evaluate(WALLET_ID, USER);
+
+        assertThat(november.insights()).singleElement()
+                .satisfies(insight -> assertThat(insight.cycleStart()).isEqualTo(next));
+        assertThat(table).extracting(Insight::getDedupeKey).containsExactly("cycle:2026-09-09", "cycle:2026-10-09");
+    }
+
+    @Test
+    void oncePerWallet_anOldClosedCycleIsNeverReEmitted_evenUnderAnotherCurrentCycle() {
+        InsightService service = service(fires(InsightType.CYCLE_CLOSED, InsightSeverity.INFO, "cycle:2026-09-09"));
+        service.evaluate(WALLET_ID, USER);
+
+        // an anchor correction moves the current cycle start, but the newest closed cycle is still Sep 9 – Oct 8
+        stubCycle(PayCycle.open(USER, WALLET_ID, START.plusDays(1), NEXT_ANCHOR));
+        InsightListResponse response = service.evaluate(WALLET_ID, USER);
+
+        assertThat(response.insights()).isEmpty();
+        assertThat(table).hasSize(1);
+        assertThat(inserts).hasValue(1);
+    }
+
+    @Test
+    void oncePerCycle_conditionRecursInTheNextCycle() {
+        InsightService service = service(fires(InsightType.SAVINGS_FUNDING_DAILY, InsightSeverity.WARN, "savings:2"));
+        service.evaluate(WALLET_ID, USER);
+        service.dismiss(table.getFirst().getId(), USER);
+
+        stubCycle(PayCycle.open(USER, WALLET_ID, NEXT_ANCHOR, LocalDate.of(2026, 12, 10)));
+        InsightListResponse next = service.evaluate(WALLET_ID, USER);
+
+        assertThat(next.insights()).hasSize(1);
+        assertThat(table).hasSize(2);
+    }
+
+    @Test
+    void untilDismissed_aDismissedMerchantIsNotSuggestedAgain_inLaterCycles() {
+        AtomicReference<List<String>> keys = new AtomicReference<>(List.of("merchant:fx stream"));
+        InsightService service = service(multi(InsightType.RECURRING_MERCHANT_DETECTED, keys));
+        Long id = service.evaluate(WALLET_ID, USER).insights().getFirst().id();
+        service.dismiss(id, USER);
+
+        stubCycle(PayCycle.open(USER, WALLET_ID, NEXT_ANCHOR, LocalDate.of(2026, 12, 10)));
+        keys.set(List.of("merchant:fx stream", "merchant:fx gym"));
+        InsightListResponse next = service.evaluate(WALLET_ID, USER);
+
+        assertThat(next.insights()).extracting(InsightResponse::title).hasSize(1);
+        assertThat(table).extracting(Insight::getDedupeKey).containsExactly("merchant:fx stream", "merchant:fx gym");
+    }
+
+    @Test
+    void untilDismissed_aMerchantThatWasNotDismissed_recursNextCycle() {
+        InsightService service = service(fires(InsightType.RECURRING_MERCHANT_DETECTED, InsightSeverity.INFO,
+                "merchant:fx stream"));
+        service.evaluate(WALLET_ID, USER);
+
+        stubCycle(PayCycle.open(USER, WALLET_ID, NEXT_ANCHOR, LocalDate.of(2026, 12, 10)));
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+        assertThat(table).hasSize(2);
+    }
+
+    @Test
+    void conditional_noLongerDetected_isHidden_notDeletedNorDismissed_andReturnsIfDetectedAgain() {
+        AtomicReference<List<String>> keys = new AtomicReference<>(List.of("transaction:300"));
+        InsightService service = service(multi(InsightType.ONE_OFF_SKEWING_FORECAST, keys));
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+
+        // the one-off was excluded: the forecast no longer reports it
+        keys.set(List.of());
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).isEmpty();
+        assertThat(table).singleElement().satisfies(row -> assertThat(row.getDismissedAt()).isNull());
+
+        // excluded again by mistake and re-included: the same row is listed, nothing new is stored
+        keys.set(List.of("transaction:300"));
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+        assertThat(inserts).hasValue(1);
+    }
+
+    @Test
+    void conditional_whoseDetectorFails_isHidden_neverShownStale() {
+        AtomicBoolean failing = new AtomicBoolean();
+        InsightService service = service(detector(InsightType.FIXED_PAYMENT_NOT_COVERABLE, ctx -> {
+            if (failing.get()) {
+                throw new IllegalStateException("forecast failed");
+            }
+            return Optional.of(candidate(InsightType.FIXED_PAYMENT_NOT_COVERABLE, InsightSeverity.ALERT, "occurrence:5"));
+        }));
+        service.evaluate(WALLET_ID, USER);
+        failing.set(true);
+
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).isEmpty();
+        assertThat(table).hasSize(1);
+    }
+
+    @Test
+    void event_staysListedForItsCycle_whenNoLongerDetected() {
+        AtomicBoolean firing = new AtomicBoolean(true);
+        InsightService service = service(detector(InsightType.PRE_PAYDAY_NEGATIVE, ctx -> firing.get()
+                ? Optional.of(candidate(InsightType.PRE_PAYDAY_NEGATIVE, InsightSeverity.WARN, "cycle:2026-09-09"))
+                : Optional.empty()));
+        service.evaluate(WALLET_ID, USER);
+        firing.set(false);
+
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+    }
+
+    @Test
+    void conditional_dismissed_staysDismissed_whenDetectedAgain() {
+        InsightService service = service(fires(InsightType.HIGH_IMPULSE_SPENDING, InsightSeverity.WARN, "impulse"));
+        service.dismiss(service.evaluate(WALLET_ID, USER).insights().getFirst().id(), USER);
+
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).isEmpty();
+        assertThat(table).hasSize(1);
+        assertThat(inserts).hasValue(1);
+    }
+
+    @Test
+    void multiCandidateDetector_storesEachEvent_andHidesOnlyTheResolvedOne() {
+        AtomicReference<List<String>> keys = new AtomicReference<>(List.of("category:3", "category:4"));
+        InsightService service = service(multi(InsightType.CATEGORY_ABOVE_TYPICAL, keys));
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(2);
+
+        keys.set(List.of("category:4"));
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).extracting(InsightResponse::title)
+                .containsExactly("category:4");
+        assertThat(table).hasSize(2);
+    }
+
+    @Test
+    void multiCandidateDetector_duplicateKeysInOneEvaluation_areStoredOnce() {
+        InsightService service = service(multi(InsightType.CATEGORY_ABOVE_TYPICAL,
+                new AtomicReference<>(List.of("category:3", "category:3"))));
+
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).hasSize(1);
+        assertThat(inserts).hasValue(1);
+    }
+
+    private static InsightDetector multi(InsightType type, AtomicReference<List<String>> keys) {
+        return new MultiInsightDetector() {
+            @Override
+            public InsightType type() {
+                return type;
+            }
+
+            @Override
+            public List<InsightCandidate> detectAll(InsightContext ctx) {
+                return keys.get().stream()
+                        .map(key -> new InsightCandidate(type, InsightSeverity.WARN, key, key, null, null, null, null))
+                        .toList();
+            }
+        };
+    }
+
+    // --- Stage 7.3 refresh of condition insights (Session X.1) -----------------------------------------------------
+
+    @Test
+    void condition_changedValues_areRefreshedInPlace_keepingIdCreationAndKey() {
+        AtomicReference<String> amount = new AtomicReference<>("350.00");
+        InsightService service = service(detector(InsightType.HIGH_IMPULSE_SPENDING, ctx -> Optional.of(
+                new InsightCandidate(InsightType.HIGH_IMPULSE_SPENDING, InsightSeverity.WARN, "impulse",
+                        "High impulse spending", amount.get() + " PLN", Map.of("shouldntHave", new BigDecimal(amount.get())),
+                        InsightActionType.LINK, "/analytics/breakdown"))));
+        InsightResponse first = service.evaluate(WALLET_ID, USER).insights().getFirst();
+
+        amount.set("900.00");
+        InsightResponse refreshed = service.evaluate(WALLET_ID, USER).insights().getFirst();
+
+        assertThat(refreshed.id()).isEqualTo(first.id());
+        assertThat(refreshed.createdAt()).isEqualTo(first.createdAt());
+        assertThat(refreshed.description()).isEqualTo("900.00 PLN");
+        assertThat(refreshed.payload().get("shouldntHave").decimalValue()).isEqualByComparingTo("900.00");
+        assertThat(table).singleElement().satisfies(row -> {
+            assertThat(row.getDedupeKey()).isEqualTo("impulse");
+            assertThat(row.getCycleStart()).isEqualTo(START);
+            assertThat(row.getDismissedAt()).isNull();
+        });
+        assertThat(inserts).hasValue(1);
+        assertThat(refreshes).hasValue(1);
+    }
+
+    @Test
+    void condition_severityAndAction_areRefreshedToo() {
+        AtomicReference<InsightSeverity> severity = new AtomicReference<>(InsightSeverity.WARN);
+        InsightService service = service(detector(InsightType.FIXED_PAYMENT_NOT_COVERABLE, ctx -> Optional.of(
+                new InsightCandidate(InsightType.FIXED_PAYMENT_NOT_COVERABLE, severity.get(), "occurrence:5", "t", null,
+                        null, severity.get() == InsightSeverity.ALERT ? InsightActionType.LINK : null,
+                        severity.get() == InsightSeverity.ALERT ? "/transactions/fixed-payments" : null))));
+        service.evaluate(WALLET_ID, USER);
+
+        severity.set(InsightSeverity.ALERT);
+        InsightResponse refreshed = service.evaluate(WALLET_ID, USER).insights().getFirst();
+
+        assertThat(refreshed.severity()).isEqualTo(InsightSeverity.ALERT);
+        assertThat(refreshed.actionType()).isEqualTo(InsightActionType.LINK);
+        assertThat(refreshed.actionRef()).isEqualTo("/transactions/fixed-payments");
+    }
+
+    @Test
+    void condition_unchangedContent_writesNothing_evenWithAnotherPayloadKeyOrder() {
+        AtomicBoolean reversed = new AtomicBoolean();
+        InsightService service = service(detector(InsightType.CATEGORY_ABOVE_TYPICAL, ctx -> {
+            Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            if (reversed.get()) {
+                payload.put("typical", new BigDecimal("162.34"));
+                payload.put("current", new BigDecimal("314.84"));
+            } else {
+                payload.put("current", new BigDecimal("314.84"));
+                payload.put("typical", new BigDecimal("162.34"));
+            }
+            return Optional.of(new InsightCandidate(InsightType.CATEGORY_ABOVE_TYPICAL, InsightSeverity.WARN,
+                    "category:3", "Groceries above typical", "d", payload, InsightActionType.LINK, "/x"));
+        }));
+        service.evaluate(WALLET_ID, USER);
+        service.evaluate(WALLET_ID, USER);
+        reversed.set(true);
+        service.evaluate(WALLET_ID, USER);
+
+        assertThat(refreshes).hasValue(0);
+        verify(writer, never()).refresh(any(), any());
+    }
+
+    @Test
+    void condition_dismissed_isNeverRewrittenNorRecreated_whenItsValuesChange() {
+        AtomicReference<String> amount = new AtomicReference<>("350.00");
+        InsightService service = service(detector(InsightType.HIGH_IMPULSE_SPENDING, ctx -> Optional.of(
+                new InsightCandidate(InsightType.HIGH_IMPULSE_SPENDING, InsightSeverity.WARN, "impulse", "t",
+                        amount.get(), null, null, null))));
+        service.dismiss(service.evaluate(WALLET_ID, USER).insights().getFirst().id(), USER);
+
+        amount.set("900.00");
+        InsightListResponse response = service.evaluate(WALLET_ID, USER);
+
+        assertThat(response.insights()).isEmpty();
+        assertThat(table).singleElement().satisfies(row -> {
+            assertThat(row.getDescription()).isEqualTo("350.00");
+            assertThat(row.getDismissedAt()).isNotNull();
+        });
+        assertThat(inserts).hasValue(1);
+        assertThat(refreshes).hasValue(0);
+    }
+
+    @Test
+    void condition_dismissedWhileBeingRefreshed_staysDismissed() {
+        AtomicReference<String> amount = new AtomicReference<>("350.00");
+        InsightService service = service(detector(InsightType.HIGH_IMPULSE_SPENDING, ctx -> Optional.of(
+                new InsightCandidate(InsightType.HIGH_IMPULSE_SPENDING, InsightSeverity.WARN, "impulse", "t",
+                        amount.get(), null, null, null))));
+        service.evaluate(WALLET_ID, USER);
+        // the row is read as active, then dismissed by another request before the refresh is written
+        when(repository.findActiveByWalletTypeCycleAndKey(any(), any(), any(), any(), any())).thenAnswer(inv -> {
+            Optional<Insight> active = table.stream().filter(row -> row.getDismissedAt() == null).findFirst()
+                    .map(InsightServiceTest::copy);
+            table.forEach(row -> row.setDismissedAt(CLOCK.instant()));
+            return active;
+        });
+
+        amount.set("900.00");
+        assertThat(service.evaluate(WALLET_ID, USER).insights()).isEmpty();
+        assertThat(table).singleElement().satisfies(row -> {
+            assertThat(row.getDescription()).isEqualTo("350.00");
+            assertThat(row.getDismissedAt()).isNotNull();
+        });
+    }
+
+    @Test
+    void event_keepsTheSnapshotOfItsFirstDetection() {
+        AtomicReference<String> variable = new AtomicReference<>("3600.60");
+        InsightService service = service(detector(InsightType.CYCLE_CLOSED, ctx -> Optional.of(new InsightCandidate(
+                InsightType.CYCLE_CLOSED, InsightSeverity.INFO, "cycle:2026-09-09", "Cycle closed", variable.get(),
+                null, null, null))));
+        service.evaluate(WALLET_ID, USER);
+
+        variable.set("3700.00");
+        assertThat(service.evaluate(WALLET_ID, USER).insights().getFirst().description()).isEqualTo("3600.60");
+        verify(repository, never()).findActiveByWalletTypeCycleAndKey(any(), any(), any(), any(), any());
+        assertThat(refreshes).hasValue(0);
+    }
+
+    @Test
+    void kind_comesFromTheType_cycleClosedIsLifecycle_everythingElseNotable() {
+        InsightListResponse response = service(
+                fires(InsightType.CYCLE_CLOSED, InsightSeverity.INFO, "cycle:2026-09-09"),
+                fires(InsightType.SALARY_NOT_RECEIVED, InsightSeverity.INFO, "expected:2026-11-10"))
+                .evaluate(WALLET_ID, USER);
+
+        assertThat(response.insights()).extracting(InsightResponse::type, InsightResponse::kind)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(InsightType.CYCLE_CLOSED, InsightKind.LIFECYCLE),
+                        org.assertj.core.groups.Tuple.tuple(InsightType.SALARY_NOT_RECEIVED, InsightKind.NOTABLE));
+        assertThat(Arrays.stream(InsightType.values()).filter(type -> type.kind() == InsightKind.LIFECYCLE))
+                .containsExactly(InsightType.CYCLE_CLOSED);
+    }
+
     // --- helpers -------------------------------------------------------------------------------------------------
 
     private InsightService service(InsightDetector... detectors) {
@@ -635,6 +962,37 @@ class InsightServiceTest {
     private void backRepositoryWithTable() {
         when(repository.existsByWalletTypeCycleAndKey(any(), any(), any(), any()))
                 .thenAnswer(inv -> existsInTable(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2), inv.getArgument(3)));
+        when(repository.existsByWalletTypeAndKey(any(), any(), any(), any())).thenAnswer(inv -> table.stream()
+                .anyMatch(row -> row.getUserId().equals(inv.getArgument(0)) && row.getWalletId().equals(inv.getArgument(1))
+                        && row.getType() == inv.getArgument(2) && row.getDedupeKey().equals(inv.getArgument(3))));
+        when(repository.findActiveByWalletTypeCycleAndKey(any(), any(), any(), any(), any())).thenAnswer(inv -> table.stream()
+                .filter(row -> row.getUserId().equals(inv.getArgument(0)) && row.getWalletId().equals(inv.getArgument(1))
+                        && row.getType() == inv.getArgument(2) && row.getCycleStart().equals(inv.getArgument(3))
+                        && row.getDedupeKey().equals(inv.getArgument(4)) && row.getDismissedAt() == null)
+                .findFirst().map(InsightServiceTest::copy));
+        when(writer.refresh(any(), any())).thenAnswer(inv -> {
+            Insight current = inv.getArgument(0);
+            InsightWriter.InsightContent content = inv.getArgument(1);
+            int updated = 0;
+            for (Insight row : table) {
+                if (row.getId().equals(current.getId()) && row.getUserId().equals(current.getUserId())
+                        && row.getDismissedAt() == null) {
+                    row.setSeverity(content.severity());
+                    row.setTitle(content.title());
+                    row.setDescription(content.description());
+                    row.setPayload(content.payload());
+                    row.setActionType(content.actionType());
+                    row.setActionRef(content.actionRef());
+                    updated++;
+                }
+            }
+            refreshes.incrementAndGet();
+            return updated;
+        });
+        when(repository.existsDismissedByWalletTypeAndKey(any(), any(), any(), any())).thenAnswer(inv -> table.stream()
+                .anyMatch(row -> row.getUserId().equals(inv.getArgument(0)) && row.getWalletId().equals(inv.getArgument(1))
+                        && row.getType() == inv.getArgument(2) && row.getDedupeKey().equals(inv.getArgument(3))
+                        && row.getDismissedAt() != null));
         when(repository.findActiveByWalletAndCycle(any(), any(), any())).thenAnswer(inv -> table.stream()
                 .filter(row -> row.getUserId().equals(inv.getArgument(0)))
                 .filter(row -> row.getWalletId().equals(inv.getArgument(1)))

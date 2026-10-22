@@ -18,6 +18,7 @@ import com.mikeshaggy.backend.dashboard.dto.DashboardSavingsDto;
 import com.mikeshaggy.backend.transfer.dto.TransferSummaryResponse;
 import com.mikeshaggy.backend.transfer.dto.TransferSummaryResponse.CounterWalletFlow;
 import com.mikeshaggy.backend.transfer.service.TransferSummaryService;
+import com.mikeshaggy.backend.wallet.domain.SavingsWallets;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
@@ -120,13 +122,11 @@ public class DashboardV2Sections {
         if (!applies(period)) {
             return null;
         }
-        List<Wallet> candidates = walletRepository.findByUserIdAndIsFundFalse(userId).stream()
-                .filter(wallet -> !walletId.equals(wallet.getId()))
-                .toList();
-        if (candidates.size() != 1) {
+        Optional<Wallet> single = SavingsWallets.single(walletRepository.findByUserIdAndIsFundFalse(userId), walletId);
+        if (single.isEmpty()) {
             return null;
         }
-        Wallet savings = candidates.getFirst();
+        Wallet savings = single.get();
 
         TransferSummaryResponse summary = transferSummaryService.getSummary(walletId, userId, TRANSFER_SUMMARY_CYCLES);
         BigDecimal net = summary.currentCycle() == null

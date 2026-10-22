@@ -15,10 +15,13 @@ import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.insight.detector.InsightCandidate;
 import com.mikeshaggy.backend.insight.detector.InsightContext;
 import com.mikeshaggy.backend.insight.domain.Insight;
+import com.mikeshaggy.backend.insight.domain.InsightType;
+import com.mikeshaggy.backend.insight.domain.InsightType.Recurrence;
 import com.mikeshaggy.backend.insight.dto.InsightAvailability;
 import com.mikeshaggy.backend.insight.dto.InsightListResponse;
 import com.mikeshaggy.backend.insight.dto.InsightResponse;
 import com.mikeshaggy.backend.insight.repository.InsightRepository;
+import com.mikeshaggy.backend.insight.service.InsightWriter.InsightContent;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
 import com.mikeshaggy.backend.wallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
@@ -36,10 +39,12 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -53,7 +58,8 @@ import java.util.UUID;
  * Transactions: detection runs in {@link InsightDetectorRunner} with {@link Propagation#NOT_SUPPORTED} — a caller's
  * transaction is suspended, context reads run in their own read-only transactions (a failing read cannot mark the
  * caller rollback-only), and whatever that scope held is released before anything is stored. Each insert then runs
- * in its own read-write transaction ({@link InsightWriter}), never through a read-only one. Without a caller
+ * in its own read-write transaction ({@link InsightWriter}), never through a read-only one — and so does each refresh
+ * of an already stored condition (an {@code UPDATE} only when its content changed). Without a caller
  * transaction an evaluation therefore needs one connection at a time; a caller that wraps {@code evaluate} in its
  * own transaction keeps that connection while each insert takes a second one (Stage 7.4: call it outside the
  * dashboard's read-only transaction).
@@ -61,11 +67,17 @@ import java.util.UUID;
  * Concurrency: the database unique constraint is the guarantee. A pre-check skips known events cheaply; when two
  * evaluations race past it, the loser's insert fails with a unique violation in its own transaction, which is
  * recognised (SQLState 23505 <em>and</em> the row now exists) and treated as "already stored". Any other
- * database error propagates.
+ * database error propagates. A refresh never touches the unique-key columns; concurrent refreshes write the same
+ * values, and a refresh racing a dismissal updates nothing ({@code dismissed_at IS NULL} guard).
  * <p>
  * Failure isolation: a detector that throws (including a failing context input) or returns an invalid candidate
  * is logged and skipped for this evaluation ({@link InsightDetectorRunner}); the remaining detectors still run and
  * the request succeeds.
+ * <p>
+ * Lifecycle (Stage 7.3, per {@link InsightType}): {@link Recurrence} decides whether a key already stored for the
+ * wallet may be stored again (once per cycle; once per wallet for summaries of a closed cycle; never again after a
+ * dismissal for merchant suggestions), and a {@linkplain InsightType#conditional() conditional} insight is listed only
+ * while this evaluation still detects it — a resolved condition is hidden, never deleted or dismissed.
  */
 @Slf4j
 @Service
@@ -148,6 +160,7 @@ public class InsightService {
         }
 
         InsightContext context = contextFactory.create(userId, wallet, cycle, period, LocalDate.now(clock));
+        Set<String> detected = new HashSet<>();
         for (InsightCandidate candidate : detectorRunner.detect(context)) {
             String payload;
             try {
@@ -156,12 +169,14 @@ public class InsightService {
                 InsightDetectorRunner.invalid(candidate.type(), context, e.getMessage());
                 continue;
             }
+            detected.add(identity(candidate.type(), candidate.dedupeKey()));
             storeIfNew(context, candidate, payload);
         }
 
         List<InsightResponse> insights = insightRepository
                 .findActiveByWalletAndCycle(userId, walletId, cycle.start())
                 .stream()
+                .filter(insight -> stillApplies(insight, detected))
                 .sorted(DISPLAY_ORDER)
                 .map(this::toResponse)
                 .toList();
@@ -193,11 +208,47 @@ public class InsightService {
                 && cycle.start().equals(period.startDate());
     }
 
+    /**
+     * Stale-insight reconciliation (Stage 7.3): an event stays listed for its cycle until dismissed; a condition
+     * ({@link InsightType#conditional()}) only while this evaluation detected the same key again. A condition that is
+     * no longer detected — resolved, its input missing, or its detector failing — is hidden, not deleted or dismissed:
+     * the row and its dismissal state are kept, and it is listed again if detected again later in the cycle.
+     */
+    private static boolean stillApplies(Insight insight, Set<String> detected) {
+        return !insight.getType().conditional() || detected.contains(identity(insight.getType(), insight.getDedupeKey()));
+    }
+
+    private static String identity(InsightType type, String dedupeKey) {
+        return type + "\u0000" + dedupeKey;
+    }
+
+    /**
+     * Whether the type's {@link Recurrence} lets a candidate that is not yet stored for this cycle be stored (the unique
+     * constraint still decides races).
+     */
+    private boolean storable(InsightContext context, InsightCandidate candidate) {
+        UUID userId = context.userId();
+        Integer walletId = context.wallet().id();
+        InsightType type = candidate.type();
+        String key = candidate.dedupeKey();
+        return switch (type.recurrence()) {
+            case ONCE_PER_CYCLE -> true;
+            case ONCE_PER_WALLET -> !insightRepository.existsByWalletTypeAndKey(userId, walletId, type, key);
+            case UNTIL_DISMISSED -> !insightRepository.existsDismissedByWalletTypeAndKey(userId, walletId, type, key);
+        };
+    }
+
     private void storeIfNew(InsightContext context, InsightCandidate candidate, String payload) {
         Integer walletId = context.wallet().id();
         LocalDate cycleStart = context.cycle().start();
         if (insightRepository.existsByWalletTypeCycleAndKey(walletId, candidate.type(), cycleStart,
                 candidate.dedupeKey())) {
+            if (candidate.type().conditional()) {
+                refreshIfChanged(context, candidate, payload);
+            }
+            return;
+        }
+        if (!storable(context, candidate)) {
             return;
         }
         Insight insight = Insight.builder()
@@ -226,6 +277,39 @@ public class InsightService {
         }
     }
 
+    /**
+     * Condition insights show what is true now (Stage 7.3): an already stored, non-dismissed condition is rewritten in
+     * place — same id, {@code created_at}, dedupe identity and dismissal state — when the detector's title, description,
+     * payload, severity or action changed. Nothing is written when the content is the same (payloads are compared as
+     * JSON trees, so key order and jsonb normalisation do not count as a change). A dismissed row is never touched, and
+     * events keep the snapshot of their first detection. Concurrent refreshes of the same row write the same values;
+     * a refresh racing a dismissal updates nothing ({@code dismissed_at IS NULL} guard).
+     */
+    private void refreshIfChanged(InsightContext context, InsightCandidate candidate, String payload) {
+        Optional<Insight> stored = insightRepository.findActiveByWalletTypeCycleAndKey(context.userId(),
+                context.wallet().id(), candidate.type(), context.cycle().start(), candidate.dedupeKey());
+        if (stored.isEmpty()) {
+            return; // dismissed: never rewritten, never revived
+        }
+        Insight current = stored.get();
+        if (sameContent(current, candidate, payload)) {
+            return;
+        }
+        int updated = insightWriter.refresh(current, new InsightContent(candidate.severity(), candidate.title(),
+                candidate.description(), payload, candidate.actionType(), candidate.actionRef()));
+        log.debug("insight.refreshed type={} walletId={} cycleStart={} dedupeKey={} updated={}", candidate.type(),
+                context.wallet().id(), context.cycle().start(), candidate.dedupeKey(), updated);
+    }
+
+    private boolean sameContent(Insight current, InsightCandidate candidate, String payload) {
+        return current.getSeverity() == candidate.severity()
+                && Objects.equals(current.getTitle(), candidate.title())
+                && Objects.equals(current.getDescription(), candidate.description())
+                && current.getActionType() == candidate.actionType()
+                && Objects.equals(current.getActionRef(), candidate.actionRef())
+                && Objects.equals(readPayload(current.getPayload()), readPayload(payload));
+    }
+
     private String serialise(Map<String, Object> payload) {
         if (payload == null) {
             return null;
@@ -241,6 +325,7 @@ public class InsightService {
         return new InsightResponse(
                 insight.getId(),
                 insight.getType(),
+                insight.getType().kind(),
                 insight.getSeverity(),
                 insight.getCycleStart(),
                 insight.getTitle(),

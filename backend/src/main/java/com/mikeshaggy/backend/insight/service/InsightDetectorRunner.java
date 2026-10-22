@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -49,26 +48,27 @@ public class InsightDetectorRunner {
         Set<String> seen = new HashSet<>();
         for (InsightDetector detector : detectors) {
             InsightType type = detector.type();
-            Optional<InsightCandidate> result;
+            List<InsightCandidate> results;
             try {
-                result = detector.detect(context);
+                results = detector.detectAll(context);
             } catch (RuntimeException e) {
                 log.warn("insight.detector.failed type={} walletId={} cycleStart={} reason={}",
                         type, context.wallet().id(), context.cycle().start(), e.toString(), e);
                 continue;
             }
-            if (result == null || result.isEmpty()) {
+            if (results == null) {
                 continue;
             }
-            InsightCandidate candidate = result.get();
-            try {
-                validate(type, candidate);
-            } catch (IllegalArgumentException e) {
-                invalid(type, context, e.getMessage());
-                continue;
-            }
-            if (seen.add(candidate.type() + "\u0000" + candidate.dedupeKey())) {
-                candidates.add(candidate);
+            for (InsightCandidate candidate : results) {
+                try {
+                    validate(type, candidate);
+                } catch (IllegalArgumentException e) {
+                    invalid(type, context, e.getMessage());
+                    continue;
+                }
+                if (seen.add(candidate.type() + "\u0000" + candidate.dedupeKey())) {
+                    candidates.add(candidate);
+                }
             }
         }
         return candidates;
@@ -80,6 +80,9 @@ public class InsightDetectorRunner {
     }
 
     private static void validate(InsightType detectorType, InsightCandidate candidate) {
+        if (candidate == null) {
+            throw new IllegalArgumentException("candidate is null");
+        }
         if (candidate.type() != detectorType) {
             throw new IllegalArgumentException("candidate type " + candidate.type() + " != detector type");
         }

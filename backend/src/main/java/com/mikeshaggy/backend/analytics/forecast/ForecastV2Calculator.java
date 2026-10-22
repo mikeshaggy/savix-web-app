@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -199,17 +200,41 @@ public class ForecastV2Calculator {
                                                     BigDecimal pessimisticVariableRemaining,
                                                     LocalDate today,
                                                     int daysRemaining) {
-        BigDecimal cumulativeCommitted = BigDecimal.ZERO;
+        return coverageWalk(committedByDueDate, walletBalance, pessimisticVariableRemaining, today, daysRemaining)
+                .stream()
+                .allMatch(OccurrenceCoverage::coverable);
+    }
+
+    /**
+     * The Stage 4.5 affordability walk ({@link #everyOccurrenceCoverable}), one entry per occurrence in the given
+     * (due-date) order. {@code availableBefore} is what the low path leaves for {@code occurrence} when it becomes due:
+     * {@code walletBalance − Σ committed due before it − pessimistic × clamp(daysUntil, 0, R)/R}; the occurrence is
+     * coverable when its amount does not exceed that. This is the single definition of the SHORT sub-rule — the
+     * forecast status and the Insights v2 {@code FixedPaymentNotCoverable} detector both read it.
+     */
+    public static List<OccurrenceCoverage> coverageWalk(List<CommittedOccurrence> committedByDueDate,
+                                                        BigDecimal walletBalance,
+                                                        BigDecimal pessimisticVariableRemaining,
+                                                        LocalDate today,
+                                                        int daysRemaining) {
+        Objects.requireNonNull(walletBalance, "walletBalance");
+        Objects.requireNonNull(pessimisticVariableRemaining, "pessimisticVariableRemaining");
+        Objects.requireNonNull(today, "today");
+        List<OccurrenceCoverage> walk = new ArrayList<>(committedByDueDate.size());
+        BigDecimal committedBefore = BigDecimal.ZERO;
         for (CommittedOccurrence occurrence : committedByDueDate) {
-            cumulativeCommitted = cumulativeCommitted.add(money(occurrence.expectedAmount()));
+            BigDecimal amount = money(occurrence.expectedAmount());
             BigDecimal proratedVariable = proratedVariable(pessimisticVariableRemaining,
                     ChronoUnit.DAYS.between(today, occurrence.dueDate()), daysRemaining);
-            BigDecimal available = walletBalance.subtract(cumulativeCommitted).subtract(proratedVariable);
-            if (available.signum() < 0) {
-                return false;
-            }
+            BigDecimal availableBefore = money(walletBalance.subtract(committedBefore).subtract(proratedVariable));
+            walk.add(new OccurrenceCoverage(occurrence, availableBefore, amount.compareTo(availableBefore) <= 0));
+            committedBefore = committedBefore.add(amount);
         }
-        return true;
+        return List.copyOf(walk);
+    }
+
+    /** One step of {@link #coverageWalk}: the money the low path leaves for {@code occurrence} on its due date. */
+    public record OccurrenceCoverage(CommittedOccurrence occurrence, BigDecimal availableBefore, boolean coverable) {
     }
 
     private static BigDecimal proratedVariable(BigDecimal variableRemaining, long daysUntilDue, int daysRemaining) {

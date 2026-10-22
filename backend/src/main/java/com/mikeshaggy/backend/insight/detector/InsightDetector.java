@@ -2,6 +2,7 @@ package com.mikeshaggy.backend.insight.detector;
 
 import com.mikeshaggy.backend.insight.domain.InsightType;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -25,4 +26,15 @@ public interface InsightDetector {
     InsightType type();
 
     Optional<InsightCandidate> detect(InsightContext ctx);
+
+    /**
+     * Every event this rule reports for the evaluation — what {@code InsightDetectorRunner} calls. A rule that can see
+     * several distinct events at once (several categories, one-offs, fixed payments) overrides this, each event with
+     * its own dedupe key, in a deterministic order (see {@link MultiInsightDetector}); by default it is
+     * {@link #detect} as a list.
+     */
+    default List<InsightCandidate> detectAll(InsightContext ctx) {
+        Optional<InsightCandidate> candidate = detect(ctx);
+        return candidate == null || candidate.isEmpty() ? List.of() : List.of(candidate.get());
+    }
 }

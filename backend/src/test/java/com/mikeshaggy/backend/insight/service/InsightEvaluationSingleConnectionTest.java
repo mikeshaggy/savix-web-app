@@ -127,6 +127,52 @@ class InsightEvaluationSingleConnectionTest {
     }
 
     @Test
+    void everyStage73ContextInput_readsWithASingleConnection() {
+        // Session X: an input read by a repository query method outside a transaction would keep its connection for
+        // the whole detection phase, so the next input would time out here (pool of 1) — the rule would throw and
+        // nothing would be stored
+        AbstractInsightEvaluationIntegrationTest.RULE.set(ctx -> {
+            ctx.fixedPayments();
+            ctx.savingsWallet();
+            ctx.expenseHistory();
+            ctx.impulseSplit();
+            ctx.cycleHistory();
+            ctx.categoryDayBaseline();
+            ctx.sparkline();
+            ctx.transferSummary();
+            ctx.fixedPaymentRows();
+            ctx.forecast();
+            return Optional.of(new InsightCandidate(InsightType.CATEGORY_ABOVE_TYPICAL, InsightSeverity.WARN,
+                    "category:3", "t", null, null, null, null));
+        });
+
+        InsightListResponse response = insightService.evaluate(wallet.getId(), user.getId());
+
+        assertThat(response.insights()).hasSize(1);
+        assertThat(rows()).hasSize(1);
+    }
+
+    @Test
+    void refreshOfAChangedCondition_needsASingleConnection() {
+        // Session X.1: find + REQUIRES_NEW update after detection, like an insert — never two connections at once
+        AbstractInsightEvaluationIntegrationTest.RULE.set(ctx -> Optional.of(new InsightCandidate(
+                InsightType.CATEGORY_ABOVE_TYPICAL, InsightSeverity.WARN, "category:3", "t", "before", null, null,
+                null)));
+        Long id = insightService.evaluate(wallet.getId(), user.getId()).insights().getFirst().id();
+        AbstractInsightEvaluationIntegrationTest.RULE.set(ctx -> Optional.of(new InsightCandidate(
+                InsightType.CATEGORY_ABOVE_TYPICAL, InsightSeverity.WARN, "category:3", "t", "after", null, null,
+                null)));
+
+        InsightListResponse response = insightService.evaluate(wallet.getId(), user.getId());
+
+        assertThat(response.insights()).singleElement().satisfies(insight -> {
+            assertThat(insight.id()).isEqualTo(id);
+            assertThat(insight.description()).isEqualTo("after");
+        });
+        verify(insightWriter).refresh(any(), any());
+    }
+
+    @Test
     void lostRace_isAbsorbedWithASingleConnection() {
         // the winner's row is already committed, but our pre-check is made to miss it (as in a real race), so the
         // insert hits the unique constraint for real and the re-check must find the winner

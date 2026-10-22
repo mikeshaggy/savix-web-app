@@ -182,6 +182,45 @@ class InsightRepositoryTest {
         assertThat(read).contains("162.30").contains("2.50").contains("Groceries ż");
     }
 
+    @Test
+    void existsByWalletTypeAndKey_looksAcrossAllCycles_dismissedOrNot_scopedToUserWalletTypeAndKey() {
+        repository.saveAndFlush(insight(InsightType.CYCLE_CLOSED, "cycle:2026-08-10", PREVIOUS_CYCLE));
+        Wallet second = wallet(user, "Second");
+        User stranger = user("stranger-insights@example.com");
+
+        assertThat(repository.existsByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.CYCLE_CLOSED, "cycle:2026-08-10")).isTrue();
+        // any cycle: an older row still blocks a re-emission under a newer current cycle
+        assertThat(repository.existsByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.CYCLE_CLOSED, "cycle:2026-09-09")).isFalse();
+        assertThat(repository.existsByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.PRE_PAYDAY_NEGATIVE, "cycle:2026-08-10")).isFalse();
+        assertThat(repository.existsByWalletTypeAndKey(user.getId(), second.getId(), InsightType.CYCLE_CLOSED, "cycle:2026-08-10")).isFalse();
+        assertThat(repository.existsByWalletTypeAndKey(stranger.getId(), wallet.getId(), InsightType.CYCLE_CLOSED, "cycle:2026-08-10")).isFalse();
+
+        Insight dismissed = insight(InsightType.PRE_PAYDAY_NEGATIVE, "cycle:2026-08-10", CYCLE);
+        dismissed.setDismissedAt(Instant.parse("2026-10-20T10:00:00Z"));
+        repository.saveAndFlush(dismissed);
+        assertThat(repository.existsByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.PRE_PAYDAY_NEGATIVE, "cycle:2026-08-10")).isTrue();
+    }
+
+    @Test
+    void existsDismissedByWalletTypeAndKey_isTrueOnlyForADismissedRow_inAnyCycle_withinTheSameScope() {
+        repository.saveAndFlush(insight(InsightType.RECURRING_MERCHANT_DETECTED, "merchant:netflix", PREVIOUS_CYCLE));
+        Wallet second = wallet(user, "Second");
+        User stranger = user("stranger-dismissed@example.com");
+
+        // present but not dismissed
+        assertThat(repository.existsDismissedByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.RECURRING_MERCHANT_DETECTED, "merchant:netflix")).isFalse();
+
+        Insight dismissed = insight(InsightType.RECURRING_MERCHANT_DETECTED, "merchant:spotify", PREVIOUS_CYCLE);
+        dismissed.setDismissedAt(Instant.parse("2026-10-20T10:00:00Z"));
+        repository.saveAndFlush(dismissed);
+
+        assertThat(repository.existsDismissedByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.RECURRING_MERCHANT_DETECTED, "merchant:spotify")).isTrue();
+        assertThat(repository.existsDismissedByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.RECURRING_MERCHANT_DETECTED, "merchant:other")).isFalse();
+        assertThat(repository.existsDismissedByWalletTypeAndKey(user.getId(), wallet.getId(), InsightType.CATEGORY_ABOVE_TYPICAL, "merchant:spotify")).isFalse();
+        assertThat(repository.existsDismissedByWalletTypeAndKey(user.getId(), second.getId(), InsightType.RECURRING_MERCHANT_DETECTED, "merchant:spotify")).isFalse();
+        assertThat(repository.existsDismissedByWalletTypeAndKey(stranger.getId(), wallet.getId(), InsightType.RECURRING_MERCHANT_DETECTED, "merchant:spotify")).isFalse();
+    }
+
     private Insight insight(InsightType type, String key, LocalDate cycleStart) {
         return Insight.builder()
                 .userId(user.getId())

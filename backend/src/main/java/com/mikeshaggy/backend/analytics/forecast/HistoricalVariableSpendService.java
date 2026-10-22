@@ -40,6 +40,8 @@ import static com.mikeshaggy.backend.common.calculation.MoneyMath.money;
 public class HistoricalVariableSpendService {
 
     public static final int DEFAULT_CYCLES = 6;
+    /** Cap of {@link #closedCycleTotals}: the 6-cycle baseline plus the cycle it describes. */
+    public static final int MAX_TOTAL_CYCLES = DEFAULT_CYCLES + 1;
 
     private static final BigDecimal P25 = new BigDecimal("0.25");
     private static final BigDecimal P75 = new BigDecimal("0.75");
@@ -88,6 +90,39 @@ public class HistoricalVariableSpendService {
             contributions.add(contribution(userId, walletId, cycle, dayIndex, daysRemaining));
         }
         return HistoricalBaseline.of(List.copyOf(contributions), daysRemaining);
+    }
+
+    /**
+     * Stage 7.3 — the whole-cycle pace-eligible variable spend of the user's most recent closed cycles (newest
+     * first, up to {@code maxCycles} ≤ {@value #MAX_TOTAL_CYCLES}): the same zero-filled series as
+     * {@link CycleContribution#variableTotal()}, read with <em>one</em> query over the span of those cycles and
+     * summed per cycle. Empty without a closed cycle.
+     */
+    public List<CycleVariableTotal> closedCycleTotals(UUID userId, Integer walletId, int maxCycles) {
+        Objects.requireNonNull(userId, "userId");
+        Objects.requireNonNull(walletId, "walletId");
+        int n = Math.min(Math.max(maxCycles, 0), MAX_TOTAL_CYCLES);
+        List<PayCycle> closed = payCycleService.history(userId, n).stream()
+                .filter(cycle -> cycle.state() == CycleState.CLOSED)
+                .toList();
+        if (closed.isEmpty()) {
+            return List.of();
+        }
+        List<DailyTotal> daily = analyticsTransactionQueryService.dailyVariableTotals(
+                walletId, userId, closed.getLast().start(), closed.getFirst().end());
+        List<CycleVariableTotal> totals = new ArrayList<>(closed.size());
+        for (PayCycle cycle : closed) {
+            BigDecimal total = money(daily.stream()
+                    .filter(day -> cycle.contains(day.day()))
+                    .map(DailyTotal::amount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add));
+            totals.add(new CycleVariableTotal(cycle, total));
+        }
+        return List.copyOf(totals);
+    }
+
+    /** Whole-cycle pace-eligible variable spend of one closed cycle (Stage 7.3). */
+    public record CycleVariableTotal(PayCycle cycle, BigDecimal variableTotal) {
     }
 
     private CycleContribution contribution(UUID userId, Integer walletId, PayCycle cycle,

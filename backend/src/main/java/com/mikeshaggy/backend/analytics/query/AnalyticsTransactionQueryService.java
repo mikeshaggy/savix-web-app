@@ -81,6 +81,39 @@ public class AnalyticsTransactionQueryService {
                 .toList();
     }
 
+    /**
+     * The same unlinked EXPENSE rows as {@link #unlinkedExpenses} (exclusion flags do not filter), with the category
+     * id — the Stage 7.3 recurring-merchant input, which needs the category to prefill a fixed payment.
+     */
+    public List<UnlinkedExpense> unlinkedExpenseRows(Integer walletId, UUID userId, LocalDate from, LocalDate to) {
+        return transactionRepository.findUnlinkedExpensesByWalletUserDateRange(walletId, userId, from, to).stream()
+                .map(t -> new UnlinkedExpense(t.getId(), t.getTransactionDate(), t.getTitle(),
+                        t.getCategory().getId(), t.getCategory().getName(), money(t.getAmount())))
+                .toList();
+    }
+
+    /**
+     * Pace-eligible variable spend ({@link #sumUnlinkedForPace}) classified with {@code importance} — always a part of
+     * {@code sumUnlinkedForPace} over the same window.
+     */
+    public BigDecimal sumUnlinkedForPaceByImportance(Integer walletId, UUID userId, LocalDate from, LocalDate to,
+                                                     Importance importance) {
+        return money(transactionRepository.sumUnlinkedPaceEligibleByWalletUserDateRangeAndImportance(
+                walletId, userId, from, to, importance));
+    }
+
+    /**
+     * Per-day, per-category pace-eligible variable EXPENSE totals in {@code [from, to]} — the category split of
+     * {@link #dailyVariableTotals} (not zero-filled: only days a category was spent on).
+     */
+    public List<DailyCategoryTotal> dailyCategoryVariableTotals(Integer walletId, UUID userId, LocalDate from,
+                                                                LocalDate to) {
+        return transactionRepository.findDailyPaceEligibleCategoryTotals(walletId, userId, from, to).stream()
+                .map(row -> new DailyCategoryTotal(row.getDate(), row.getCategoryId(), row.getName(), row.getEmoji(),
+                        money(row.getAmount())))
+                .toList();
+    }
+
     public BigDecimal expenseByImportance(Integer walletId, UUID userId,
                                           LocalDate from, LocalDate to,
                                           Importance importance) {
@@ -134,6 +167,19 @@ public class AnalyticsTransactionQueryService {
             String categoryName,
             BigDecimal amount,
             boolean excluded) {
+    }
+
+    /** One unlinked expense with its category (Stage 7.3 recurring-merchant input). */
+    public record UnlinkedExpense(
+            Long transactionId,
+            LocalDate date,
+            String title,
+            Integer categoryId,
+            String categoryName,
+            BigDecimal amount) {
+    }
+
+    public record DailyCategoryTotal(LocalDate day, Integer categoryId, String name, String emoji, BigDecimal amount) {
     }
 
     public record DailyExpenseStats(

@@ -18,21 +18,38 @@ import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonService;
 import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonStatus;
 import com.mikeshaggy.backend.analytics.forecast.ForecastService;
 import com.mikeshaggy.backend.analytics.forecast.ForecastV2Dto;
+import com.mikeshaggy.backend.analytics.forecast.HistoricalCategorySpendService;
+import com.mikeshaggy.backend.analytics.forecast.HistoricalCategorySpendService.CategoryDayBaseline;
+import com.mikeshaggy.backend.analytics.forecast.HistoricalVariableSpendService;
+import com.mikeshaggy.backend.analytics.forecast.HistoricalVariableSpendService.CycleVariableTotal;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
+import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.UnlinkedExpense;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.paycycle.PayCycle;
 import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodType;
+import com.mikeshaggy.backend.category.domain.Category;
 import com.mikeshaggy.backend.config.FeatureFlags;
+import com.mikeshaggy.backend.fixedpayment.domain.FixedPayment;
+import com.mikeshaggy.backend.fixedpayment.domain.FixedPaymentOccurrence;
+import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentOccurrenceRepository;
+import com.mikeshaggy.backend.fixedpayment.repository.FixedPaymentRepository;
 import com.mikeshaggy.backend.fixedpayment.service.FixedPaymentDashboardService;
 import com.mikeshaggy.backend.insight.detector.InsightContext;
+import com.mikeshaggy.backend.insight.detector.InsightContext.FixedPaymentHistory;
+import com.mikeshaggy.backend.insight.detector.InsightContext.ImpulseSplit;
+import com.mikeshaggy.backend.insight.detector.InsightContext.OccurrenceSnapshot;
 import com.mikeshaggy.backend.ledger.dto.BalanceSparklineResponse;
 import com.mikeshaggy.backend.ledger.dto.BalanceSparklineResponse.CycleMinimum;
 import com.mikeshaggy.backend.ledger.service.BalanceSparklineService;
 import com.mikeshaggy.backend.transfer.dto.TransferSummaryResponse;
+import com.mikeshaggy.backend.transaction.domain.Importance;
 import com.mikeshaggy.backend.transfer.service.TransferSummaryService;
 import com.mikeshaggy.backend.wallet.domain.Wallet;
+import com.mikeshaggy.backend.wallet.repository.WalletRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -59,6 +76,12 @@ class InsightContextFactoryTest {
     private CycleComparisonService cycleComparisonService;
     private TransferSummaryService transferSummaryService;
     private BalanceSparklineService balanceSparklineService;
+    private HistoricalCategorySpendService historicalCategorySpendService;
+    private HistoricalVariableSpendService historicalVariableSpendService;
+    private AnalyticsTransactionQueryService transactionQueryService;
+    private WalletRepository walletRepository;
+    private FixedPaymentRepository fixedPaymentRepository;
+    private FixedPaymentOccurrenceRepository occurrenceRepository;
     private Wallet wallet;
     private FixedTransactionsTileDto tile;
     private FixedOccurrenceRowDto overdue;
@@ -73,6 +96,12 @@ class InsightContextFactoryTest {
         cycleComparisonService = mock(CycleComparisonService.class);
         transferSummaryService = mock(TransferSummaryService.class);
         balanceSparklineService = mock(BalanceSparklineService.class);
+        historicalCategorySpendService = mock(HistoricalCategorySpendService.class);
+        historicalVariableSpendService = mock(HistoricalVariableSpendService.class);
+        transactionQueryService = mock(AnalyticsTransactionQueryService.class);
+        walletRepository = mock(WalletRepository.class);
+        fixedPaymentRepository = mock(FixedPaymentRepository.class);
+        occurrenceRepository = mock(FixedPaymentOccurrenceRepository.class);
         wallet = Wallet.builder().id(1).name("Daily").balance(new BigDecimal("5896.89")).build();
 
         overdue = mock(FixedOccurrenceRowDto.class);
@@ -97,7 +126,9 @@ class InsightContextFactoryTest {
         assertThat(context.today()).isEqualTo(TODAY);
         assertThat(context.wallet()).isEqualTo(new InsightContext.WalletSnapshot(1, "Daily", new BigDecimal("5896.89")));
         verifyNoInteractions(forecastService, fixedPaymentDashboardService, cycleComparisonService,
-                transferSummaryService, balanceSparklineService);
+                transferSummaryService, balanceSparklineService, historicalCategorySpendService,
+                historicalVariableSpendService, transactionQueryService, walletRepository, fixedPaymentRepository,
+                occurrenceRepository);
     }
 
     @Test
@@ -186,9 +217,99 @@ class InsightContextFactoryTest {
         verify(fixedPaymentDashboardService, times(1)).getFixedPaymentsTileData(any(), any(Wallet.class), any(), any());
     }
 
+    @Test
+    void sparkline_isLoadedOnce_forBothTheFullResponseAndTheMinima() {
+        BalanceSparklineResponse sparkline = new BalanceSparklineResponse(1, TODAY.minusDays(89), TODAY, List.of(),
+                List.of(), List.of());
+        when(balanceSparklineService.getSparkline(1, USER, BalanceSparklineService.DEFAULT_DAYS)).thenReturn(sparkline);
+        InsightContext context = factory(true).create(USER, wallet, CYCLE, PERIOD, TODAY);
+
+        assertThat(context.sparkline()).isSameAs(sparkline);
+        assertThat(context.sparklineMinima()).isEmpty();
+        assertThat(context.sparkline()).isSameAs(sparkline);
+        verify(balanceSparklineService, times(1)).getSparkline(any(), any(), any(Integer.class));
+    }
+
+    @Test
+    void stage73Inputs_comeFromTheirCanonicalServices_onceEach_withTheCurrentCycleAndDay() {
+        CategoryDayBaseline baseline = new CategoryDayBaseline(14, List.of(), List.of());
+        when(historicalCategorySpendService.atDay(USER, 1, CYCLE, TODAY)).thenReturn(baseline);
+        List<CycleVariableTotal> history = List.of(new CycleVariableTotal(
+                PayCycle.closed(USER, 1, LocalDate.of(2026, 9, 9), START.minusDays(1)), new BigDecimal("3600.00")));
+        when(historicalVariableSpendService.closedCycleTotals(USER, 1, HistoricalVariableSpendService.MAX_TOTAL_CYCLES))
+                .thenReturn(history);
+        when(transactionQueryService.sumUnlinkedForPace(1, USER, START, TODAY)).thenReturn(new BigDecimal("1500.00"));
+        when(transactionQueryService.sumUnlinkedForPaceByImportance(1, USER, START, TODAY, Importance.SHOULDNT_HAVE))
+                .thenReturn(new BigDecimal("320.00"));
+        List<UnlinkedExpense> expenses = List.of(new UnlinkedExpense(7L, TODAY, "FX_STREAM", 4, "subs",
+                new BigDecimal("49.99")));
+        when(transactionQueryService.unlinkedExpenseRows(1, USER, TODAY.minusDays(209), TODAY)).thenReturn(expenses);
+        InsightContext context = factory(true).create(USER, wallet, CYCLE, PERIOD, TODAY);
+
+        assertThat(context.categoryDayBaseline()).isSameAs(baseline);
+        assertThat(context.cycleHistory()).isEqualTo(history);
+        assertThat(context.impulseSplit())
+                .isEqualTo(new ImpulseSplit(new BigDecimal("1500.00"), new BigDecimal("320.00")));
+        assertThat(context.expenseHistory()).isEqualTo(expenses);
+        context.categoryDayBaseline();
+        context.cycleHistory();
+        context.impulseSplit();
+        context.expenseHistory();
+        verify(historicalCategorySpendService, times(1)).atDay(any(), any(), any(), any());
+        verify(historicalVariableSpendService, times(1)).closedCycleTotals(any(), any(), any(Integer.class));
+        verify(transactionQueryService, times(1)).sumUnlinkedForPace(any(), any(), any(), any());
+        verify(transactionQueryService, times(1)).unlinkedExpenseRows(any(), any(), any(), any());
+    }
+
+    @Test
+    void savingsWallet_isTheOnlyOtherNonFundWallet_elseEmpty() {
+        Wallet savings = Wallet.builder().id(2).name("Savings").balance(new BigDecimal("460.01")).build();
+        when(walletRepository.findByUserIdAndIsFundFalse(USER)).thenReturn(List.of(wallet, savings));
+        assertThat(factory(true).create(USER, wallet, CYCLE, PERIOD, TODAY).savingsWallet())
+                .contains(new InsightContext.WalletSnapshot(2, "Savings", new BigDecimal("460.01")));
+
+        Wallet other = Wallet.builder().id(3).name("Other").balance(BigDecimal.ONE).build();
+        when(walletRepository.findByUserIdAndIsFundFalse(USER)).thenReturn(List.of(wallet, savings, other));
+        assertThat(factory(true).create(USER, wallet, CYCLE, PERIOD, TODAY).savingsWallet()).isEmpty();
+    }
+
+    @Test
+    void fixedPayments_areTheActiveOnes_withSnapshotsOfTheirOccurrences() {
+        Category category = Category.builder().id(4).name("subs").build();
+        FixedPayment active = FixedPayment.builder().id(10).title("FX_SUB_A").amount(new BigDecimal("105.00"))
+                .category(category).build();
+        FixedPayment ended = FixedPayment.builder().id(11).title("FX_OLD").amount(BigDecimal.TEN)
+                .category(category).activeTo(TODAY.minusDays(1)).build();
+        when(fixedPaymentRepository.findAllByWalletIdAndUserId(1, USER)).thenReturn(List.of(ended, active));
+        FixedPaymentOccurrence paid = FixedPaymentOccurrence.builder().id(100L).fixedPayment(active)
+                .dueDate(LocalDate.of(2026, 9, 25)).expectedAmount(new BigDecimal("105.00"))
+                .paidAmount(new BigDecimal("119.00")).status(OccurrenceStatus.PAID).build();
+        when(occurrenceRepository.findAllByFixedPaymentIdsAndDueDateBetween(List.of(10), TODAY.minusMonths(25),
+                TODAY.plusDays(62))).thenReturn(List.of(paid));
+
+        List<FixedPaymentHistory> payments = factory(true).create(USER, wallet, CYCLE, PERIOD, TODAY).fixedPayments();
+
+        assertThat(payments).containsExactly(new FixedPaymentHistory(10, "FX_SUB_A", new BigDecimal("105.00"), 4,
+                List.of(new OccurrenceSnapshot(100L, LocalDate.of(2026, 9, 25), OccurrenceStatus.PAID,
+                        new BigDecimal("105.00"), new BigDecimal("119.00")))));
+    }
+
+    @Test
+    void stage72FiveInputSources_leaveStage73InputsUnavailable_neverZero() {
+        InsightContext context = new InsightContext(USER, new InsightContext.WalletSnapshot(1, "Daily", BigDecimal.ONE),
+                CYCLE, TODAY, new InsightContext.Sources(java.util.Optional::empty, List::of, () -> null, List::of,
+                List::of));
+
+        assertThatThrownBy(context::impulseSplit).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("impulseSplit");
+        assertThatThrownBy(context::cycleHistory).isInstanceOf(IllegalStateException.class);
+    }
+
     private InsightContextFactory factory(boolean forecastV2) {
         return new InsightContextFactory(forecastService, fixedPaymentDashboardService, cycleComparisonService,
-                transferSummaryService, balanceSparklineService,
+                transferSummaryService, balanceSparklineService, historicalCategorySpendService,
+                historicalVariableSpendService, transactionQueryService,
+                new InsightInputQueries(walletRepository, fixedPaymentRepository, occurrenceRepository),
                 new FeatureFlags(true, forecastV2, false, false, true));
     }
 }

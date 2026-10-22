@@ -18,6 +18,7 @@ import com.mikeshaggy.backend.auth.util.cookie.AuthCookieManager;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.insight.domain.InsightActionType;
+import com.mikeshaggy.backend.insight.domain.InsightKind;
 import com.mikeshaggy.backend.insight.domain.InsightSeverity;
 import com.mikeshaggy.backend.insight.domain.InsightType;
 import com.mikeshaggy.backend.insight.dto.InsightAvailability;
@@ -69,8 +70,8 @@ class InsightControllerTest {
     @Test
     void list_returnsContract() throws Exception {
         JsonNode payload = objectMapper.readTree("{\"impact\":300.00,\"transactionId\":42}");
-        InsightResponse insight = new InsightResponse(17L, InsightType.ONE_OFF_SKEWING_FORECAST, InsightSeverity.WARN,
-                LocalDate.of(2026, 10, 9), "A one-off skews the forecast", "300.00 on 12 Oct", payload,
+        InsightResponse insight = new InsightResponse(17L, InsightType.ONE_OFF_SKEWING_FORECAST, InsightKind.NOTABLE,
+                InsightSeverity.WARN, LocalDate.of(2026, 10, 9), "A one-off skews the forecast", "300.00 on 12 Oct", payload,
                 InsightActionType.EXCLUDE_TRANSACTION, "42", Instant.parse("2026-10-22T10:00:00Z"));
         when(insightService.evaluate(1, TEST_USER_ID)).thenReturn(new InsightListResponse(1,
                 InsightAvailability.AVAILABLE, LocalDate.of(2026, 10, 9), LocalDate.of(2026, 11, 9),
@@ -85,6 +86,7 @@ class InsightControllerTest {
                 .andExpect(jsonPath("$.cycleState").value("OPEN"))
                 .andExpect(jsonPath("$.insights[0].id").value(17))
                 .andExpect(jsonPath("$.insights[0].type").value("ONE_OFF_SKEWING_FORECAST"))
+                .andExpect(jsonPath("$.insights[0].kind").value("NOTABLE"))
                 .andExpect(jsonPath("$.insights[0].severity").value("WARN"))
                 .andExpect(jsonPath("$.insights[0].cycleStart").value("2026-10-09"))
                 .andExpect(jsonPath("$.insights[0].title").value("A one-off skews the forecast"))
