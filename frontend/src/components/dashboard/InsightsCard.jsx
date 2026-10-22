@@ -28,7 +28,8 @@ const SEVERITY_CFG = {
   },
 };
 
-export default function InsightsCard({ insights }) {
+// `variant="v2"` (dashboard v2 layout): an empty list is one calm line instead of the large all-clear block.
+export default function InsightsCard({ insights, variant = 'default', reporting = false }) {
   const t = useTranslations();
   const formatCurrency = useFormatCurrency();
   const items = insights ?? [];
@@ -46,7 +47,9 @@ export default function InsightsCard({ insights }) {
 
       {/* Scrollable list — flex-1 fills the remaining card height set by the grid row */}
       <div className="flex flex-col flex-1 min-h-0 overflow-y-auto dashboard-scroll">
-        {items.length === 0 ? (
+        {items.length === 0 && variant === 'v2' ? (
+          <div className="px-5 py-4 text-[12px] text-white/40">{t(reporting ? 'dashboard.nothingUnusualPeriod' : 'dashboard.nothingUnusual')}</div>
+        ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 px-6 gap-3">
             <CheckCircle className="w-9 h-9 text-emerald-400/50" />
             <div className="text-[12px] text-white/40 text-center leading-relaxed">

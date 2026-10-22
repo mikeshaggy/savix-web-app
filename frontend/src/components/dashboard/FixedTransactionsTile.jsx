@@ -7,6 +7,7 @@ import { useLanguage } from '@/i18n';
 import { useCategories } from '@/hooks/useApi';
 import { useAppContext } from '@/contexts/AppContext';
 import TransactionModal from '@/components/modals/TransactionModal';
+import { fixedTileV2Model } from '@/lib/dashboardV2';
 
 function computeDaysDelta(dueDateStr) {
   const today = new Date();
@@ -16,7 +17,8 @@ function computeDaysDelta(dueDateStr) {
   return Math.round((due - today) / (1000 * 60 * 60 * 24));
 }
 
-export default function FixedTransactionsTile({ fixedPayments, walletId }) {
+// `variant="v2"` (dashboard v2 layout): next 3 committed payments + one coverage line from `forecastStatus`.
+export default function FixedTransactionsTile({ fixedPayments, walletId, variant = 'default', forecastStatus = null, reporting = false }) {
   const t = useTranslations();
   const { lang } = useLanguage();
   const { categories } = useCategories();
@@ -100,9 +102,80 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
   const overflowCount = allOccs.length - (nextPending ? 1 : 0) - rows.length;
   const npDaysDelta = nextPending?.dueDate ? computeDaysDelta(nextPending.dueDate) : 0;
   const npIsOverdue = nextPending?.status === 'OVERDUE';
+  const isV2 = variant === 'v2';
+  const v2 = isV2 ? fixedTileV2Model(fixedPayments, forecastStatus, { reporting }) : null;
 
   return (
     <>
+      {isV2 && (
+        <div
+          className="w-full bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
+          style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.14s' }}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.055]">
+            <div className="text-[15px] font-bold tracking-[-0.2px]">{t('fixedPayments.tileTitle')}</div>
+            <a
+              href="/transactions/fixed-payments"
+              className="text-[12px] text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity"
+            >
+              {t('dashboard.viewAll')}
+            </a>
+          </div>
+          {v2.rows.length === 0 ? (
+            v2.emptyNote && (
+              <div className="px-5 py-4 text-[12px] text-white/40">{t(`dashboard.${v2.emptyNote}`)}</div>
+            )
+          ) : (
+            v2.rows.map((occ) => {
+              const daysDelta = occ.dueDate ? computeDaysDelta(occ.dueDate) : 0;
+              return (
+                <div
+                  key={occ.id}
+                  className="group flex items-center gap-2.5 px-5 py-2.5 border-b border-white/[0.03]"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-medium text-white truncate">{occ.name}</div>
+                    <div className="text-[9px] text-white/25 flex items-center gap-1.5 mt-0.5">
+                      <span>{occ.dueDate}</span>
+                      <span className={`text-[8px] px-1.5 py-px rounded ${getDaysChipClass(daysDelta)}`}>
+                        {getDaysLabel(daysDelta)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleMarkPaidClick(occ)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[7px] text-[9px] tracking-[0.06em] cursor-pointer border border-green-400/30 bg-green-400/[0.07] text-green-400 md:opacity-0 md:group-hover:opacity-100 transition-all hover:bg-green-400/[0.15] shrink-0"
+                  >
+                    <Check className="w-3 h-3" />
+                    {t('fixedPayments.markAsPaid')}
+                  </button>
+                  <div className="font-bold text-[13px] tracking-[-0.01em] text-purple-400 shrink-0">
+                    {formatCurrency(occ.amount, lang)}
+                  </div>
+                </div>
+              );
+            })
+          )}
+          {v2.overdueAmount != null && (
+            <div className="px-5 py-2 text-[11px] text-rose-400/80 border-b border-white/[0.03]">
+              {t('dashboard.fixedOverdue', { amount: formatCurrency(v2.overdueAmount, lang) })}
+            </div>
+          )}
+          {v2.coverage === 'covered' && (
+            <div className="px-5 py-2.5 text-[12px] text-emerald-400/80">{t('dashboard.fixedCovered')}</div>
+          )}
+          {v2.coverage === 'notCovered' && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-2.5 text-[12px] text-amber-400">
+              <span>{t('dashboard.fixedNotCovered')}</span>
+              <a href="/analytics/forecast" className="text-[#a855f7] opacity-80 hover:opacity-100 transition-opacity">
+                {t('dashboard.fixedSeeForecast')}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isV2 && (
       <div
         className="w-full bg-[#0e0e1c] border border-white/[0.06] rounded-[14px] overflow-hidden flex flex-col"
         style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.14s' }}
@@ -375,6 +448,7 @@ export default function FixedTransactionsTile({ fixedPayments, walletId }) {
           </a>
         )}
       </div>
+      )}
 
       {/* Mark as Paid confirmation */}
       {markPaidOccurrence && !showTransactionModal && (

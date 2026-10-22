@@ -160,7 +160,7 @@ public class DashboardSummaryService {
         DashboardPeriodDto period = period(primary, cutoffDate, cutoffDate, periodEnd, comparison);
         DashboardFixedPaymentsDto fixedPayments = fixedPaymentsTile == null ? null : fixedPayments(fixedPaymentsTile);
 
-        if (!featureFlags.dashboardV2()) {
+        if (!featureFlags.dashboardV2Active()) {
             Map<Integer, CategoryBudget> budgetByCategory = categoryBudgetRepository
                     .findActiveByWalletIdAndUserId(walletId, userId)
                     .stream()

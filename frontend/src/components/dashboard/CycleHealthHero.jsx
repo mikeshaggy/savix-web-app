@@ -138,7 +138,7 @@ function AwaitingSalaryHero({ cycleHealth, period, t, formatCurrency }) {
  * Reads only the v2 fields of cycleHealth — the legacy `status` is null while the flag is on and is never mapped.
  * A status word appears only for TIGHT / SHORT; FINE keeps a neutral frame.
  */
-function CycleHealthHeroV2({ cycleHealth, period, t }) {
+function CycleHealthHeroV2({ cycleHealth, period, kpis, showTotals, t }) {
   const formatCurrency = useForecastCurrency();
   const daysElapsed = period?.daysElapsed ?? 0;
   const daysRemaining = period?.daysRemaining ?? 0;
@@ -192,6 +192,19 @@ function CycleHealthHeroV2({ cycleHealth, period, t }) {
         <ForecastStatusHint model={model} className="basis-full" />
       </div>
 
+      {showTotals && kpis && (
+        <div
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-6 md:px-8 py-2.5 border-t border-white/[0.04] text-[11px] text-white/35 tabular-nums"
+          data-testid="hero-totals"
+        >
+          <span>{t('dashboard.income')} <span className="font-mono text-white/55">{formatCurrency(kpis.income?.amount ?? 0)}</span></span>
+          <span aria-hidden="true">·</span>
+          <span>{t('dashboard.expenses')} <span className="font-mono text-white/55">{formatCurrency(kpis.expenses?.amount ?? 0)}</span></span>
+          <span aria-hidden="true">·</span>
+          <span>{t('dashboard.saved')} <span className="font-mono text-white/55">{formatCurrency(kpis.saved?.amount ?? 0)}</span></span>
+        </div>
+      )}
+
       {daysInPeriod > 0 && (
         <div className="flex items-center gap-3 px-6 py-3 border-t border-white/[0.04]">
           <span className="text-[9px] text-white/30 whitespace-nowrap shrink-0">
@@ -212,7 +225,8 @@ function CycleHealthHeroV2({ cycleHealth, period, t }) {
   );
 }
 
-export default function CycleHealthHero({ cycleHealth, period, kpis }) {
+// `showTotals` (dashboard v2 layout): one muted income · spent · net line under the open-cycle v2 hero, amounts only.
+export default function CycleHealthHero({ cycleHealth, period, kpis, showTotals = false }) {
   const t = useTranslations();
   const formatCurrency = useFormatCurrency();
   const { forecastV2 } = useFeatures();
@@ -225,7 +239,7 @@ export default function CycleHealthHero({ cycleHealth, period, kpis }) {
     return <AwaitingSalaryHero cycleHealth={cycleHealth} period={period} t={t} formatCurrency={formatCurrency} />;
   }
   if (variant === 'v2') {
-    return <CycleHealthHeroV2 cycleHealth={cycleHealth} period={period} t={t} />;
+    return <CycleHealthHeroV2 cycleHealth={cycleHealth} period={period} kpis={kpis} showTotals={showTotals} t={t} />;
   }
 
   const {

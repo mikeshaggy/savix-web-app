@@ -356,6 +356,16 @@ export const walletApi = {
   deleteWallet: (id) => del(`/wallets/${id}`),
 };
 
+export const walletEntryApi = {
+  // Stage 6.1 sparkline: daily closing balance, actual paydays and closed-cycle minima
+  getBalanceSparkline: (walletId, days = 90) => {
+    if (!walletId || walletId === 'undefined' || walletId === 'null') {
+      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
+    }
+    return get(`/wallet-entries/wallet/${walletId}/balance-history/sparkline?days=${days}`);
+  },
+};
+
 export const categoryApi = {
   getAllCategories: (type) => {
     const endpoint = type ? `/categories?type=${type}` : '/categories';

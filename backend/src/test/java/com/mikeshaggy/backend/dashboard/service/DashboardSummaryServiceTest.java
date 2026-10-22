@@ -120,7 +120,9 @@ class DashboardSummaryServiceTest {
     }
 
     private static final FeatureFlags FLAGS_OFF = new FeatureFlags(true, false, false, false, false);
-    private static final FeatureFlags DASHBOARD_V2 = new FeatureFlags(true, false, false, true, false);
+    private static final FeatureFlags DASHBOARD_V2 = new FeatureFlags(true, true, false, true, false);
+    /** Unsupported combination: dashboard-v2 without the forecast-v2 it presents. */
+    private static final FeatureFlags DASHBOARD_V2_WITHOUT_FORECAST_V2 = new FeatureFlags(true, false, false, true, false);
 
     private DashboardSummaryService service(FeatureFlags flags) {
         return new DashboardSummaryService(
@@ -671,6 +673,22 @@ class DashboardSummaryServiceTest {
             assertThat(result.kpis().expenses().deltaPercent()).isEqualByComparingTo("25.00");
             assertThat(result.kpis().income().deltaAmount()).isEqualByComparingTo("100.00");
             assertThat(result.kpis().savingsRate().deltaPercentagePoints()).isNotNull();
+            verifyNoInteractions(v2Sections);
+        }
+
+        @Test
+        void dashboardV2WithoutForecastV2IsInactiveAndServesTheLegacyResponse() {
+            stubSummaryForCutoff(payCycle(), previousCycle(), TODAY, LocalDate.of(2026, 4, 26));
+
+            DashboardSummaryDto result = service(DASHBOARD_V2_WITHOUT_FORECAST_V2).getSummary(
+                    WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, null,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+
+            assertThat(result.cycleSoFar()).isNull();
+            assertThat(result.savings()).isNull();
+            assertThat(result.categoryPressure()).hasSize(1);
+            assertThat(result.previousCyclePreview()).isNotNull();
+            assertThat(result.kpis().expenses().deltaAmount()).isEqualByComparingTo("20.00");
             verifyNoInteractions(v2Sections);
         }
 

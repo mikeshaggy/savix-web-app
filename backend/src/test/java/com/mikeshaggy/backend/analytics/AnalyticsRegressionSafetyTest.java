@@ -84,7 +84,7 @@ class AnalyticsRegressionSafetyTest {
     private static final LocalDate END = LocalDate.of(2026, 10, 8);
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 14);
     private static final Clock CLOCK = Clock.fixed(TODAY.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
-    private static final FeatureFlags DASHBOARD_V2 = new FeatureFlags(true, false, false, true, false);
+    private static final FeatureFlags DASHBOARD_V2 = new FeatureFlags(true, true, false, true, false);
 
     @Autowired private TestEntityManager entityManager;
     @Autowired private TransactionRepository transactionRepository;

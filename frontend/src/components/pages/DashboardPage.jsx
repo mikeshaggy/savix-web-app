@@ -15,6 +15,11 @@ import InsightsCard from '../dashboard/InsightsCard';
 import CategoryPressureCard from '../dashboard/CategoryPressureCard';
 import PreviousCyclePreview from '../dashboard/PreviousCyclePreview';
 import FundsSummaryWidget from '../dashboard/FundsSummaryWidget';
+import BalanceSparkline from '../dashboard/BalanceSparkline';
+import CycleSoFarLine from '../dashboard/CycleSoFarLine';
+import SavingsLine from '../dashboard/SavingsLine';
+import { useFeatures } from '@/hooks/useFeatures';
+import { dashboardLayoutVariant } from '@/lib/dashboardV2';
 import { useTranslations } from 'next-intl';
 
 // ─── Dashboard skeleton ───────────────────────────────────────────────────────
@@ -107,6 +112,8 @@ export default function DashboardPage() {
     const { currentWallet, wallets, loading: walletsLoading } = useWallets();
     const { walletMutationVersion } = useAppContext();
     const router = useRouter();
+    const features = useFeatures();
+    const layoutV2 = dashboardLayoutVariant(features) === 'v2';
 
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -211,6 +218,56 @@ export default function DashboardPage() {
 
     if (!summary) {
         return null;
+    }
+
+    if (layoutV2) {
+        // Stage 6.5: single column, DOM order = visual order. Sections the summary does not carry are omitted.
+        return (
+            <div data-testid="dashboard-v2">
+                <DashboardHeader
+                    walletName={summary.walletName}
+                    period={summary.period}
+                    periodType={periodType}
+                    selectedMonth={selectedMonth}
+                    onPeriodTypeChange={handlePeriodTypeChange}
+                    onMonthChange={handleMonthChange}
+                    onCustomDateChange={handleCustomDateChange}
+                    customStartDate={customStartDate}
+                    customEndDate={customEndDate}
+                />
+                <div data-testid="dash-hero">
+                    <CycleHealthHero cycleHealth={summary.cycleHealth} period={summary.period} kpis={summary.kpis} showTotals />
+                </div>
+                <div className="mb-5" data-testid="dash-sparkline">
+                    <BalanceSparkline walletId={currentWallet?.id} />
+                </div>
+                {summary.fixedPayments && (
+                    <div className="mb-5" data-testid="dash-fixed">
+                        <FixedTransactionsTile
+                            variant="v2"
+                            fixedPayments={summary.fixedPayments}
+                            forecastStatus={summary.cycleHealth?.forecastStatus ?? null}
+                            reporting={summary.period?.reporting === true}
+                            walletId={currentWallet?.id}
+                        />
+                    </div>
+                )}
+                {summary.cycleSoFar && (
+                    <div className="mb-5" data-testid="dash-cycle-so-far">
+                        <CycleSoFarLine cycleSoFar={summary.cycleSoFar} period={summary.period} />
+                    </div>
+                )}
+                <div className="mb-5" data-testid="dash-insights">
+                    <InsightsCard insights={summary.insights} variant="v2" reporting={summary.period?.reporting === true} />
+                </div>
+                {summary.savings && (
+                    <div className="mb-5" data-testid="dash-savings">
+                        <SavingsLine savings={summary.savings} />
+                    </div>
+                )}
+                <FundsSummaryWidget hideWhenEmpty testId="dash-funds" className="mb-5" />
+            </div>
+        );
     }
 
     return (

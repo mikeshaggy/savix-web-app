@@ -75,6 +75,18 @@ class UserServiceTest {
     }
 
     @Test
+    void getUserById_reportsRawFlagValuesEvenForTheUnsupportedDashboardV2WithoutForecastV2Combination() {
+        // the dashboard serves the legacy response for this combination, but /api/me stays the raw configuration
+        service = new UserService(userRepository, walletRepository, paydayRuleRepository,
+                new FeatureFlags(false, false, false, true, false));
+        when(paydayRuleRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        MeResponse response = service.getUserById(USER_ID);
+
+        assertThat(response.features()).isEqualTo(new MeFeaturesResponse(false, false, true, false));
+    }
+
+    @Test
     void getUserById_returnsSalaryWalletIdAndConfiguredPaydayRule() {
         // given
         existingUser.setSalaryWallet(wallet(7, false));

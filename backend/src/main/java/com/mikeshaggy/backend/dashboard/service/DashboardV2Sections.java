@@ -2,6 +2,8 @@ package com.mikeshaggy.backend.dashboard.service;
 
 import com.mikeshaggy.backend.analytics.forecast.HistoricalVariableSpendService;
 import com.mikeshaggy.backend.analytics.forecast.HistoricalVariableSpendService.HistoricalBaseline;
+import com.mikeshaggy.backend.analytics.forecast.ForecastTrajectoryDto.BandPoint;
+import com.mikeshaggy.backend.analytics.forecast.ForecastV2Dto;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService;
 import com.mikeshaggy.backend.analytics.query.AnalyticsTransactionQueryService.DailyTotal;
@@ -77,15 +79,36 @@ public class DashboardV2Sections {
         BigDecimal fixedSpent = money(projection.linkedFixedExpensesToDate());
 
         int dayIndex = InclusiveDateRange.daysBetween(start, cutoffDate);
-        int daysRemaining = Math.max(0, InclusiveDateRange.daysBetween(cutoffDate.plusDays(1), period.endDate()));
-        // only the start is read by the baseline (closed cycles ending before it); same shape as ForecastService
-        PayCycle currentCycle = PayCycle.open(userId, wallet.getId(), start, period.endDate().plusDays(1));
-        HistoricalBaseline baseline = historicalVariableSpendService.baseline(
-                userId, wallet.getId(), currentCycle, dayIndex, daysRemaining);
-        BigDecimal typical = baseline.typicalCumulativeAt(dayIndex);
+        BigDecimal typical = typicalByToday(wallet, userId, period, cutoffDate, dayIndex, projection);
         BigDecimal delta = typical == null ? null : money(variableSpent.subtract(typical));
 
         return new DashboardCycleSoFarDto(variableSpent, fixedSpent, typical, delta);
+    }
+
+    /**
+     * The baseline's typical cumulative variable spend at day {@code dayIndex}. With Forecast v2 on for an OPEN cycle
+     * the projection already carries the trajectory whose {@code typical} median at that day is the same figure
+     * ({@code ForecastTrajectoryBuilder}: same baseline cycles, same {@code Quantiles.median}; ForecastService caps
+     * its day at the period end exactly as the dashboard caps its cutoff), so it is read from there and the baseline
+     * is not computed a second time; no point at that day means no baseline cycle reached it ({@code null}).
+     * Without a trajectory (forecast-v2 off, awaiting salary) the baseline is computed here.
+     */
+    private BigDecimal typicalByToday(Wallet wallet, UUID userId, PeriodDto period, LocalDate cutoffDate,
+                                      int dayIndex, SpendingProjectionDto projection) {
+        ForecastV2Dto forecast = projection.forecast();
+        if (forecast != null && forecast.trajectory() != null) {
+            return forecast.trajectory().typical().stream()
+                    .filter(point -> point.dayIndex() == dayIndex)
+                    .map(BandPoint::median)
+                    .findFirst()
+                    .orElse(null);
+        }
+        int daysRemaining = Math.max(0, InclusiveDateRange.daysBetween(cutoffDate.plusDays(1), period.endDate()));
+        // only the start is read by the baseline (closed cycles ending before it); same shape as ForecastService
+        PayCycle currentCycle = PayCycle.open(userId, wallet.getId(), period.startDate(), period.endDate().plusDays(1));
+        HistoricalBaseline baseline = historicalVariableSpendService.baseline(
+                userId, wallet.getId(), currentCycle, dayIndex, daysRemaining);
+        return baseline.typicalCumulativeAt(dayIndex);
     }
 
     /**

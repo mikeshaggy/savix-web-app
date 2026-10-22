@@ -39,7 +39,8 @@ function WidgetSkeleton() {
 }
 
 // ─── Main widget ──────────────────────────────────────────────────────────────
-export default function FundsSummaryWidget() {
+// `hideWhenEmpty` (dashboard v2): render nothing while loading, on error, or without an active fund.
+export default function FundsSummaryWidget({ hideWhenEmpty = false, testId, className = '' }) {
   const t = useTranslations();
   const { lang } = useLanguage();
 
@@ -70,10 +71,13 @@ export default function FundsSummaryWidget() {
   const nearDeadline = summary?.nearDeadlineFunds?.[0] ?? null;
   const isEmpty = !loading && !error && (summary?.activeFundsCount ?? 0) === 0;
 
+  if (hideWhenEmpty && (loading || error || isEmpty)) return null;
+
   return (
     <div
-      className="w-full bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] overflow-hidden flex flex-col"
+      className={`w-full bg-[#0e0e1c] border border-white/[0.07] rounded-[18px] overflow-hidden flex flex-col ${className}`}
       style={{ animation: 'fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) both', animationDelay: '0.22s' }}
+      data-testid={testId}
     >
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.055]">
