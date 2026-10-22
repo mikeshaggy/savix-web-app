@@ -37,7 +37,7 @@ import static com.mikeshaggy.backend.analytics.forecast.SpendingProjectionCalcul
  *   <li>both off → the legacy projection only; v2 is never computed.</li>
  * </ul>
  * {@link #getSpendingProjection(Wallet, UUID, PeriodDto, LocalDate)} is the legacy-only entry used by internal
- * readers (insights, the analytics overview): it neither computes nor logs v2.
+ * readers (insights): it neither computes nor logs v2.
  */
 @Service
 @RequiredArgsConstructor
@@ -88,7 +88,7 @@ public class SpendingProjectionService {
     }
 
     /**
-     * Legacy-only projection for internal readers (insights, analytics overview): Forecast v2 is neither computed
+     * Legacy-only projection for internal readers (insights): Forecast v2 is neither computed
      * nor shadow-logged here, so those readers never double a consumer request's work or its log line.
      */
     public SpendingProjectionDto getSpendingProjection(Wallet wallet, UUID userId,

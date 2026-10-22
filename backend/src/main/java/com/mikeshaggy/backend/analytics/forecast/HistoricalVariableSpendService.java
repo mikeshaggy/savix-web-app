@@ -161,6 +161,15 @@ public class HistoricalVariableSpendService {
             List<CycleContribution> perCycle,
             BigDecimal typicalPerDay) {
 
+        /**
+         * Stage 6.3 — typical cumulative pace-eligible variable spend by cycle day {@code day}: the same per-cycle
+         * daily series this baseline was built from, read as the Stage 5.4 trajectory's typical (median) line at
+         * that day. Every cycle that reached {@code day} counts; {@code null} without such a cycle (no history).
+         */
+        public BigDecimal typicalCumulativeAt(int day) {
+            return ForecastTrajectoryBuilder.typicalCumulativeAt(perCycle, day);
+        }
+
         static HistoricalBaseline empty() {
             return new HistoricalBaseline(0, null, null, null, List.of(), null);
         }

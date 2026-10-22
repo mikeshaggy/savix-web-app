@@ -6,6 +6,7 @@ import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.util.CurrentUserProvider;
 import com.mikeshaggy.backend.common.paycycle.CycleState;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCycleHealthDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardCycleSoFarDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardFixedPaymentsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
 import com.mikeshaggy.backend.dashboard.dto.DashboardKpisDto;
@@ -13,6 +14,7 @@ import com.mikeshaggy.backend.dashboard.dto.DashboardMoneyKpiDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPercentKpiDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPreviousCyclePreviewDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardSavingsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.dashboard.service.DashboardSummaryService;
 import jakarta.persistence.EntityNotFoundException;
@@ -29,6 +31,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -139,6 +143,77 @@ class DashboardSummaryControllerTest {
                 .andExpect(jsonPath("$.cycleHealth.projectedEndBalance").value(nullValue()))
                 .andExpect(jsonPath("$.cycleHealth.projectionAvailable").value(false))
                 .andExpect(jsonPath("$.cycleHealth.projectionReason").value("AWAITING_SALARY"));
+    }
+
+    @Test
+    void legacyShapeSerialisesCycleSoFarAndSavingsAsExplicitNulls() throws Exception {
+        when(dashboardSummaryService.getSummary(
+                eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE),
+                isNull(), isNull(), isNull(),
+                eq(com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                .thenReturn(summary());
+
+        mockMvc.perform(get("/api/wallets/1/dashboard/summary"))
+                .andExpect(status().isOk())
+                // explicit nulls: the keys are present with a JSON null
+                .andExpect(jsonPath("$", hasKey("cycleSoFar")))
+                .andExpect(jsonPath("$", hasKey("savings")))
+                .andExpect(jsonPath("$.cycleSoFar").value(nullValue()))
+                .andExpect(jsonPath("$.savings").value(nullValue()))
+                // the legacy fields are still there
+                .andExpect(jsonPath("$.kpis.expenses.deltaAmount").value(240.00))
+                .andExpect(jsonPath("$.previousCyclePreview.expensesDeltaAmount").value(240.00));
+    }
+
+    @Test
+    void v2SectionsSerialiseTheirFields() throws Exception {
+        DashboardSummaryDto legacy = summary();
+        DashboardSummaryDto v2 = new DashboardSummaryDto(
+                legacy.walletId(), legacy.walletName(), legacy.period(), legacy.cycleHealth(), legacy.kpis(),
+                legacy.fixedPayments(), legacy.insights(), null, null,
+                new DashboardCycleSoFarDto(new BigDecimal("471.82"), new BigDecimal("1500.00"),
+                        new BigDecimal("165.00"), new BigDecimal("306.82")),
+                new DashboardSavingsDto("savings", new BigDecimal("460.01"), new BigDecimal("-250.00")));
+        when(dashboardSummaryService.getSummary(
+                eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE),
+                isNull(), isNull(), isNull(),
+                eq(com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                .thenReturn(v2);
+
+        mockMvc.perform(get("/api/wallets/1/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryPressure").value(nullValue()))
+                .andExpect(jsonPath("$.previousCyclePreview").value(nullValue()))
+                .andExpect(jsonPath("$.cycleSoFar", aMapWithSize(4)))
+                .andExpect(jsonPath("$.cycleSoFar.variableSpent").value(471.82))
+                .andExpect(jsonPath("$.cycleSoFar.fixedSpent").value(1500.00))
+                .andExpect(jsonPath("$.cycleSoFar.typicalVariableByToday").value(165.00))
+                .andExpect(jsonPath("$.cycleSoFar.deltaVsTypical").value(306.82))
+                .andExpect(jsonPath("$.savings", aMapWithSize(3)))
+                .andExpect(jsonPath("$.savings.counterWalletName").value("savings"))
+                .andExpect(jsonPath("$.savings.balance").value(460.01))
+                .andExpect(jsonPath("$.savings.netFlowThisCycle").value(-250.00));
+    }
+
+    @Test
+    void cycleSoFarWithoutHistorySerialisesTypicalAndDeltaAsExplicitNulls() throws Exception {
+        DashboardSummaryDto legacy = summary();
+        DashboardSummaryDto v2 = new DashboardSummaryDto(
+                legacy.walletId(), legacy.walletName(), legacy.period(), legacy.cycleHealth(), legacy.kpis(),
+                legacy.fixedPayments(), legacy.insights(), null, null,
+                new DashboardCycleSoFarDto(new BigDecimal("10.00"), new BigDecimal("0.00"), null, null), null);
+        when(dashboardSummaryService.getSummary(
+                eq(1), eq(TEST_USER_ID), eq(PeriodType.PAY_CYCLE),
+                isNull(), isNull(), isNull(),
+                eq(com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES)))
+                .thenReturn(v2);
+
+        mockMvc.perform(get("/api/wallets/1/dashboard/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cycleSoFar", aMapWithSize(4)))
+                .andExpect(jsonPath("$.cycleSoFar.typicalVariableByToday").value(nullValue()))
+                .andExpect(jsonPath("$.cycleSoFar.deltaVsTypical").value(nullValue()))
+                .andExpect(jsonPath("$.savings").value(nullValue()));
     }
 
     @Test

@@ -2,11 +2,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, PieChart, GitCompareArrows, CalendarDays } from 'lucide-react';
+import { TrendingUp, PieChart, GitCompareArrows, CalendarDays } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 const TABS = [
-  { id: 'overview',    href: '/analytics/overview',    icon: LayoutDashboard,    labelKey: 'navOverview' },
   { id: 'forecast',   href: '/analytics/forecast',    icon: TrendingUp,          labelKey: 'navForecast' },
   { id: 'breakdown',  href: '/analytics/breakdown',   icon: PieChart,            labelKey: 'navBreakdown' },
   { id: 'comparison', href: '/analytics/comparison',  icon: GitCompareArrows,    labelKey: 'navComparison' },

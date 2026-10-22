@@ -23,9 +23,13 @@ import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
+import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCategoryDirection;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCycleHealthDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardCycleSoFarDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
+import com.mikeshaggy.backend.dashboard.dto.DashboardMoneyKpiDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardSavingsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.domain.OccurrenceStatus;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceBucket;
@@ -60,9 +64,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,11 +106,24 @@ class DashboardSummaryServiceTest {
     @Mock
     private CategoryBudgetRepository categoryBudgetRepository;
 
+    @Mock
+    private DashboardV2Sections v2Sections;
+
     private DashboardSummaryService service;
 
     @BeforeEach
     void setUp() {
-        service = new DashboardSummaryService(
+        service = service(FLAGS_OFF);
+        // default: no active budgets — keeps existing tests unaffected
+        lenient().when(categoryBudgetRepository.findActiveByWalletIdAndUserId(any(), any()))
+                .thenReturn(List.of());
+    }
+
+    private static final FeatureFlags FLAGS_OFF = new FeatureFlags(true, false, false, false, false);
+    private static final FeatureFlags DASHBOARD_V2 = new FeatureFlags(true, false, false, true, false);
+
+    private DashboardSummaryService service(FeatureFlags flags) {
+        return new DashboardSummaryService(
                 periodService,
                 walletService,
                 transactionQueryService,
@@ -114,10 +133,9 @@ class DashboardSummaryServiceTest {
                 insightEngine,
                 categoryAggregationService,
                 categoryBudgetRepository,
+                v2Sections,
+                flags,
                 CLOCK);
-        // default: no active budgets — keeps existing tests unaffected
-        when(categoryBudgetRepository.findActiveByWalletIdAndUserId(any(), any()))
-                .thenReturn(List.of());
     }
 
     @Test
@@ -625,6 +643,93 @@ class DashboardSummaryServiceTest {
 
     /** One dashboard request for {@code primary} with the same stubbed totals regardless of period type. */
     // --- Stage 4.7 / 4.8: Forecast v2 verdict family and the per-request shadow hand-off ---------------
+
+    /** Stage 6.3 — {@code dashboard-v2}: same stubs, flag off vs on. */
+    @Nested
+    class DashboardV2 {
+
+        private final DashboardCycleSoFarDto cycleSoFar = new DashboardCycleSoFarDto(
+                new BigDecimal("380.00"), new BigDecimal("1200.00"), new BigDecimal("300.00"), new BigDecimal("80.00"));
+        private final DashboardSavingsDto savings = new DashboardSavingsDto(
+                "savings", new BigDecimal("460.01"), new BigDecimal("300.00"));
+
+        @Test
+        void flagOffKeepsTheLegacyResponseAndNeverComputesV2Sections() {
+            stubSummaryForCutoff(payCycle(), previousCycle(), TODAY, LocalDate.of(2026, 4, 26));
+
+            DashboardSummaryDto result = service(FLAGS_OFF).getSummary(
+                    WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, null,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+
+            assertThat(result.cycleSoFar()).isNull();
+            assertThat(result.savings()).isNull();
+            assertThat(result.categoryPressure()).hasSize(1);
+            assertThat(result.categoryPressure().getFirst().deltaAmount()).isEqualByComparingTo("20.00");
+            assertThat(result.previousCyclePreview()).isNotNull();
+            assertThat(result.previousCyclePreview().expensesDeltaAmount()).isEqualByComparingTo("20.00");
+            assertThat(result.kpis().expenses().deltaAmount()).isEqualByComparingTo("20.00");
+            assertThat(result.kpis().expenses().deltaPercent()).isEqualByComparingTo("25.00");
+            assertThat(result.kpis().income().deltaAmount()).isEqualByComparingTo("100.00");
+            assertThat(result.kpis().savingsRate().deltaPercentagePoints()).isNotNull();
+            verifyNoInteractions(v2Sections);
+        }
+
+        @Test
+        void flagOnAddsCycleSoFarAndSavingsAndDropsPressurePreviewAndKpiDeltas() {
+            PeriodDto current = payCycle();
+            stubSummaryForCutoff(current, previousCycle(), TODAY, LocalDate.of(2026, 4, 26));
+            DashboardSummaryDto legacy = service(FLAGS_OFF).getSummary(
+                    WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, null,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+            when(v2Sections.cycleSoFar(any(Wallet.class), eq(USER_ID), same(current), eq(TODAY), any()))
+                    .thenReturn(cycleSoFar);
+            when(v2Sections.savings(WALLET_ID, USER_ID, current)).thenReturn(savings);
+
+            DashboardSummaryDto result = service(DASHBOARD_V2).getSummary(
+                    WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, null,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+
+            assertThat(result.cycleSoFar()).isSameAs(cycleSoFar);
+            assertThat(result.savings()).isSameAs(savings);
+            assertThat(result.categoryPressure()).isNull();
+            assertThat(result.previousCyclePreview()).isNull();
+            // KPI amounts stay; every delta against the previous cycle is gone
+            assertThat(result.kpis().income()).isEqualTo(new DashboardMoneyKpiDto(new BigDecimal("1000.00"), null, null));
+            assertThat(result.kpis().expenses()).isEqualTo(new DashboardMoneyKpiDto(new BigDecimal("100.00"), null, null));
+            assertThat(result.kpis().saved()).isEqualTo(new DashboardMoneyKpiDto(new BigDecimal("900.00"), null, null));
+            assertThat(result.kpis().savingsRate().percent()).isEqualByComparingTo(legacy.kpis().savingsRate().percent());
+            assertThat(result.kpis().savingsRate().deltaPercentagePoints()).isNull();
+            // untouched sections are identical to the legacy response
+            assertThat(result.walletId()).isEqualTo(legacy.walletId());
+            assertThat(result.walletName()).isEqualTo(legacy.walletName());
+            assertThat(result.period()).isEqualTo(legacy.period());
+            assertThat(result.cycleHealth()).isEqualTo(legacy.cycleHealth());
+            assertThat(result.fixedPayments()).isEqualTo(legacy.fixedPayments());
+            assertThat(result.insights()).isEqualTo(legacy.insights());
+        }
+
+        @Test
+        void flagOnPassesTheDashboardProjectionAndCutoffToCycleSoFar() {
+            PeriodDto current = payCycle();
+            LocalDate cutoff = LocalDate.of(2026, 5, 10);
+            stubSummaryForCutoff(current, previousCycle(), cutoff, LocalDate.of(2026, 4, 10));
+
+            service(DASHBOARD_V2).getSummary(WALLET_ID, USER_ID, PeriodType.PAY_CYCLE, null, null, cutoff,
+                    CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES);
+
+            ArgumentCaptor<SpendingProjectionDto> projectionCaptor = ArgumentCaptor.forClass(SpendingProjectionDto.class);
+            verify(v2Sections).cycleSoFar(any(Wallet.class), eq(USER_ID), same(current), eq(cutoff),
+                    projectionCaptor.capture());
+            assertThat(projectionCaptor.getValue().linkedFixedExpensesToDate())
+                    .isEqualByComparingTo(projection("620.00", "740.00").linkedFixedExpensesToDate());
+            verify(v2Sections).savings(WALLET_ID, USER_ID, current);
+            // pressure-only work is skipped under v2: no budget read
+            verify(categoryBudgetRepository, never()).findActiveByWalletIdAndUserId(any(), any());
+            // the projection is still computed once per request
+            verify(spendingProjectionService, times(1)).getSpendingProjection(
+                    any(Wallet.class), eq(USER_ID), any(PeriodDto.class), eq(cutoff), any());
+        }
+    }
 
     @Nested
     class ForecastV2 {

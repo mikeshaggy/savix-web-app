@@ -1,5 +1,6 @@
 package com.mikeshaggy.backend.dashboard.service;
 
+import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregation;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationMode;
 import com.mikeshaggy.backend.analytics.aggregation.CategoryAggregationResult;
@@ -79,6 +80,13 @@ class DashboardSummaryServiceBudgetEnrichmentTest {
 
     @Mock
     private Clock clock;
+
+    @Mock
+    private DashboardV2Sections v2Sections;
+
+    /** A mock answers {@code dashboardV2() == false}: the legacy response these budget fields belong to. */
+    @Mock
+    private FeatureFlags featureFlags;
 
     @InjectMocks
     private DashboardSummaryService dashboardSummaryService;

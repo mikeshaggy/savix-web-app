@@ -25,9 +25,11 @@ import com.mikeshaggy.backend.common.period.PeriodDto;
 import com.mikeshaggy.backend.common.period.PeriodService;
 import com.mikeshaggy.backend.common.period.PeriodType;
 import com.mikeshaggy.backend.common.period.ResolvedPeriods;
+import com.mikeshaggy.backend.config.FeatureFlags;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCategoryDirection;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCategoryPressureItemDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardCycleHealthDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardCycleSoFarDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardFixedPaymentOccurrenceDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardFixedPaymentsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
@@ -37,6 +39,7 @@ import com.mikeshaggy.backend.dashboard.dto.DashboardMoneyKpiDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPercentKpiDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPeriodDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardPreviousCyclePreviewDto;
+import com.mikeshaggy.backend.dashboard.dto.DashboardSavingsDto;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedOccurrenceRowDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
@@ -84,6 +87,8 @@ public class DashboardSummaryService {
     private final InsightEngine insightEngine;
     private final CategoryAggregationService categoryAggregationService;
     private final CategoryBudgetRepository categoryBudgetRepository;
+    private final DashboardV2Sections v2Sections;
+    private final FeatureFlags featureFlags;
     private final Clock clock;
 
     public DashboardSummaryDto getSummary(Integer walletId, UUID userId,
@@ -136,14 +141,6 @@ public class DashboardSummaryService {
                         walletId, userId, comparison.startDate(), comparison.endDate(), resolvedCategoryMode)
                 : null;
 
-        Map<Integer, CategoryBudget> budgetByCategory = categoryBudgetRepository
-                .findActiveByWalletIdAndUserId(walletId, userId)
-                .stream()
-                .collect(Collectors.toMap(b -> b.getCategory().getId(), Function.identity()));
-
-        List<DashboardCategoryPressureItemDto> categoryPressure = categoryPressure(
-                currentCategories, compareCategories, comparison, currentTotals.expenses(), budgetByCategory);
-
         // Share precomputed categories with InsightEngine only when the mode matches what it uses internally
         CategoryAggregationResult insightCurrentCats = resolvedCategoryMode == CategoryAggregationMode.INCLUDED_IN_TOP_CATEGORIES
                 ? currentCategories : null;
@@ -162,19 +159,51 @@ public class DashboardSummaryService {
                 cycleHealth == null || cycleHealth.status() == null ? null : cycleHealth.status().name());
         DashboardPeriodDto period = period(primary, cutoffDate, cutoffDate, periodEnd, comparison);
         DashboardFixedPaymentsDto fixedPayments = fixedPaymentsTile == null ? null : fixedPayments(fixedPaymentsTile);
-        DashboardPreviousCyclePreviewDto previousCyclePreview = previousCyclePreview(
-                kpis, categoryPressure, comparison.available());
 
+        if (!featureFlags.dashboardV2()) {
+            Map<Integer, CategoryBudget> budgetByCategory = categoryBudgetRepository
+                    .findActiveByWalletIdAndUserId(walletId, userId)
+                    .stream()
+                    .collect(Collectors.toMap(b -> b.getCategory().getId(), Function.identity()));
+            List<DashboardCategoryPressureItemDto> categoryPressure = categoryPressure(
+                    currentCategories, compareCategories, comparison, currentTotals.expenses(), budgetByCategory);
+            DashboardPreviousCyclePreviewDto previousCyclePreview = previousCyclePreview(
+                    kpis, categoryPressure, comparison.available());
+            return new DashboardSummaryDto(
+                    walletId,
+                    wallet.getName(),
+                    period,
+                    cycleHealth,
+                    kpis,
+                    fixedPayments,
+                    insights,
+                    categoryPressure,
+                    previousCyclePreview);
+        }
+        // Stage 6.3: pressure, previous-cycle preview and KPI deltas are not v2 content (fields deleted in §9), so
+        // neither they nor the budgets are computed; insights and the cycle-health verdict stay as computed above
+        DashboardCycleSoFarDto cycleSoFar = v2Sections.cycleSoFar(wallet, userId, primary, cutoffDate, projection);
+        DashboardSavingsDto savings = v2Sections.savings(walletId, userId, primary);
         return new DashboardSummaryDto(
                 walletId,
                 wallet.getName(),
                 period,
                 cycleHealth,
-                kpis,
+                withoutDeltas(kpis),
                 fixedPayments,
                 insights,
-                categoryPressure,
-                previousCyclePreview);
+                null,
+                null,
+                cycleSoFar,
+                savings);
+    }
+
+    private static DashboardKpisDto withoutDeltas(DashboardKpisDto kpis) {
+        return new DashboardKpisDto(
+                new DashboardMoneyKpiDto(kpis.income().amount(), null, null),
+                new DashboardMoneyKpiDto(kpis.expenses().amount(), null, null),
+                new DashboardMoneyKpiDto(kpis.saved().amount(), null, null),
+                new DashboardPercentKpiDto(kpis.savingsRate().percent(), null));
     }
 
     private DashboardPeriodDto period(PeriodDto primary, LocalDate asOfDate, LocalDate cutoffDate,

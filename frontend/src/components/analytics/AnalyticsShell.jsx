@@ -15,7 +15,6 @@ import AnalyticsSubNav from './AnalyticsSubNav';
 // These keys exist in the 'analytics' namespace and are used by each page's
 // own header; the shell now owns the rendering so pages no longer need them.
 const PAGE_META = {
-  '/analytics/overview':   { titleKey: 'overviewTitle',    subtitleKey: 'overviewSubtitle' },
   '/analytics/forecast':   { titleKey: 'forecastTitle',    subtitleKey: 'forecastSubtitle' },
   '/analytics/breakdown':  { titleKey: 'breakdownTitle',   subtitleKey: 'breakdownSubtitle' },
   '/analytics/comparison': { titleKey: 'comparisonTitle',  subtitleKey: 'comparisonSubtitle' },

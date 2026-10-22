@@ -105,4 +105,24 @@ class ForecastTrajectoryBuilderTest {
         assertThat(t.current()).isEmpty();
         assertThat(t.typical()).isEmpty();
     }
+
+    /** Stage 6.3: the dashboard's typical-by-today is this chart's typical line at that day, never a second definition. */
+    @Test
+    void typicalCumulativeAtEqualsTheBandMedianOnEveryDay() {
+        List<CycleContribution> cycles = List.of(cycle(28, "10.00"), cycle(30, "25.00"), cycle(31, "12.50"),
+                cycle(29, "40.00"));
+        ForecastTrajectoryDto t = ForecastTrajectoryBuilder.build(START, 31, daily("1.00"), cycles);
+
+        for (BandPoint point : t.typical()) {
+            assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(cycles, point.dayIndex()))
+                    .as("day %d", point.dayIndex())
+                    .isEqualByComparingTo(point.median());
+        }
+        // day 6: 60, 150, 75, 240 → median 112.50; day 31 only the 31-day cycle reaches it
+        assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(cycles, 6)).isEqualByComparingTo("112.50");
+        assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(cycles, 31)).isEqualByComparingTo("387.50");
+        assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(cycles, 32)).isNull();
+        assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(cycles, 0)).isNull();
+        assertThat(ForecastTrajectoryBuilder.typicalCumulativeAt(List.of(), 6)).isNull();
+    }
 }

@@ -50,19 +50,10 @@ final class ForecastTrajectoryBuilder {
     }
 
     private static List<BandPoint> typical(LocalDate start, int cycleLengthDays, List<CycleContribution> cycles) {
-        List<List<BigDecimal>> cumulativeByCycle = cycles.stream()
-                .map(CycleContribution::dailyAmounts)
-                .filter(daily -> !daily.isEmpty())
-                .map(ForecastTrajectoryBuilder::cumulative)
-                .toList();
+        List<List<BigDecimal>> cumulativeByCycle = cumulativeByCycle(cycles);
         List<BandPoint> band = new ArrayList<>(Math.max(cycleLengthDays, 0));
         for (int day = 1; day <= cycleLengthDays; day++) {
-            List<BigDecimal> values = new ArrayList<>();
-            for (List<BigDecimal> cumulative : cumulativeByCycle) {
-                if (cumulative.size() >= day) {
-                    values.add(cumulative.get(day - 1));
-                }
-            }
+            List<BigDecimal> values = valuesAt(cumulativeByCycle, day);
             if (values.isEmpty()) {
                 continue;
             }
@@ -79,6 +70,39 @@ final class ForecastTrajectoryBuilder {
             band.add(new BandPoint(day, start.plusDays(day - 1), p25, median, p75, values.size()));
         }
         return band;
+    }
+
+    /**
+     * Stage 6.3 — the typical line of this chart at one cycle day: the median cumulative pace-eligible variable
+     * spend by day {@code day} over the baseline cycles at least that long ({@code null} when none is). The
+     * dashboard's {@code cycleSoFar.typicalVariableByToday} reads this, so it always equals the chart's typical
+     * line at today.
+     */
+    static BigDecimal typicalCumulativeAt(List<CycleContribution> cycles, int day) {
+        if (day < 1) {
+            return null;
+        }
+        List<BigDecimal> values = valuesAt(cumulativeByCycle(cycles), day);
+        return values.isEmpty() ? null : Quantiles.median(values);
+    }
+
+    private static List<List<BigDecimal>> cumulativeByCycle(List<CycleContribution> cycles) {
+        return cycles.stream()
+                .map(CycleContribution::dailyAmounts)
+                .filter(daily -> !daily.isEmpty())
+                .map(ForecastTrajectoryBuilder::cumulative)
+                .toList();
+    }
+
+    /** Cumulative values at {@code day} of every cycle that reached it; shorter cycles are dropped, never padded. */
+    private static List<BigDecimal> valuesAt(List<List<BigDecimal>> cumulativeByCycle, int day) {
+        List<BigDecimal> values = new ArrayList<>();
+        for (List<BigDecimal> cumulative : cumulativeByCycle) {
+            if (cumulative.size() >= day) {
+                values.add(cumulative.get(day - 1));
+            }
+        }
+        return values;
     }
 
     private static List<BigDecimal> cumulative(List<BigDecimal> daily) {

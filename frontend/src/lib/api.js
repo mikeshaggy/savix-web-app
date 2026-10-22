@@ -567,16 +567,6 @@ export const analyticsApi = {
     return get(`/wallets/${walletId}/analytics/insights?${params.toString()}`);
   },
 
-  getSummary: (walletId, periodType, startDate, endDate) => {
-    if (!walletId || walletId === 'undefined' || walletId === 'null') {
-      throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');
-    }
-    const params = new URLSearchParams({ periodType });
-    if (startDate) params.set('startDate', startDate);
-    if (endDate) params.set('endDate', endDate);
-    return get(`/wallets/${walletId}/analytics/summary?${params.toString()}`);
-  },
-
   resolvePeriod: (walletId, periodType, startDate, endDate) => {
     if (!walletId || walletId === 'undefined' || walletId === 'null') {
       throw new ApiError(400, 'Invalid walletId provided: ' + walletId, null, 'INVALID_WALLET_ID');

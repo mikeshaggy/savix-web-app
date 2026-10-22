@@ -1,9 +1,11 @@
 package com.mikeshaggy.backend.analytics.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,7 +35,6 @@ import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapService;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownService;
 import com.mikeshaggy.backend.analytics.insight.InsightEngine;
-import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionService;
 import com.mikeshaggy.backend.regression.September2026Fixture;
 import com.mikeshaggy.backend.auth.service.JwtService;
@@ -45,7 +46,11 @@ import com.mikeshaggy.backend.transaction.domain.Importance;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +60,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @WebMvcTest(AnalyticsController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -67,9 +75,6 @@ class AnalyticsControllerTest {
 
     @MockitoBean
     private PeriodService periodService;
-
-    @MockitoBean
-    private AnalyticsSummaryService analyticsSummaryService;
 
     @MockitoBean
     private SpendingProjectionService spendingProjectionService;
@@ -101,6 +106,39 @@ class AnalyticsControllerTest {
     @BeforeEach
     void setUp() {
         when(currentUserProvider.getCurrentUserId()).thenReturn(TEST_USER_ID);
+    }
+
+    /** Stage 6.4: the Analytics Overview ({@code GET …/analytics/summary}) is deleted, not flag-gated. */
+    @Nested
+    class OverviewRemoved {
+
+        /**
+         * No controller handles the path any more: the request falls through to static resources. (Its HTTP status
+         * is whatever {@code GlobalExceptionHandler} gives any unmapped path — not part of this contract.)
+         */
+        @Test
+        void summaryEndpointIsNoLongerMapped() throws Exception {
+            for (String query : List.of("", "?periodType=PAY_CYCLE")) {
+                mockMvc.perform(get("/api/wallets/1/analytics/summary" + query))
+                        .andExpect(result -> {
+                            assertThat(result.getHandler()).isNotInstanceOf(HandlerMethod.class);
+                            assertThat(result.getResolvedException()).isInstanceOf(NoResourceFoundException.class);
+                        });
+                verifyNoInteractions(spendingProjectionService, periodService);
+            }
+        }
+
+        @Test
+        void controllerContractHasNoSummaryHandler() {
+            List<String> paths = Arrays.stream(AnalyticsController.class.getDeclaredMethods())
+                    .map(method -> method.getAnnotation(GetMapping.class))
+                    .filter(Objects::nonNull)
+                    .flatMap(mapping -> Stream.concat(Arrays.stream(mapping.value()), Arrays.stream(mapping.path())))
+                    .toList();
+            assertThat(paths).isNotEmpty().doesNotContain("/summary");
+            assertThat(Arrays.stream(AnalyticsController.class.getDeclaredMethods()).map(Method::getName))
+                    .doesNotContain("getAnalyticsSummary");
+        }
     }
 
     @Nested

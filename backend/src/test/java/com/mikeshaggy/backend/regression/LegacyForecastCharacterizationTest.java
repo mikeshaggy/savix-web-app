@@ -23,6 +23,7 @@ import com.mikeshaggy.backend.common.period.ResolvedPeriods;
 import com.mikeshaggy.backend.dashboard.dto.DashboardHealthStatus;
 import com.mikeshaggy.backend.dashboard.dto.DashboardSummaryDto;
 import com.mikeshaggy.backend.dashboard.service.DashboardSummaryService;
+import com.mikeshaggy.backend.dashboard.service.DashboardV2Sections;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedProgressDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedSummaryDto;
 import com.mikeshaggy.backend.fixedpayment.dto.FixedTransactionsTileDto;
@@ -186,6 +187,8 @@ class LegacyForecastCharacterizationTest {
                     insightEngine,
                     categoryAggregationService,
                     categoryBudgetRepository,
+                    mock(DashboardV2Sections.class),
+                    flagsOff,
                     CLOCK);
         }
 

@@ -7,8 +7,6 @@ import com.mikeshaggy.backend.analytics.cyclecomparison.CycleComparisonService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapResponseDto;
 import com.mikeshaggy.backend.analytics.breakdown.ImportanceBreakdownDto;
 import com.mikeshaggy.backend.analytics.insight.InsightResponseDto;
-import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryDto;
-import com.mikeshaggy.backend.analytics.overview.AnalyticsSummaryService;
 import com.mikeshaggy.backend.analytics.forecast.SpendingProjectionDto;
 import com.mikeshaggy.backend.analytics.breakdown.CategoryBreakdownService;
 import com.mikeshaggy.backend.analytics.daily.HeatmapService;
@@ -41,7 +39,6 @@ public class AnalyticsController {
     public static final String BASE_URL = "/api/wallets/{walletId}/analytics";
 
     private final PeriodService periodService;
-    private final AnalyticsSummaryService analyticsSummaryService;
     private final SpendingProjectionService spendingProjectionService;
     private final CategoryBreakdownService categoryBreakdownService;
     private final ImportanceBreakdownService importanceBreakdownService;
@@ -59,18 +56,6 @@ public class AnalyticsController {
         UUID userId = currentUserProvider.getCurrentUserId();
         PeriodDto period = periodService.resolve(periodType, walletId, userId, startDate, endDate);
         return ResponseEntity.ok(period);
-    }
-
-    @GetMapping("/summary")
-    public ResponseEntity<AnalyticsSummaryDto> getAnalyticsSummary(
-            @PathVariable Integer walletId,
-            @RequestParam(defaultValue = "PAY_CYCLE") PeriodType periodType,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        UUID userId = currentUserProvider.getCurrentUserId();
-        AnalyticsSummaryDto response = analyticsSummaryService.getSummary(
-                walletId, userId, periodType, startDate, endDate);
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/projections")
